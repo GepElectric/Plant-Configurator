@@ -7,15 +7,6 @@
         MinWidth="900"
         MinHeight="560"
         WindowStartupLocation="CenterOwner">
-    <Window.Resources>
-        <Style TargetType="Button">
-            <Setter Property="MinHeight" Value="30"/>
-            <Setter Property="Padding" Value="14,4"/>
-            <Setter Property="Margin" Value="6,0,0,0"/>
-            <Setter Property="BorderBrush" Value="#AEB7C2"/>
-            <Setter Property="Background" Value="#F6F8FA"/>
-        </Style>
-    </Window.Resources>
     <DockPanel>
         <Border DockPanel.Dock="Bottom"
                 BorderBrush="#D0D7DE"

@@ -1,0 +1,63 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Shared control styles. This is NOT a re-theme: the visual language is
+        the original one (light steel surfaces, #AEB7C2 borders, soft blue
+        hover). The point is standardisation - before this file the app had
+        three different Button definitions (App.xaml, MainWindow, Settings
+        Hub); now every window inherits the same one from here.
+    -->
+
+    <SolidColorBrush x:Key="Brush.ControlBackground" Color="#F6F8FA"/>
+    <SolidColorBrush x:Key="Brush.ControlBorder" Color="#AEB7C2"/>
+    <SolidColorBrush x:Key="Brush.ControlHoverBackground" Color="#EAF2FF"/>
+    <SolidColorBrush x:Key="Brush.ControlHoverBorder" Color="#6AA3E8"/>
+    <SolidColorBrush x:Key="Brush.PanelBorder" Color="#D0D7DE"/>
+    <SolidColorBrush x:Key="Brush.TextPrimary" Color="#111827"/>
+    <SolidColorBrush x:Key="Brush.TextMuted" Color="#57606A"/>
+
+    <Style x:Key="StandardButton" TargetType="Button">
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="Padding" Value="10,3"/>
+        <Setter Property="Margin" Value="4,2"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.ControlBorder}"/>
+        <Setter Property="Background" Value="{StaticResource Brush.ControlBackground}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource Brush.ControlHoverBackground}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.ControlHoverBorder}"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.55"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style TargetType="Button" BasedOn="{StaticResource StandardButton}"/>
+
+    <Style TargetType="ToggleButton">
+        <Setter Property="MinHeight" Value="26"/>
+        <Setter Property="Padding" Value="8,2"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.ControlBorder}"/>
+        <Setter Property="Background" Value="{StaticResource Brush.ControlBackground}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    </Style>
+
+    <Style TargetType="ToolTip">
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.ControlBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="8,5"/>
+        <Setter Property="FontSize" Value="11.5"/>
+    </Style>
+
+    <Style TargetType="GridSplitter">
+        <Setter Property="Background" Value="{StaticResource Brush.PanelBorder}"/>
+    </Style>
+</ResourceDictionary>

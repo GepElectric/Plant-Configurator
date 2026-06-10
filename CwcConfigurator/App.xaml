@@ -5,11 +5,10 @@
              Startup="Application_Startup"
              DispatcherUnhandledException="Application_DispatcherUnhandledException">
     <Application.Resources>
-        <Style TargetType="Button">
-            <Setter Property="MinHeight" Value="30"/>
-            <Setter Property="Padding" Value="12,4"/>
-            <Setter Property="Margin" Value="4"/>
-        </Style>
+        <ResourceDictionary>
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="Themes/SharedStyles.xaml"/>
+        </ResourceDictionary.MergedDictionaries>
         <Style TargetType="DataGrid">
             <Setter Property="AutoGenerateColumns" Value="True"/>
             <Setter Property="CanUserAddRows" Value="False"/>
@@ -39,5 +38,6 @@
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>
