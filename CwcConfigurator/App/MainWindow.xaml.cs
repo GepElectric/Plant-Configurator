@@ -855,7 +855,22 @@ public partial class MainWindow : Window
             return;
         }
 
+        // The data model always needs at least one PLC database (every grid
+        // binds to the active database's working catalog and
+        // EnsureProjectDefaults would recreate one anyway), so instead of
+        // silently spawning "PLC 1" ask for its real name up front.
+        var nameDialog = new PlcDatabaseNameDialog("PLC 1")
+        {
+            Owner = EditorOwner,
+            Title = "New project — name the first PLC database"
+        };
+        if (nameDialog.ShowDialog() != true)
+        {
+            return;
+        }
+
         _project = CwcProject.CreateEmpty();
+        _project.PlcDatabases[0].Name = nameDialog.DatabaseName;
         _projectPath = null;
         _projectOpen = true;
         BindProject();
@@ -1227,7 +1242,7 @@ public partial class MainWindow : Window
             ShowMessage(result.Message);
             if (result.Warnings.Count > 0 || result.Messages.Any(message => message.Contains("differs", StringComparison.OrdinalIgnoreCase)))
             {
-                MessageBox.Show(this, result.ToOutputText(), $"{dbName} TIA Sync", MessageBoxButton.OK, MessageBoxImage.Information);
+                ShowTiaResult($"{dbName} TIA Sync", result);
             }
         }
         catch (Exception ex)
@@ -1242,6 +1257,43 @@ public partial class MainWindow : Window
             SetDbFamilyTiaBusy(dbName, false);
             UpdateToolbarVisibility();
         }
+    }
+
+    /// <summary>
+    /// Presents a TIA operation result: short outputs keep the familiar
+    /// MessageBox, anything longer opens the structured result window
+    /// (summary + warnings up front, full log collapsed).
+    /// </summary>
+    private void ShowTiaResult(string title, TiaLiveSyncResult result)
+    {
+        ShowOperationResult(
+            title,
+            string.IsNullOrWhiteSpace(result.SnapshotFolder)
+                ? result.Message
+                : $"{result.Message}{Environment.NewLine}Snapshot: {result.SnapshotFolder}",
+            result.Warnings,
+            result.Messages,
+            result.Warnings.Count == 0);
+    }
+
+    private void ShowOperationResult(string title, string summary, IReadOnlyList<string> warnings, IReadOnlyList<string> details, bool success)
+    {
+        if (warnings.Count + details.Count <= 8)
+        {
+            var text = string.Join(
+                Environment.NewLine,
+                new[] { summary }
+                    .Concat(warnings.Select(warning => "Warning: " + warning))
+                    .Concat(details));
+            MessageBox.Show(this, text, title, MessageBoxButton.OK, success ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            return;
+        }
+
+        var dialog = new OperationResultDialog(title, summary, warnings, details)
+        {
+            Owner = EditorOwner
+        };
+        dialog.ShowDialog();
     }
 
     private async void DiHwTiaPull_Click(object sender, RoutedEventArgs e) => await ConfirmAndRunHwPullAsync("DI", service => service.PullHwSectionAsync(_project, "DI"));
@@ -1364,7 +1416,7 @@ public partial class MainWindow : Window
             {
                 progressDialog.Close();
                 progressDialog = null;
-                MessageBox.Show(this, result.ToOutputText(), $"HW {section} TIA Sync", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ShowTiaResult($"HW {section} TIA Sync", result);
             }
         }
         catch (Exception ex)
@@ -1465,7 +1517,7 @@ public partial class MainWindow : Window
             {
                 progressDialog?.Close();
                 progressDialog = null;
-                MessageBox.Show(this, result.ToOutputText(), "DB DI TIA Sync", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ShowTiaResult("DB DI TIA Sync", result);
             }
         }
         catch (Exception ex)
@@ -2322,8 +2374,10 @@ public partial class MainWindow : Window
 
             database.TiaOnlineState = NormalizeTiaOnlineState(result.State, database.TiaOnlineState);
             UpdateTiaVisualState();
-            var output = result.ToOutputText();
-            MessageBox.Show(this, string.IsNullOrWhiteSpace(output) ? result.Command : output, "TIA PLC control", MessageBoxButton.OK, result.Success ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            var summary = string.IsNullOrWhiteSpace(result.State)
+                ? result.Command
+                : $"{result.Command}: {result.State}";
+            ShowOperationResult("TIA PLC control", summary, result.Warnings, result.Messages, result.Success);
         }
         catch (Exception ex)
         {
@@ -2378,7 +2432,7 @@ public partial class MainWindow : Window
             ShowMessage(result.Message);
             if (result.Warnings.Count > 0)
             {
-                MessageBox.Show(this, result.ToOutputText(), "TIA Sync", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ShowTiaResult("TIA Sync", result);
             }
         }
         catch (Exception ex)
@@ -7219,11 +7273,14 @@ public partial class MainWindow : Window
 
             if (result.Issues.Count > 0)
             {
+                // The Problems panel is built for browsing issues (filtering,
+                // double-click navigation) — no point dumping them into a popup.
+                PopulateProblemsPane(result.Issues.ToList());
                 MessageBox.Show(
                     this,
                     string.Join(Environment.NewLine, summary)
                         + Environment.NewLine + Environment.NewLine
-                        + string.Join(Environment.NewLine, result.Issues.Select(issue => issue.ToString())),
+                        + "The issues are listed in the Problems panel at the bottom of the window.",
                     "Generation completed with issues",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);

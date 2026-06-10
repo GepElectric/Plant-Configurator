@@ -30,8 +30,10 @@ public partial class MainWindow
 
     private void WelcomeNew_Click(object sender, RoutedEventArgs e)
     {
+        // NewProject_Click hides the welcome overlay itself on success;
+        // hiding it here too would expose the workspace when the user
+        // cancels the database-name prompt.
         NewProject_Click(sender, e);
-        HideWelcomeScreen();
     }
 
     private void WelcomeOpen_Click(object sender, RoutedEventArgs e)
@@ -57,8 +59,8 @@ public partial class MainWindow
 
     private void WelcomeImportExcel_Click(object sender, RoutedEventArgs e)
     {
+        // ImportExcel_Click hides the welcome overlay itself on success.
         ImportExcel_Click(sender, e);
-        HideWelcomeScreen();
     }
 
     private void WelcomeRecentList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
