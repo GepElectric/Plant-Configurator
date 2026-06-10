@@ -73,7 +73,7 @@ public sealed class DescriptionTemplateService
         {
             var template = !string.IsNullOrWhiteSpace(row.DescriptionTemplateKey)
                 ? FindTemplateByKey(row.DescriptionTemplateKey, templates)
-                : FindMatchingTemplate(row, templates);
+                : row.DescriptionTemplateOptOut ? null : FindMatchingTemplate(row, templates);
             if (template is null)
             {
                 if (!string.IsNullOrWhiteSpace(row.DescriptionTemplateKey))

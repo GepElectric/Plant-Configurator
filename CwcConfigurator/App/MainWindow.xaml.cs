@@ -4430,6 +4430,7 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace(dialog.AppliedTemplateKey))
         {
             row.DescriptionTemplateKey = dialog.AppliedTemplateKey;
+            row.DescriptionTemplateOptOut = false;
             row.DescriptionDirty = false;
         }
         else if (!string.IsNullOrWhiteSpace(originalTemplateKey)
@@ -11470,7 +11471,14 @@ public partial class MainWindow : Window
         _project.TiaSync.SyncWithDatabases(_project.PlcDatabases, _project.DbCatalog);
         _project.DescriptionTextLists.SyncWithDatabases(_project.PlcDatabases);
         _project.AlmParExport.SyncWithDatabases(_project.PlcDatabases);
-        _descriptionTemplateService.ApplyTemplates(_project);
+        var templateChanges = _descriptionTemplateService.ApplyTemplates(_project);
+        if (templateChanges > 0)
+        {
+            // The text-based auto matching used to run silently; surface it so
+            // a converted description is never a surprise.
+            ShowToast($"Description templates: {templateChanges} field(s) linked or updated automatically.");
+        }
+
         ApplyTableDesign();
     }
 

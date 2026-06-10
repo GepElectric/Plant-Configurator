@@ -166,6 +166,7 @@ public partial class DescriptionTemplatesDialog : Window
                 usage.DescriptionEnglish = row.Entry.TextEnglish ?? "";
                 usage.DescriptionOther = row.Entry.TextOther ?? "";
                 usage.DescriptionTemplateKey = "";
+                usage.DescriptionTemplateOptOut = true;
                 usage.DescriptionDirty = true;
             }
         }

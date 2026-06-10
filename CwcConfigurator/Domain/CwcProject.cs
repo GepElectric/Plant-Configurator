@@ -1813,6 +1813,12 @@ public sealed class DbStringRow : IValidationState
     public string DescriptionEnglish { get; set; } = "";
     public string DescriptionOther { get; set; } = "";
     public string DescriptionTemplateKey { get; set; } = "";
+    /// <summary>
+    /// True after the user explicitly unlinked a template from this row.
+    /// Stops the automatic text-based template matching from silently
+    /// re-linking it (the restored text is identical to the template's).
+    /// </summary>
+    public bool DescriptionTemplateOptOut { get; set; }
     public bool DescriptionDirty { get; set; }
     public bool HasValidationError { get; set; }
     [JsonIgnore]

@@ -1867,6 +1867,14 @@
                             </ScrollViewer>
                         </DockPanel>
                     <DataGrid x:Name="DbAlmGrid" AutoGenerateColumns="False" CanUserSortColumns="True" FrozenColumnCount="8" SelectionUnit="CellOrRowHeader" SelectionMode="Extended" BeginningEdit="DbGrid_BeginningEdit" CellEditEnding="DbAlmGrid_CellEditEnding" PreviewKeyDown="DbGrid_PreviewKeyDown" SizeChanged="DbAlmGrid_SizeChanged" ScrollViewer.ScrollChanged="DbAlmGrid_ScrollChanged">
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Apply description template..." Click="DbAlmApplyTemplate_Click"
+                                          ToolTip="Assign a description template to every selected row."/>
+                                <MenuItem Header="Remove description template" Click="DbAlmRemoveTemplate_Click"
+                                          ToolTip="Unlink the template from every selected row and keep the full text."/>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
                         <DataGrid.RowStyle>
                             <Style TargetType="DataGridRow">
                                 <Setter Property="Background">
@@ -2022,6 +2030,14 @@
                             </ScrollViewer>
                         </DockPanel>
                     <DataGrid x:Name="DbParGrid" AutoGenerateColumns="False" CanUserSortColumns="True" FrozenColumnCount="7" SelectionUnit="CellOrRowHeader" SelectionMode="Extended" BeginningEdit="DbGrid_BeginningEdit" CellEditEnding="DbParGrid_CellEditEnding" PreviewKeyDown="DbGrid_PreviewKeyDown" SizeChanged="DbParGrid_SizeChanged" ScrollViewer.ScrollChanged="DbParGrid_ScrollChanged">
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Apply description template..." Click="DbParApplyTemplate_Click"
+                                          ToolTip="Assign a description template to every selected row."/>
+                                <MenuItem Header="Remove description template" Click="DbParRemoveTemplate_Click"
+                                          ToolTip="Unlink the template from every selected row and keep the full text."/>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
                         <DataGrid.RowStyle>
                             <Style TargetType="DataGridRow">
                                 <Setter Property="Background">
