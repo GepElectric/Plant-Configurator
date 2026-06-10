@@ -9,14 +9,16 @@ public partial class DescriptionTemplatesDialog : Window
 {
     private readonly DescriptionTemplateCatalog _catalog;
     private readonly ObservableCollection<DescriptionTemplateEntry> _templates;
+    private readonly Func<string, List<DbStringRow>>? _findUsages;
     private bool _loadingSelection;
 
     public bool Changed { get; private set; }
 
-    public DescriptionTemplatesDialog(DescriptionTemplateCatalog catalog)
+    public DescriptionTemplatesDialog(DescriptionTemplateCatalog catalog, Func<string, List<DbStringRow>>? findUsages = null)
     {
         InitializeComponent();
         _catalog = catalog;
+        _findUsages = findUsages;
         _catalog.Templates ??= [];
         _templates = new ObservableCollection<DescriptionTemplateEntry>(_catalog.Templates.OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase));
         ScopeFilter.ItemsSource = new[] { "All", "ALM", "PAR" };
@@ -25,23 +27,46 @@ public partial class DescriptionTemplatesDialog : Window
         PopulateGrid();
     }
 
+    /// <summary>Grid row: template entry plus how many ALM/PAR descriptions use it.</summary>
+    private sealed class TemplateRow
+    {
+        public TemplateRow(DescriptionTemplateEntry entry, int used)
+        {
+            Entry = entry;
+            Used = used;
+        }
+
+        public DescriptionTemplateEntry Entry { get; }
+        public int Used { get; }
+        public string Key => Entry.Key;
+        public string Scope => Entry.Scope;
+        public string TextEnglish => Entry.TextEnglish;
+        public string TextOther => Entry.TextOther;
+    }
+
+    private int CountUsages(DescriptionTemplateEntry template)
+    {
+        return _findUsages?.Invoke(template.Key)?.Count ?? 0;
+    }
+
     private void PopulateGrid(string? keepKey = null)
     {
         var search = (SearchText.Text ?? "").Trim();
         var scope = ScopeFilter.SelectedItem as string ?? "All";
         var selectedKey = keepKey
-            ?? (TemplatesGrid.SelectedItem as DescriptionTemplateEntry)?.Key;
+            ?? (TemplatesGrid.SelectedItem as TemplateRow)?.Key;
 
         _loadingSelection = true;
         TemplatesGrid.ItemsSource = _templates
             .Where(template => MatchesScope(template, scope))
             .Where(template => MatchesSearch(template, search))
             .OrderBy(template => template.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(template => new TemplateRow(template, CountUsages(template)))
             .ToList();
         TemplatesGrid.SelectedItem = TemplatesGrid.Items
-            .OfType<DescriptionTemplateEntry>()
-            .FirstOrDefault(template => template.Key.Equals(selectedKey ?? "", StringComparison.OrdinalIgnoreCase))
-            ?? TemplatesGrid.Items.OfType<DescriptionTemplateEntry>().FirstOrDefault();
+            .OfType<TemplateRow>()
+            .FirstOrDefault(row => row.Key.Equals(selectedKey ?? "", StringComparison.OrdinalIgnoreCase))
+            ?? TemplatesGrid.Items.OfType<TemplateRow>().FirstOrDefault();
         _loadingSelection = false;
         LoadSelectedTemplate();
     }
@@ -64,6 +89,8 @@ public partial class DescriptionTemplatesDialog : Window
             .Contains(search, StringComparison.OrdinalIgnoreCase);
     }
 
+    private DescriptionTemplateEntry? SelectedTemplate => (TemplatesGrid.SelectedItem as TemplateRow)?.Entry;
+
     private void LoadSelectedTemplate()
     {
         if (_loadingSelection)
@@ -71,7 +98,7 @@ public partial class DescriptionTemplatesDialog : Window
             return;
         }
 
-        if (TemplatesGrid.SelectedItem is not DescriptionTemplateEntry item)
+        if (SelectedTemplate is not { } item)
         {
             KeyText.Text = "";
             ScopeText.SelectedItem = null;
@@ -88,7 +115,7 @@ public partial class DescriptionTemplatesDialog : Window
 
     private void SaveEditor()
     {
-        if (TemplatesGrid.SelectedItem is not DescriptionTemplateEntry item)
+        if (SelectedTemplate is not { } item)
         {
             return;
         }
@@ -111,12 +138,41 @@ public partial class DescriptionTemplatesDialog : Window
 
     private void Delete_Click(object sender, RoutedEventArgs e)
     {
-        if (TemplatesGrid.SelectedItem is DescriptionTemplateEntry item)
+        if (TemplatesGrid.SelectedItem is not TemplateRow row)
         {
-            _templates.Remove(item);
-            Changed = true;
-            PopulateGrid();
+            return;
         }
+
+        // Rows referencing a template store only its KEY in the description
+        // fields. Deleting without restoring the text would leave the raw key
+        // behind and lose the real description forever.
+        var usages = _findUsages?.Invoke(row.Key) ?? [];
+        if (usages.Count > 0)
+        {
+            var answer = MessageBox.Show(
+                this,
+                $"Template '{row.Key}' is used by {usages.Count} description(s).\n\n"
+                + "Delete the template and write its full text back into those rows?",
+                "Delete template",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (answer != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            foreach (var usage in usages)
+            {
+                usage.DescriptionEnglish = row.Entry.TextEnglish ?? "";
+                usage.DescriptionOther = row.Entry.TextOther ?? "";
+                usage.DescriptionTemplateKey = "";
+                usage.DescriptionDirty = true;
+            }
+        }
+
+        _templates.Remove(row.Entry);
+        Changed = true;
+        PopulateGrid();
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)

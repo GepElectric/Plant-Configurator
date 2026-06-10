@@ -41,6 +41,14 @@
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="190"/>
                     <DataGridTextColumn Header="Scope" Binding="{Binding Scope}" Width="90"/>
+                    <DataGridTextColumn Header="Used" Binding="{Binding Used}" Width="60">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Center"/>
+                                <Setter Property="ToolTip" Value="Number of ALM/PAR descriptions currently using this template (all PLC databases)."/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
                     <DataGridTextColumn Header="Names ENG" Binding="{Binding TextEnglish}" Width="2*"/>
                     <DataGridTextColumn Header="Names other language" Binding="{Binding TextOther}" Width="2*"/>
                 </DataGrid.Columns>

@@ -7483,6 +7483,10 @@ public partial class MainWindow : Window
     {
         ProjectWorkspace.Visibility = Visibility.Visible;
         ProjectActionBar.Visibility = Visibility.Visible;
+        if (Resources["DescriptionTemplateTooltipConverter"] is DescriptionTemplateTooltipConverter templateTooltipConverter)
+        {
+            templateTooltipConverter.Catalog = _project.DescriptionTemplates;
+        }
         SyncMultilingualFromProject();
         _bindingProject = true;
         ArrangeMainTabs();
@@ -8865,7 +8869,8 @@ public partial class MainWindow : Window
         }
 
         _project.DescriptionTemplates ??= new DescriptionTemplateCatalog();
-        var dialog = new DescriptionTemplatesDialog(_project.DescriptionTemplates)
+        SaveActivePlcDatabase();
+        var dialog = new DescriptionTemplatesDialog(_project.DescriptionTemplates, FindDescriptionTemplateUsages)
         {
             Owner = EditorOwner
         };
@@ -8876,6 +8881,37 @@ public partial class MainWindow : Window
             MarkTiaSectionState("DB PAR", "Differs", "DB PAR description templates changed.");
             ShowMessage("Description templates updated.");
         }
+    }
+
+    /// <summary>
+    /// All ALM/PAR rows whose description currently references the given
+    /// template key. The active database lives in _project.DbCatalog, so the
+    /// stored copy of that database is skipped to avoid double counting.
+    /// </summary>
+    private List<DbStringRow> FindDescriptionTemplateUsages(string key)
+    {
+        var trimmed = (key ?? "").Trim();
+        var result = new List<DbStringRow>();
+        if (trimmed.Length == 0)
+        {
+            return result;
+        }
+
+        void AddMatches(IEnumerable<DbStringRow> rows)
+        {
+            result.AddRange(rows.Where(row =>
+                (row.DescriptionTemplateKey ?? "").Trim().Equals(trimmed, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        AddMatches(_project.DbCatalog.AlarmRows);
+        AddMatches(_project.DbCatalog.ParameterRows);
+        foreach (var database in _project.PlcDatabases.Where(database => database.Id != _project.ActivePlcDatabaseId))
+        {
+            AddMatches(database.DbCatalog.AlarmRows);
+            AddMatches(database.DbCatalog.ParameterRows);
+        }
+
+        return result;
     }
 
     private void SelectScadaDatabaseTreeItem(ScadaDatabase active)

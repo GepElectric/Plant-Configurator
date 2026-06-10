@@ -57,6 +57,7 @@
         <local:ParameterReferenceDisplayConverter x:Key="ParameterReferenceDisplayConverter"/>
         <local:DbConditionalCellBrushConverter x:Key="DbConditionalCellBrushConverter"/>
         <local:ReadOnlyForegroundConverter x:Key="ReadOnlyForegroundConverter"/>
+        <local:DescriptionTemplateTooltipConverter x:Key="DescriptionTemplateTooltipConverter"/>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <Style TargetType="DataGridCell">
             <Setter Property="TextBlock.TextWrapping" Value="Wrap"/>
@@ -232,6 +233,10 @@
         </Style>
         <Style x:Key="TemplateMatchedDescriptionText" TargetType="TextBlock" BasedOn="{StaticResource CenteredCellText}">
             <Setter Property="FontWeight" Value="Bold"/>
+            <!-- Bold cells hold a template KEY, not the final text; the tooltip
+                 shows what the template will actually generate. -->
+            <Setter Property="ToolTip" Value="{Binding DescriptionTemplateKey, Converter={StaticResource DescriptionTemplateTooltipConverter}}"/>
+            <Setter Property="ToolTipService.ShowDuration" Value="30000"/>
             <Style.Triggers>
                 <DataTrigger Binding="{Binding DescriptionTemplateKey}" Value="">
                     <Setter Property="FontWeight" Value="Normal"/>
