@@ -42,6 +42,52 @@ public sealed class TiaMappingService
         }
     }
 
+    /// <summary>
+    /// Fills in bindings whose device/software pair does not exist in the
+    /// attached session, matching by PLC database name. Bindings that already
+    /// point at a real TIA PLC are left untouched. Returns how many bindings
+    /// were (re)mapped.
+    /// </summary>
+    public int AutoMapUnresolved(CwcProject project, TiaAttachedSession session)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(session);
+
+        project.TiaSync ??= new TiaSyncConfig();
+        project.TiaSync.SyncWithDatabases(project.PlcDatabases, project.DbCatalog);
+
+        var mapped = 0;
+        foreach (var database in project.PlcDatabases.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            var binding = project.TiaSync.GetOrCreate(database.Id, database.Name);
+            if (PairExists(session, binding.DeviceName, binding.SoftwareName))
+            {
+                continue;
+            }
+
+            var discovered = FindBestMatch(database.Name, session.Plcs);
+            if (discovered is null)
+            {
+                continue;
+            }
+
+            binding.DeviceName = discovered.DeviceName;
+            binding.SoftwareName = discovered.SoftwareName;
+            binding.SyncState = "Mapped";
+            mapped++;
+        }
+
+        return mapped;
+    }
+
+    public static bool PairExists(TiaAttachedSession? session, string deviceName, string softwareName)
+    {
+        return session is not null
+               && session.Plcs.Any(plc =>
+                   plc.DeviceName.Equals(deviceName ?? "", StringComparison.OrdinalIgnoreCase)
+                   && plc.SoftwareName.Equals(softwareName ?? "", StringComparison.OrdinalIgnoreCase));
+    }
+
     public IList<string> Validate(CwcProject project, TiaAttachedSession? session)
     {
         var issues = new List<string>();

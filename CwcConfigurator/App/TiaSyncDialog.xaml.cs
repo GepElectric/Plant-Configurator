@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using CwcConfigurator.Domain;
 using CwcConfigurator.Services.TiaSync;
@@ -13,9 +14,15 @@ public partial class TiaSyncDialog : Window
     private readonly TiaMappingService _mappingService = new();
     private readonly TiaLiveSyncService _liveSyncService;
     private readonly ObservableCollection<TiaPortalProcessInfo> _processes = [];
-    private readonly ObservableCollection<string> _discoveredSoftwareNames = [];
-    private bool _hasChanges;
+    private readonly ObservableCollection<MappingRow> _rows = [];
+    private Dictionary<string, MappingSnapshot> _savedMapping = new();
+    private bool _databasesCreated;
     private bool _isBusy;
+
+    public ObservableCollection<string> DeviceNames { get; } = [];
+    public ObservableCollection<string> SoftwareNames { get; } = [];
+
+    private sealed record MappingSnapshot(string DeviceName, string SoftwareName, bool IncludeSequence);
 
     public TiaSyncDialog(CwcProject project, ITiaSessionService sessionService)
     {
@@ -27,8 +34,9 @@ public partial class TiaSyncDialog : Window
         _project.TiaSync.SyncWithDatabases(_project.PlcDatabases, _project.DbCatalog);
 
         ProcessCombo.ItemsSource = _processes;
-        TiaSoftwareColumn.ItemsSource = _discoveredSoftwareNames;
-        MappingGrid.ItemsSource = _project.TiaSync.PlcBindings;
+        MappingGrid.ItemsSource = _rows;
+        RebuildMappingRows();
+        TakeMappingSnapshot();
         RefreshSessionUi();
         Loaded += async (_, _) => await RefreshProcessesAsync();
     }
@@ -80,11 +88,20 @@ public partial class TiaSyncDialog : Window
         {
             var session = await _sessionService.AttachToRunningPortalAsync(process.ProcessId);
             _mappingService.StoreProjectBinding(_project, session);
+
+            // Attach is the moment the user finally knows what the TIA project
+            // contains, so resolve every binding that does not point at a real
+            // TIA PLC automatically; valid mappings stay untouched.
+            var autoMapped = _mappingService.AutoMapUnresolved(_project, session);
+
             StoreDiscoveredObjects(session);
-            RefreshDiscoveredSoftwareNames(session);
-            MappingGrid.ItemsSource = null;
-            MappingGrid.ItemsSource = _project.TiaSync.PlcBindings;
-            WriteOutput($"Attached to {session.ProjectName}. Mapping is unchanged until you edit and save it. Loaded {session.Plcs.Sum(plc => plc.Objects.Count)} OBJECTS block(s).{Environment.NewLine}{Environment.NewLine}{FormatObjectsSummary(session)}");
+            RefreshDiscoveredNames(session);
+            RebuildMappingRows();
+
+            var autoMapNote = autoMapped > 0
+                ? $"Auto-mapped {autoMapped} PLC database(s) by name — review the mapping and save."
+                : "Existing mapping left unchanged.";
+            WriteOutput($"Attached to {session.ProjectName}. {autoMapNote} Loaded {session.Plcs.Sum(plc => plc.Objects.Count)} OBJECTS block(s).{Environment.NewLine}{Environment.NewLine}{FormatObjectsSummary(session)}");
         }
         catch (Exception ex)
         {
@@ -118,8 +135,26 @@ public partial class TiaSyncDialog : Window
         }
     }
 
+    private void AutoMap_Click(object sender, RoutedEventArgs e)
+    {
+        var session = _sessionService.CurrentSession;
+        if (session is null)
+        {
+            MessageBox.Show(this, "Attach to TIA Portal first — auto-map needs the list of discovered PLCs.", "Auto-map", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        MappingGrid.CommitEdit();
+        var mapped = _mappingService.AutoMapUnresolved(_project, session);
+        RebuildMappingRows();
+        WriteOutput(mapped > 0
+            ? $"Auto-mapped {mapped} PLC database(s) by name."
+            : "Nothing to auto-map: every PLC database already points at an existing TIA PLC, or no name match was found.");
+    }
+
     private void ValidateMapping_Click(object sender, RoutedEventArgs e)
     {
+        MappingGrid.CommitEdit();
         var issues = _mappingService.Validate(_project, _sessionService.CurrentSession);
         if (issues.Count == 0)
         {
@@ -140,7 +175,12 @@ public partial class TiaSyncDialog : Window
             return;
         }
 
-        _hasChanges = true;
+        foreach (var row in _rows.Where(item => item.State == "OK"))
+        {
+            row.Binding.SyncState = "Mapped";
+        }
+
+        TakeMappingSnapshot();
         DialogResult = true;
     }
 
@@ -166,16 +206,14 @@ public partial class TiaSyncDialog : Window
             binding.Objects = plc.Objects.Select(ToObjectEntry).ToList();
         }
 
-        MappingGrid.ItemsSource = null;
-        MappingGrid.ItemsSource = _project.TiaSync.PlcBindings;
-        _hasChanges = true;
+        RebuildMappingRows();
+        _databasesCreated = true;
 
         SetBusy(true, $"Created PLC database '{database.Name}'. Pulling full database from TIA...");
         try
         {
             var result = await _liveSyncService.PullAsync(_project);
-            MappingGrid.ItemsSource = null;
-            MappingGrid.ItemsSource = _project.TiaSync.PlcBindings;
+            RebuildMappingRows();
             WriteOutput($"Created PLC database '{database.Name}' from discovered PLC '{plc}'.{Environment.NewLine}{Environment.NewLine}{result.ToOutputText()}");
             MessageBox.Show(this, $"PLC database '{database.Name}' created and pulled from TIA.", "TIA Sync", MessageBoxButton.OK, MessageBoxImage.Information);
         }
@@ -187,6 +225,9 @@ public partial class TiaSyncDialog : Window
         }
         finally
         {
+            // Creation (and the pull) is committed to the project immediately,
+            // so it survives Cancel; only later manual edits are revertable.
+            TakeMappingSnapshot();
             SetBusy(false);
             RefreshSessionUi();
         }
@@ -223,6 +264,7 @@ public partial class TiaSyncDialog : Window
         ProcessCombo.IsEnabled = !_isBusy;
         MappingGrid.IsEnabled = !_isBusy;
         ValidateMappingButton.IsEnabled = !_isBusy;
+        AutoMapButton.IsEnabled = !_isBusy && session is not null;
         if (session is null)
         {
             if (!_isBusy)
@@ -235,6 +277,7 @@ public partial class TiaSyncDialog : Window
             CreateDatabaseFromPlcButton.IsEnabled = false;
             AttachButton.IsEnabled = !_isBusy;
             DisconnectButton.IsEnabled = false;
+            UpdateRowStates();
             return;
         }
 
@@ -244,11 +287,12 @@ public partial class TiaSyncDialog : Window
         }
 
         DiscoveredPlcList.ItemsSource = session.Plcs;
-        RefreshDiscoveredSoftwareNames(session);
+        RefreshDiscoveredNames(session);
         ObjectsSummaryText.Text = $"OBJECTS loaded: {session.Plcs.Sum(plc => plc.Objects.Count)} block(s).";
         CreateDatabaseFromPlcButton.IsEnabled = !_isBusy && session.Plcs.Count > 0;
         AttachButton.IsEnabled = false;
         DisconnectButton.IsEnabled = !_isBusy;
+        UpdateRowStates();
     }
 
     private void SetBusy(bool busy, string? status = null)
@@ -267,19 +311,116 @@ public partial class TiaSyncDialog : Window
         OutputText.Text = text;
     }
 
-    private void RefreshDiscoveredSoftwareNames(TiaAttachedSession? session)
+    private void RebuildMappingRows()
     {
-        _discoveredSoftwareNames.Clear();
-        var softwareNames = session is null
-            ? Enumerable.Empty<string>()
-            : session.Plcs
-                .Select(plc => plc.SoftwareName)
-                .Where(name => !string.IsNullOrWhiteSpace(name))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase);
-        foreach (var softwareName in softwareNames)
+        _rows.Clear();
+        foreach (var binding in _project.TiaSync.PlcBindings)
         {
-            _discoveredSoftwareNames.Add(softwareName);
+            _rows.Add(new MappingRow(binding, UpdateRowStates));
+        }
+
+        UpdateRowStates();
+    }
+
+    private void UpdateRowStates()
+    {
+        var session = _sessionService.CurrentSession;
+        var duplicates = _rows
+            .Where(row => !string.IsNullOrWhiteSpace(row.SoftwareName))
+            .GroupBy(row => $"{row.DeviceName.Trim()}|{row.SoftwareName.Trim()}", StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .SelectMany(group => group)
+            .ToHashSet();
+
+        foreach (var row in _rows)
+        {
+            row.State = ComputeRowState(row, session, duplicates.Contains(row));
+        }
+    }
+
+    private static string ComputeRowState(MappingRow row, TiaAttachedSession? session, bool isDuplicate)
+    {
+        if (string.IsNullOrWhiteSpace(row.DeviceName) || string.IsNullOrWhiteSpace(row.SoftwareName))
+        {
+            return "Missing TIA name";
+        }
+
+        if (isDuplicate)
+        {
+            return "Duplicate mapping";
+        }
+
+        if (session is null)
+        {
+            return "Not attached";
+        }
+
+        return TiaMappingService.PairExists(session, row.DeviceName, row.SoftwareName)
+            ? "OK"
+            : "Not found in TIA";
+    }
+
+    private void TakeMappingSnapshot()
+    {
+        _savedMapping = _project.TiaSync.PlcBindings.ToDictionary(
+            binding => binding.PlcDatabaseId,
+            binding => new MappingSnapshot(binding.DeviceName, binding.SoftwareName, binding.IncludeSequenceInGlobalSync));
+    }
+
+    private bool HasUnsavedMappingChanges()
+    {
+        foreach (var binding in _project.TiaSync.PlcBindings)
+        {
+            if (!_savedMapping.TryGetValue(binding.PlcDatabaseId, out var saved)
+                || !saved.DeviceName.Equals(binding.DeviceName, StringComparison.Ordinal)
+                || !saved.SoftwareName.Equals(binding.SoftwareName, StringComparison.Ordinal)
+                || saved.IncludeSequence != binding.IncludeSequenceInGlobalSync)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void RestoreMappingSnapshot()
+    {
+        foreach (var binding in _project.TiaSync.PlcBindings)
+        {
+            if (_savedMapping.TryGetValue(binding.PlcDatabaseId, out var saved))
+            {
+                binding.DeviceName = saved.DeviceName;
+                binding.SoftwareName = saved.SoftwareName;
+                binding.IncludeSequenceInGlobalSync = saved.IncludeSequence;
+            }
+        }
+    }
+
+    private void RefreshDiscoveredNames(TiaAttachedSession? session)
+    {
+        DeviceNames.Clear();
+        SoftwareNames.Clear();
+        if (session is null)
+        {
+            return;
+        }
+
+        foreach (var name in session.Plcs
+                     .Select(plc => plc.DeviceName)
+                     .Where(name => !string.IsNullOrWhiteSpace(name))
+                     .Distinct(StringComparer.OrdinalIgnoreCase)
+                     .OrderBy(name => name, StringComparer.OrdinalIgnoreCase))
+        {
+            DeviceNames.Add(name);
+        }
+
+        foreach (var name in session.Plcs
+                     .Select(plc => plc.SoftwareName)
+                     .Where(name => !string.IsNullOrWhiteSpace(name))
+                     .Distinct(StringComparer.OrdinalIgnoreCase)
+                     .OrderBy(name => name, StringComparer.OrdinalIgnoreCase))
+        {
+            SoftwareNames.Add(name);
         }
     }
 
@@ -361,11 +502,117 @@ public partial class TiaSyncDialog : Window
 
     protected override void OnClosing(CancelEventArgs e)
     {
-        if (_hasChanges && DialogResult != true)
+        if (DialogResult != true)
         {
-            DialogResult = true;
+            MappingGrid.CommitEdit();
+            if (HasUnsavedMappingChanges())
+            {
+                var answer = MessageBox.Show(
+                    this,
+                    "The mapping has unsaved changes. Close without saving them?",
+                    "TIA Sync",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+                if (answer != MessageBoxResult.Yes)
+                {
+                    e.Cancel = true;
+                    base.OnClosing(e);
+                    return;
+                }
+
+                RestoreMappingSnapshot();
+            }
+
+            // Database creation is committed immediately, so the main window
+            // must rebind even when mapping edits were discarded.
+            if (_databasesCreated)
+            {
+                DialogResult = true;
+            }
         }
 
         base.OnClosing(e);
+    }
+
+    /// <summary>
+    /// Editable wrapper over <see cref="TiaPlcBinding"/> (a plain POCO) so the
+    /// grid can both write through immediately and reflect the live per-row
+    /// mapping state without rebinding the whole ItemsSource.
+    /// </summary>
+    private sealed class MappingRow : INotifyPropertyChanged
+    {
+        private readonly Action _mappingChanged;
+        private string _state = "";
+
+        public MappingRow(TiaPlcBinding binding, Action mappingChanged)
+        {
+            Binding = binding;
+            _mappingChanged = mappingChanged;
+        }
+
+        public TiaPlcBinding Binding { get; }
+
+        public string PlcName => Binding.PlcName;
+
+        public string DeviceName
+        {
+            get => Binding.DeviceName;
+            set
+            {
+                if (!string.Equals(Binding.DeviceName, value, StringComparison.Ordinal))
+                {
+                    Binding.DeviceName = value ?? "";
+                    OnPropertyChanged();
+                    _mappingChanged();
+                }
+            }
+        }
+
+        public string SoftwareName
+        {
+            get => Binding.SoftwareName;
+            set
+            {
+                if (!string.Equals(Binding.SoftwareName, value, StringComparison.Ordinal))
+                {
+                    Binding.SoftwareName = value ?? "";
+                    OnPropertyChanged();
+                    _mappingChanged();
+                }
+            }
+        }
+
+        public bool IncludeSequenceInGlobalSync
+        {
+            get => Binding.IncludeSequenceInGlobalSync;
+            set
+            {
+                if (Binding.IncludeSequenceInGlobalSync != value)
+                {
+                    Binding.IncludeSequenceInGlobalSync = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string State
+        {
+            get => _state;
+            set
+            {
+                if (!string.Equals(_state, value, StringComparison.Ordinal))
+                {
+                    _state = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 }

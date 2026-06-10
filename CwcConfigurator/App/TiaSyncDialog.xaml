@@ -58,6 +58,8 @@
                 <GroupBox Header="PLC database mapping">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button x:Name="AutoMapButton" Content="Auto-map by name" Width="140" Click="AutoMap_Click"
+                                    ToolTip="Match every unmapped PLC database to a discovered TIA PLC by name. Databases that already point at an existing TIA PLC are left untouched."/>
                             <Button x:Name="ValidateMappingButton" Content="Validate mapping" Width="130" Click="ValidateMapping_Click"/>
                         </StackPanel>
                         <DataGrid x:Name="MappingGrid"
@@ -67,15 +69,56 @@
                                   IsReadOnly="False">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="PLC database" Binding="{Binding PlcName}" IsReadOnly="True" Width="*"/>
-                                <DataGridTextColumn Header="TIA device" Binding="{Binding DeviceName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
-                                <DataGridComboBoxColumn x:Name="TiaSoftwareColumn"
-                                                        Header="TIA software"
-                                                        SelectedItemBinding="{Binding SoftwareName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                        Width="*"/>
+                                <DataGridTemplateColumn Header="TIA device" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DeviceName}" VerticalAlignment="Center" Margin="4,0"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                    <DataGridTemplateColumn.CellEditingTemplate>
+                                        <DataTemplate>
+                                            <ComboBox IsEditable="True"
+                                                      Text="{Binding DeviceName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                      ItemsSource="{Binding DeviceNames, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellEditingTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="TIA software" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding SoftwareName}" VerticalAlignment="Center" Margin="4,0"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                    <DataGridTemplateColumn.CellEditingTemplate>
+                                        <DataTemplate>
+                                            <ComboBox IsEditable="True"
+                                                      Text="{Binding SoftwareName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                      ItemsSource="{Binding SoftwareNames, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellEditingTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridCheckBoxColumn Header="Sequence in global pull/push"
                                                         Binding="{Binding IncludeSequenceInGlobalSync, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                         Width="160"/>
-                                <DataGridTextColumn Header="State" Binding="{Binding SyncState}" IsReadOnly="True" Width="130"/>
+                                <DataGridTextColumn Header="State" Binding="{Binding State}" IsReadOnly="True" Width="150">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="VerticalAlignment" Value="Center"/>
+                                            <Setter Property="Margin" Value="4,0"/>
+                                            <Setter Property="Foreground" Value="#CF222E"/>
+                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding State}" Value="OK">
+                                                    <Setter Property="Foreground" Value="#1A7F37"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding State}" Value="Not attached">
+                                                    <Setter Property="Foreground" Value="#57606A"/>
+                                                    <Setter Property="FontWeight" Value="Normal"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
