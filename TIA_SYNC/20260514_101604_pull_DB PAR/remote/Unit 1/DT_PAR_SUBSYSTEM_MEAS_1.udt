@@ -1,0 +1,39 @@
+﻿TYPE "DT_PAR_SUBSYSTEM_MEAS_1"
+VERSION : 0.1
+   STRUCT
+      HPU_ACCU_PRESS_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 96, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      HPU_ACCU_PRESS_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 97, 0, 250.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      HPU_ACU_PRESS_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 98, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      HPU_ACCU_PRESS_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 99, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      HPU_ACCU_PRESS_LL { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 100, 0, 105.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      HPU_ACCU_PRESS_L { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 101, 0, 107.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      HPU_ACCU_PRESS_H { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 102, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      HPU_SYS_PRESS_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 103, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      HPU_SYS_PRESS_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 104, 0, 250.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      HPU_SYS_PRESS_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 105, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      HPU_SYS_PRESS_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 106, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      HPU_SYS_PRESS_LL { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 107, 0, 70.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      HPU_SYS_PRESS_L { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 108, 0, 72.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      HPU_SYS_PRESS_H { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 109, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      HPU_OIL_LEVEL_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 110, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'mm');
+      HPU_OIL_LEVEL_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 111, 0, 370.0, 0, T#0MS, 0.0, 0.0, 'mm');
+      HPU_OIL_LEVEL_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 112, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      HPU_OIL_LEVEL_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 113, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'mm');
+      HPU_OIL_LEVEL_LL { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 114, 0, 150.0, 0, T#0MS, 0.0, 0.0, 'mm');
+      HPU_OIL_LEVEL_L { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 115, 0, 170.0, 0, T#0MS, 0.0, 0.0, 'mm');
+      HPU_OIL_LEVEL_H { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 116, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'mm');
+      HPU_OIL_LEVEL_HH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 117, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'mm');
+      HPU_OIL_TEMP_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 118, 0, 0.0, 0, T#0MS, 0.0, 0.0, '°C');
+      HPU_OIL_TEMP_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 119, 0, 100.0, 0, T#0MS, 0.0, 0.0, '°C');
+      HPU_OIL_TEMP_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 120, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      HPU_OIL_TEMP_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 121, 0, 0.0, 0, T#0MS, 0.0, 0.0, '°C');
+      HPU_OIL_TEMP_L { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 122, 0, 10.0, 0, T#0MS, 0.0, 0.0, '°C');
+      HPU_OIL_TEMP_H { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 123, 0, 60.0, 0, T#0MS, 0.0, 0.0, '°C');
+      HPU_OIL_TEMP_HH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 124, 0, 70.0, 0, T#0MS, 0.0, 0.0, '°C');
+      PARAM_29 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 125, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_30 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 126, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_31 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 127, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+   END_STRUCT;
+
+END_TYPE
+

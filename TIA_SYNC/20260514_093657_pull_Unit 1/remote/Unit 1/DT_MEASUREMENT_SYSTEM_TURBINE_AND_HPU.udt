@@ -1,0 +1,31 @@
+﻿TYPE "DT_MEASUREMENT_SYSTEM_TURBINE_AND_HPU"
+VERSION : 0.1
+   STRUCT
+      FRANCIS_WICKET_GATE_POSITION { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 0, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '%');
+      KAPLAN_DISTRIBUTOR_POSITION { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 2, 0, 1, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '%');
+      KAPLAN_RUNNER_POSITION { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 30, 0, 2, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '%');
+      PELTON_DEFLECTOR_POSTION { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 3, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '%');
+      NOZZLE_1 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 4, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '%');
+      NOZZLE_2 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 5, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '%');
+      NOZZLE_3 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 6, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '%');
+      NOZZLE_4 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 7, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '%');
+      NOZZLE_5 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 8, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '%');
+      NOZZLE_6 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 9, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '%');
+      CROSS_FLOW_GATE_1 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 10, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '%');
+      CROSS_FLOW_GATE_2 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 11, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '%');
+      TURBINE_BEARING_TEMPERATURE_1 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 12, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'Â°C');
+      HPU_ACCUMULATOR_OIL_PRESSURE { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 5, 0, 13, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'bar');
+      HPU_SYSTEM_OIL_PRESSURE { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 5, 0, 14, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'bar');
+      HPU_OIL_TANK_TEMPERATURE { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 5, 0, 15, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'Â°C');
+      HPU_OIL_LEVEL { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 5, 0, 16, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'mm');
+      PENSTOCK_WATER_PRESSURE { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 17, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'bar');
+      TURBINE_WATER_PRESSURE_1 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 18, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'bar');
+      TURBINE_WATER_PRESSURE_2 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 19, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      WATER_LEVEL_1 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 5, 0, 20, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'm');
+      WATER_LEVEL_2 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 21, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      TAIL_WATER_LEVEL { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 22, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      TURBINE_BEARING_TEMPERATURE_2 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 23, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'Â°C');
+   END_STRUCT;
+
+END_TYPE
+

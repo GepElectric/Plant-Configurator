@@ -1,0 +1,39 @@
+﻿TYPE "DT_PAR_PID_KAPLAN_DISTRIBUTOR"
+VERSION : 0.1
+   STRUCT
+      INPUT_RAMP_MIN_VAL { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 768, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      INPUT_RAMP_MAX_VAL { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 769, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      INPUT_RAMP_FALLING_TIME { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 770, 0, 0.0, 0, T#0MS, 0.0, 0.0, 's');
+      INPUT_RAMP_RISING_TIME { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 771, 0, 0.0, 0, T#0MS, 0.0, 0.0, 's');
+      OUTPUT_RAMP_FALLING_TIME { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 772, 0, 0.0, 0, T#0MS, 0.0, 0.0, 's');
+      OUTPUT_RAMP_RISING_TIME { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 773, 0, 0.0, 0, T#0MS, 0.0, 0.0, 's');
+      MAN_ON { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 774, 1, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      P_SEL { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 775, 1, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      I_SEL { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 776, 1, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      INT_HOLD { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 777, 1, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      D_SEL { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 778, 1, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      NUM_OF_CYCLES { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 779, 1, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      GAIN { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 780, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      TI { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 781, 1, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      TD { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 782, 1, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      TM_LAG { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 783, 1, 300.0, 0, T#0MS, 0.0, 0.0, '-');
+      DEAD_W { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 784, 0, 100.0, 0, T#0MS, 0.0, 0.0, '%');
+      LMN_HLM { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 785, 0, 30.0, 0, T#0MS, 0.0, 0.0, '%');
+      LMN_LLM { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 786, 0, 300.0, 0, T#0MS, 0.0, 0.0, '%');
+      REF_MIN_VAL { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 787, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      REF_MAX_VAL { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 788, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      LMN_FAC { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 789, 0, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      LMN_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 790, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      DISV { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 791, 0, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      MAN { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 792, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      REFERENCE_CORRECTION { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 793, 0, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      OUT_CTRL_MODE { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 794, 1, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      SPARE_4 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 795, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      SPARE_5 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 796, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      SPARE_6 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 797, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      SPARE_7 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 798, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      SPARE_8 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 799, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+   END_STRUCT;
+
+END_TYPE
+

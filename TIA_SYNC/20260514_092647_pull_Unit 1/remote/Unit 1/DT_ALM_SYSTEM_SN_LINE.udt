@@ -1,0 +1,39 @@
+﻿TYPE "DT_ALM_SYSTEM_SN_LINE"
+VERSION : 0.1
+   STRUCT
+      LINE_1_DS_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (544, FALSE, FALSE, TRUE, (), (), 6, 0, 4, (), (), (), (), (), T#50MS);
+      LINE_1_DS_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (545, FALSE, FALSE, TRUE, (), (), 6, 0, 4, (), (), (), (), (), T#50MS);
+      LINE_1_DS_GND { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (546, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LINE_1_ES_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (547, FALSE, FALSE, TRUE, (), (), 6, 0, 4, (), (), (), (), (), T#50MS);
+      LINE_1_ES_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (548, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LINE_1_ES_GND { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (549, FALSE, FALSE, TRUE, (), (), 6, 0, 4, (), (), (), (), (), T#50MS);
+      LINE_1_NO_VOLTAGE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (550, FALSE, FALSE, TRUE, (), (), 6, 0, 4, (), (), (), (), (), T#50MS);
+      LINE_1_SYNCH_VT_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (551, FALSE, FALSE, TRUE, (), (), 6, 0, 4, (), (), (), (), (), T#500MS);
+      LINE_1_CB_SPRING { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (552, FALSE, FALSE, TRUE, (), (), 6, 0, 1, (), (), (), (), (), T#50MS);
+      LINE_1_CB_UNLOCKED { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (553, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LINE_1_CB_LOCAL { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (554, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LINE_1_CB_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (555, FALSE, FALSE, TRUE, (), (), 6, 0, 4, (), (), (), (), (), T#50MS);
+      LINE_1_CB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (556, FALSE, FALSE, TRUE, (), (), 6, 0, 4, (), (), (), (), (), T#50MS);
+      LINE_1_CB_APU_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (557, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LINE_1_MCB_W { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (558, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LINE_1_MCB_T { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (559, FALSE, FALSE, TRUE, (), (), 6, 0, 4, (), (), (), (), (), T#50MS);
+      LINE_1_CNTRL_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (560, FALSE, FALSE, TRUE, (), (), 6, 0, 4, (), (), (), (), (), T#500MS);
+      LINE_1_CB_TEST { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (561, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LINE_1_CB_SERVICE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (562, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      STEP_UP_TRAFO_INCOMING_AC_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (563, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      STEP_UP_TRAFO_INCOMING_VT1_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (564, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      STEP_UP_TRAFO_INCOMING_VT2_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (565, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      STEP_UP_TRAFO_INCOMING_VT3_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (566, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      _2ND_SHUNT_RELASE_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (567, FALSE, FALSE, TRUE, (), (), 6, 0, 4, (), (), (), (), (), T#50MS);
+      FUSE_OK { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (568, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LINE_1_CHARGING_MOTOR_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (569, FALSE, FALSE, TRUE, (), (), 6, 0, 4, (), (), (), (), (), T#500MS);
+      LINE_1_HEATER_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (570, FALSE, FALSE, TRUE, (), (), 6, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_507 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (571, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LEVER_INSERTED { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (572, FALSE, FALSE, TRUE, (), (), 0, 0, 0, (), (), (), (), (), T#50MS);
+      GAS_ERROR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (573, FALSE, FALSE, TRUE, (), (), 6, 0, 4, (), (), (), (), (), T#50MS);
+      LINE_1_MCBS_ALARM { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (574, FALSE, FALSE, TRUE, (), (), 6, 0, 4, (), (), (), (), (), T#500MS);
+      LINE_1_MCBS_TRIP { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (575, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+   END_STRUCT;
+
+END_TYPE
+

@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>PlantConfigurator</AssemblyName>
+    <RootNamespace>CwcConfigurator</RootNamespace>
+    <ApplicationIcon>PlantConfigurator.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="PlantConfigurator.ico"/>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.104.2" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Templates\Configuration_Unit_List_Template.xlsm" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Scripts\alm_par_doc.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Templates\description_templates.csv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Templates\SEQ_PAR.db" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Templates\alm_par_template.docx" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Templates\alm_par_template_nb.docx" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Start Plant Configurator.bat" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Installers\install_prerequisites.ps1" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Installers\*.exe" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tag_browser\dist\WinCC_Tag_Browser.exe" Link="Tools\tag_browser\WinCC_Tag_Browser.exe" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\tag_browser\dist\WinCC_Tag_Browser.exe')" />
+    <None Include="..\..\tag_browser\tags_config.json" Link="Tools\tag_browser\tags_config.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\tag_browser\tags_config.json')" />
+    <None Include="Tools\WinCCUnifiedJsConnector\server\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Tools\python\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="CopyTiaHelper" AfterTargets="Build;Publish">
+    <MSBuild Projects="..\CwcConfigurator.TiaHelper\CwcConfigurator.TiaHelper.csproj" Targets="Restore;Build" Properties="Configuration=$(Configuration)" />
+    <ItemGroup>
+      <TiaHelperFiles Include="..\CwcConfigurator.TiaHelper\bin\$(Configuration)\net48\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(TiaHelperFiles)" DestinationFiles="@(TiaHelperFiles->'$(OutputPath)TiaHelper\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TiaHelperFiles)" DestinationFiles="@(TiaHelperFiles->'$(PublishDir)TiaHelper\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
+  </Target>
+</Project>

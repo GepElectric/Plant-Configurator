@@ -1,0 +1,39 @@
+﻿TYPE "DT_ALM_SYSTEM_AUX_AC_DC_2"
+VERSION : 0.1
+   STRUCT
+      MAIN_CB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (512, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#50MS);
+      MAIN_CB_SIG_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (513, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      MAIN_CB_MANUAL { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (514, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      MAIN_CB_MAN_AUTO_SIG_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (515, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      DIESEL_CB_ON { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (516, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      DIESEL_CB_SIG_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (517, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      DIESEL_CB_MANUAL { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (518, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      DIESEL_CB_MAN_AUTO_SIG_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (519, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      MAIN_CB_TRIPPED { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (520, FALSE, FALSE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      DIESEL_CB_TRIPPED { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (521, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      POWERHOUSE_DISTRIB_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (522, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      RUNNER_VANES_HEATER_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (523, FALSE, TRUE, TRUE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      RUNNER_VANES_DRIVE_CONT_OPEN_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (524, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      RUNNER_VANES_DRIVE_CONT_CLOSE_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (525, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      WICKET_GATE_HEATER_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (526, FALSE, TRUE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      RUNNER_VANES_DRIVE_CB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (527, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      WICKET_GATE_DRIVE_CB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (528, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      WICKET_GATE_DRIVE_CONT_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (529, FALSE, FALSE, TRUE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      WICKET_GATE_DRIVE_CONT_ON { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (530, FALSE, FALSE, TRUE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      WICKET_GATE_HEATER_CONT_CLOSED { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (531, FALSE, FALSE, TRUE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      OVERSPEED_TRIP_TURBINE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (532, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      WICKET_GATE_TORQUE_SWITCH_C { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (533, FALSE, TRUE, TRUE, (), (), 0, 0, 2, (), (), (), (), (), T#500MS);
+      WICKET_GATE_TORQUE_SWITCH_O { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (534, FALSE, TRUE, TRUE, (), (), 0, 0, 2, (), (), (), (), (), T#500MS);
+      RUNNER_VANES_TORQUE_SWITCH_C { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (535, FALSE, TRUE, TRUE, (), (), 0, 0, 2, (), (), (), (), (), T#500MS);
+      RUNNER_VANES_TORQUE_SWITCH_O { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (536, FALSE, TRUE, TRUE, (), (), 0, 0, 2, (), (), (), (), (), T#500MS);
+      RUNNER_VANES_THERMOSWITCH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (537, FALSE, TRUE, TRUE, (), (), 0, 0, 2, (), (), (), (), (), T#500MS);
+      WORKSTATION_UPS_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (538, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_507 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (539, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_508 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (540, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_509 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (541, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_510 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (542, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_511 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (543, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+   END_STRUCT;
+
+END_TYPE
+

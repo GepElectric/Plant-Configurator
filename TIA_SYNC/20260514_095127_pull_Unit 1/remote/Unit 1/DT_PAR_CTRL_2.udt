@@ -1,0 +1,39 @@
+﻿TYPE "DT_PAR_CTRL_2"
+VERSION : 0.1
+   STRUCT
+      CTRL_I_MEAS_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 32, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      CTRL_I_MEAS_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 33, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      CTRL_PF_MEAS_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 34, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      CTRL_PF_MEAS_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 35, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      CTRL_f_MEAS_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 36, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      CTRL_f_MEAS_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 37, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      INTAKE_WATER_LEVEL_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 38, 0, -4.0, 0, T#0MS, 0.0, 0.0, 'm');
+      INTAKE_WATER_LEVEL_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 39, 0, 1.0, 0, T#0MS, 0.0, 0.0, 'm');
+      INTAKE_WATER_LEVEL_LL { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 40, 0, -2.3, 0, T#0MS, 0.0, 0.0, 'm');
+      INTAKE_WATER_LEVEL_L { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 41, 0, -2.12, 0, T#0MS, 0.0, 0.0, 'm');
+      TURBINE_PRESSURE_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 42, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      TURBINE_PRESSURE_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 43, 0, 25.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      TURBINE_PRESSURE_LL { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 44, 0, 13.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      TURBINE_PRESSURE_L { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 45, 0, 14.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      TURBINE_PRESSURE_H { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 46, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      SPEED_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 47, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'rpm');
+      SPEED_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 48, 0, 1500.0, 0, T#0MS, 0.0, 2000.0, 'rpm');
+      TURBINE_PRESSURE_HH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 49, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      SPARE_19 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 50, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      AUTO_RESTART_ENABLED { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 51, 1, 0.0, 1, T#0MS, 0.0, 0.0, '-');
+      MIN_WATER_LEVEL_FOR_AUTO_RESTART { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 52, 0, -0.2, 0, T#0MS, 0.0, 0.0, 'm');
+      SPARE_22 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 53, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      SPARE_23 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 54, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      LOCAL_CTRL_SW_EXSIST { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 55, 1, 0.0, 1, T#0MS, 0.0, 0.0, '-');
+      AUTO_CTRL_SW_EXSIST { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 56, 1, 0.0, 1, T#0MS, 0.0, 0.0, '-');
+      SPARE_26 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 57, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      SPARE_27 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 58, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      MINIMAL_POWER { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 59, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PPC_ENB_AUTO_RES_AFTER_CMD_OFF { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 60, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      SPARE_30 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 61, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      SPARE_31 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 62, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      SPARE_32 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 63, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+   END_STRUCT;
+
+END_TYPE
+

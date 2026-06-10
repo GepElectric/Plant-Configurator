@@ -1,0 +1,84 @@
+<local:SettingsEditorViewBase x:Class="CwcConfigurator.App.Settings.DbSystemNameSettingsView"
+                              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                              xmlns:local="clr-namespace:CwcConfigurator.App">
+    <local:SettingsEditorViewBase.Resources>
+        <Style x:Key="DbSysCellText" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="DbSysEditText" TargetType="TextBox">
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+        </Style>
+    </local:SettingsEditorViewBase.Resources>
+
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Background="#FAFBFC" BorderBrush="#D0D7DE" BorderThickness="1" Padding="12,10" Margin="0,0,0,10" CornerRadius="3">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="170"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="170"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Text="PLC struct type prefix"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"
+                           ToolTip="Prefix prepended to every generated PLC struct type name (e.g. DT_DIGITAL_INPUT_)."/>
+                <TextBox x:Name="StructPrefixBox" Grid.Column="1" MinHeight="28" Padding="6,4" VerticalContentAlignment="Center" TextChanged="PrefixBox_TextChanged" Margin="0,0,16,0"/>
+                <TextBlock x:Name="SimulatorPrefixLabel"
+                           Grid.Column="2"
+                           Text="Simulator struct type prefix"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"
+                           ToolTip="Prefix for the simulator-side struct type name (DI / DO / MEAS only)."/>
+                <TextBox x:Name="SimulatorPrefixBox" Grid.Column="3" MinHeight="28" Padding="6,4" VerticalContentAlignment="Center" TextChanged="PrefixBox_TextChanged"/>
+            </Grid>
+        </Border>
+
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
+            <TextBlock Text="Tip: drag column header edges to resize. The last two columns are generated from the values above."
+                       Foreground="#57606A"
+                       FontSize="11"
+                       VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <DataGrid x:Name="SystemNamesGrid"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="True"
+                  CanUserDeleteRows="True"
+                  CanUserResizeColumns="True"
+                  CanUserResizeRows="False"
+                  CanUserSortColumns="False"
+                  HorizontalScrollBarVisibility="Auto"
+                  VerticalScrollBarVisibility="Auto"
+                  GridLinesVisibility="All"
+                  HeadersVisibility="Column"
+                  RowHeaderWidth="0"
+                  CellEditEnding="SystemNamesGrid_CellEditEnding"
+                  CurrentCellChanged="SystemNamesGrid_CurrentCellChanged">
+            <DataGrid.Columns>
+                <DataGridTextColumn Width="80" Header="SYS ID"
+                                    Binding="{Binding SystemNumber, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ElementStyle="{StaticResource DbSysCellText}" EditingElementStyle="{StaticResource DbSysEditText}"/>
+                <DataGridTextColumn Width="*" MinWidth="160" Header="STRUCT MEMBER NAME"
+                                    Binding="{Binding SystemPlcShortName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ElementStyle="{StaticResource DbSysCellText}" EditingElementStyle="{StaticResource DbSysEditText}"/>
+                <DataGridTextColumn Width="*" MinWidth="200" Header="GENERATED PLC STRUCT"
+                                    Binding="{Binding SystemPlcLongName}" IsReadOnly="True"
+                                    ElementStyle="{StaticResource DbSysCellText}"/>
+                <DataGridTextColumn x:Name="SimulatorColumn" Width="*" MinWidth="200" Header="GENERATED SIMULATOR STRUCT"
+                                    Binding="{Binding SimulatorDataType}" IsReadOnly="True"
+                                    ElementStyle="{StaticResource DbSysCellText}"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</local:SettingsEditorViewBase>

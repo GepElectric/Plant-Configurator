@@ -1,0 +1,239 @@
+<Window x:Class="CwcConfigurator.App.DbDiInfoDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="DB DI info"
+        Width="1680"
+        Height="860"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterOwner"
+        Loaded="Window_Loaded">
+    <Grid Margin="20">
+        <TabControl>
+            <TabItem Header="Status to alarm">
+                <Viewbox Stretch="Uniform">
+                    <Canvas Width="1760" Height="460">
+                        <Rectangle Canvas.Left="560"
+                                   Canvas.Top="70"
+                                   Width="340"
+                                   Height="300"
+                                   Stroke="#1F2937"
+                                   StrokeThickness="2"
+                                   Fill="#F8FAFC"/>
+                        <TextBlock Canvas.Left="657"
+                                   Canvas.Top="96"
+                                   Text="FB STATUS TO ALARM"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="#111827"/>
+
+                        <Line Canvas.Left="500" Canvas.Top="145" X2="60" Stroke="#1F2937" StrokeThickness="2"/>
+                        <Line Canvas.Left="500" Canvas.Top="220" X2="60" Stroke="#1F2937" StrokeThickness="2"/>
+                        <Line Canvas.Left="500" Canvas.Top="295" X2="60" Stroke="#1F2937" StrokeThickness="2"/>
+                        <Line Canvas.Left="900" Canvas.Top="315" X2="50" Stroke="#1F2937" StrokeThickness="2"/>
+
+                        <TextBlock Canvas.Left="575" Canvas.Top="130" Width="110" Text="Configured" FontSize="11" FontWeight="SemiBold" TextAlignment="Left"/>
+                        <TextBlock Canvas.Left="575" Canvas.Top="205" Width="110" Text="DI ID" FontSize="11" FontWeight="SemiBold" TextAlignment="Left"/>
+                        <TextBlock Canvas.Left="575" Canvas.Top="280" Width="110" Text="INVERT" FontSize="11" FontWeight="SemiBold" TextAlignment="Left"/>
+                        <TextBlock Canvas.Left="835" Canvas.Top="300" Width="55" Text="ALM ID" FontSize="11" FontWeight="SemiBold" TextAlignment="Right"/>
+
+                        <Border Canvas.Left="330" Canvas.Top="122" Width="150" MinHeight="46" Padding="6" Background="White" BorderBrush="#CBD5E1" BorderThickness="1">
+                            <TextBlock x:Name="AlarmConfigText" TextWrapping="Wrap" TextAlignment="Center" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        </Border>
+                        <Border Canvas.Left="20" Canvas.Top="179" Width="470" Height="82" Padding="4" Background="White" BorderBrush="#CBD5E1" BorderThickness="1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" BorderBrush="#E2E8F0" BorderThickness="0,0,1,0" Margin="0,0,4,0" Padding="4,0">
+                                    <TextBlock x:Name="StatusTechnicalText" TextWrapping="Wrap" TextAlignment="Center" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                </Border>
+                                <TextBlock x:Name="StatusDescriptionText" Grid.Column="1" TextWrapping="Wrap" TextAlignment="Center" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="4,0,0,0"/>
+                            </Grid>
+                        </Border>
+                        <Border Canvas.Left="330" Canvas.Top="272" Width="150" MinHeight="46" Padding="6" Background="White" BorderBrush="#CBD5E1" BorderThickness="1">
+                            <TextBlock x:Name="AlarmInvertText" TextWrapping="Wrap" TextAlignment="Center" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        </Border>
+                        <Border Canvas.Left="950" Canvas.Top="236" Width="790" Height="158" Padding="4" Background="White" BorderBrush="#CBD5E1" BorderThickness="1">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="64"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" BorderBrush="#E2E8F0" BorderThickness="0,0,1,0" Margin="0,0,4,0" Padding="4,0">
+                                        <TextBlock x:Name="AlarmTechnicalText" TextWrapping="Wrap" TextAlignment="Center" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                    </Border>
+                                    <TextBlock x:Name="AlarmDescriptionText" Grid.Column="1" TextWrapping="Wrap" TextAlignment="Center" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="4,0,0,0"/>
+                                </Grid>
+                                <ContentControl x:Name="AlarmSettingsContent" Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="4,4,4,0"/>
+                            </Grid>
+                        </Border>
+                    </Canvas>
+                </Viewbox>
+            </TabItem>
+
+            <TabItem Header="Summery">
+                <Grid Margin="28">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.05*"/>
+                        <ColumnDefinition Width="1.2*"/>
+                        <ColumnDefinition Width="1.35*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Margin="0,0,18,0" Padding="20" Background="White" BorderBrush="#CBD5E1" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="COLORS" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,18"/>
+                            <Grid Margin="0,0,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="COLOR VAL 0" VerticalAlignment="Center" FontSize="13"/>
+                                <Border x:Name="Color0Swatch" Grid.Column="1" Width="54" Height="34" BorderBrush="#64748B" BorderThickness="1" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="Color0Text" Grid.Column="2" VerticalAlignment="Center" FontSize="13" TextWrapping="Wrap"/>
+                            </Grid>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="COLOR VAL 1" VerticalAlignment="Center" FontSize="13"/>
+                                <Border x:Name="Color1Swatch" Grid.Column="1" Width="54" Height="34" BorderBrush="#64748B" BorderThickness="1" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="Color1Text" Grid.Column="2" VerticalAlignment="Center" FontSize="13" TextWrapping="Wrap"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Margin="0,0,18,0" Padding="20" Background="White" BorderBrush="#CBD5E1" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="MAPPING" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,18"/>
+                            <TextBlock x:Name="MappingText" TextWrapping="Wrap" FontSize="14" LineHeight="24"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Padding="20" Background="White" BorderBrush="#CBD5E1" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="TEXTS" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,18"/>
+                            <TextBlock x:Name="TextsText" TextWrapping="Wrap" FontSize="14" LineHeight="24"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="TIA cross-reference">
+                <Grid Margin="28">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="14"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="ID VARIABLE" FontSize="13" FontWeight="SemiBold" Foreground="#475569"/>
+                                <TextBlock x:Name="IdCrossReferenceVariableText" Margin="0,4,0,0" FontFamily="Consolas" FontSize="15" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Button x:Name="OpenIdTiaCrossReferenceButton"
+                                    Grid.Column="1"
+                                    Content="Open in TIA"
+                                    Width="120"
+                                    Height="32"
+                                    Margin="18,0,0,0"
+                                    VerticalAlignment="Top"
+                                    IsEnabled="False"
+                                    Click="OpenIdTiaCrossReferenceButton_Click"/>
+                        </Grid>
+                        <Border Grid.Row="1" Margin="0,10,0,8" Padding="10" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1">
+                            <TextBlock x:Name="IdCrossReferenceSummaryText" FontSize="13" TextWrapping="Wrap"/>
+                        </Border>
+                        <DataGrid x:Name="IdCrossReferenceGrid"
+                                  Grid.Row="2"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserAddRows="False"
+                                  HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal"
+                                  SelectionChanged="IdCrossReferenceGrid_SelectionChanged">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Block" Binding="{Binding BlockName}" Width="180"/>
+                                <DataGridTextColumn Header="Network" Binding="{Binding Network}" Width="80"/>
+                                <DataGridTextColumn Header="Reference location" Binding="{Binding ReferenceLocation}" Width="230"/>
+                                <DataGridTextColumn Header="Reference type" Binding="{Binding ReferenceType}" Width="115"/>
+                                <DataGridTextColumn Header="Access" Binding="{Binding Access}" Width="80"/>
+                                <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="80"/>
+                                <DataGridTextColumn Header="Type" Binding="{Binding TypeName}" Width="100"/>
+                                <DataGridTextColumn Header="Path" Binding="{Binding Path}" Width="230"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+
+                    <Grid Grid.Row="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="VAL VARIABLE" FontSize="13" FontWeight="SemiBold" Foreground="#475569"/>
+                                <TextBlock x:Name="ValCrossReferenceVariableText" Margin="0,4,0,0" FontFamily="Consolas" FontSize="15" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Button x:Name="OpenValTiaCrossReferenceButton"
+                                    Grid.Column="1"
+                                    Content="Open in TIA"
+                                    Width="120"
+                                    Height="32"
+                                    Margin="18,0,0,0"
+                                    VerticalAlignment="Top"
+                                    IsEnabled="False"
+                                    Click="OpenValTiaCrossReferenceButton_Click"/>
+                        </Grid>
+                        <Border Grid.Row="1" Margin="0,10,0,8" Padding="10" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1">
+                            <TextBlock x:Name="ValCrossReferenceSummaryText" FontSize="13" TextWrapping="Wrap"/>
+                        </Border>
+                        <DataGrid x:Name="ValCrossReferenceGrid"
+                                  Grid.Row="2"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserAddRows="False"
+                                  HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal"
+                                  SelectionChanged="ValCrossReferenceGrid_SelectionChanged">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Block" Binding="{Binding BlockName}" Width="180"/>
+                                <DataGridTextColumn Header="Network" Binding="{Binding Network}" Width="80"/>
+                                <DataGridTextColumn Header="Reference location" Binding="{Binding ReferenceLocation}" Width="230"/>
+                                <DataGridTextColumn Header="Reference type" Binding="{Binding ReferenceType}" Width="115"/>
+                                <DataGridTextColumn Header="Access" Binding="{Binding Access}" Width="80"/>
+                                <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="80"/>
+                                <DataGridTextColumn Header="Type" Binding="{Binding TypeName}" Width="100"/>
+                                <DataGridTextColumn Header="Path" Binding="{Binding Path}" Width="230"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

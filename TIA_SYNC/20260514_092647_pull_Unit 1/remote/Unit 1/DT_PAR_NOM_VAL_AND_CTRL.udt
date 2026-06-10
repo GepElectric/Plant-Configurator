@@ -1,0 +1,39 @@
+﻿TYPE "DT_PAR_NOM_VAL_AND_CTRL"
+VERSION : 0.1
+   STRUCT
+      SPARE_00 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 0, 0, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      ACTIVE_POWER { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 1, 0, 2070.0, 0, T#0MS, 0.0, 3000.0, 'kW');
+      POSITIVE_REACTIVE_POWER { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 2, 0, 1000.0, 0, T#0MS, 0.0, 1000.0, 'kVAr');
+      NEGATIVE_REACTIVE_POWER { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 3, 0, -457.0, 0, T#0MS, 0.0, 0.0, 'kVAr');
+      APPARENT_POWER { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 4, 0, 2300.0, 0, T#0MS, 0.0, 0.0, 'kVA');
+      POSITIVE_POWER_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 5, 0, 0.9, 0, T#0MS, 0.0, 0.0, '-');
+      NEGATIVE_POWER_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 6, 0, 0.98, 0, T#0MS, 0.0, 0.0, '-');
+      FREQUENCY { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 7, 0, 50.0, 0, T#0MS, 0.0, 0.0, 'Hz');
+      GENERATOR_VOLTAGE { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 8, 0, 0.69, 0, T#0MS, 0.0, 0.0, 'kV');
+      GENERATOR_CURRENT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 9, 0, 1925.0, 0, T#0MS, 0.0, 0.0, 'A');
+      GRID_VOLTAGE { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 10, 0, 0.69, 0, T#0MS, 0.0, 0.0, 'kV');
+      GRID_CURRENT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 11, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      GENERATOR_SPEED { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 12, 0, 750.0, 0, T#0MS, 0.0, 0.0, 'rpm');
+      TURBINE_SPEED { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 13, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      LOW_LIMIT_EQUAL_0 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 14, 0, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      SPARE_16 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 15, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      CTRL_STANDSTILL_SPEED_OK_TIME_DELAY { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 16, 2, 0.0, 0, T#15S, 0.0, 0.0, '-');
+      CTRL_STANDSTILL_MIV_CLOSED_TIME_DELAY { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 17, 2, 0.0, 0, T#30M, 0.0, 0.0, '-');
+      CTRL_h_MAX_ALLOWED_DIFFERENCE { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 18, 0, 0.2, 0, T#0MS, 0.0, 0.0, '');
+      CTRL_n_MAX_ALLOWED_DIFFERENCE { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 19, 0, 100.0, 0, T#0MS, 0.0, 0.0, '');
+      CTRL_pt_MAX_ALLOWED_DIFFERENCE { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 20, 0, 1.0, 0, T#0MS, 0.0, 0.0, '');
+      SPARE_22 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 21, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      WATER_LEVEL_REGULATION_INCREMENT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 22, 0, 0.01, 0, T#0MS, 0.0, 0.0, 'm');
+      WATER_PRESSURE_REGULATION_INCREMENT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 23, 0, 0.05, 0, T#0MS, 0.0, 0.0, 'bar');
+      ACTIVE_POWER_REGULATION_INCREMENT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 24, 0, 50.0, 0, T#0MS, 0.0, 0.0, 'kW');
+      POSITION_REGULATION_INCREMENT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 25, 0, 5.0, 0, T#0MS, 0.0, 0.0, '%');
+      SPEED_REGULATION_INCREMENT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 26, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      SPARE_28 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 27, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      h_NUM_MEAS { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 28, 1, 0.0, 1, T#0MS, 0.0, 0.0, '');
+      pt_NUM_MEAS { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 29, 1, 0.0, 2, T#0MS, 0.0, 0.0, '');
+      n_NUM_MEAS { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 30, 1, 0.0, 2, T#0MS, 0.0, 0.0, '');
+      SPARE_32 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 31, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+   END_STRUCT;
+
+END_TYPE
+

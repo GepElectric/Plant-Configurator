@@ -1,0 +1,31 @@
+﻿TYPE "DT_MEASUREMENT_SYSTEM_TRAFO_AND_OTHER"
+VERSION : 0.1
+   STRUCT
+      MEAS_0 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 240, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_1 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 241, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_2 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 242, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_3 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 243, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_4 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 244, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_5 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 245, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_6 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 246, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_7 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 247, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_8 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 248, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_9 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 249, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_10 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 250, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_11 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 251, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_12 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 252, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_13 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 253, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_14 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 254, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_15 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 255, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      SS_TRAFO_WIND_U_TEMP { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 256, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      SS_TRAFO_WIND_V_TEMP { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 257, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      SS_TRAFO_WIND_W_TEMP { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 258, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_19 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 259, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_20 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 260, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_21 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 261, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_22 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 262, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_23 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 263, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+   END_STRUCT;
+
+END_TYPE
+

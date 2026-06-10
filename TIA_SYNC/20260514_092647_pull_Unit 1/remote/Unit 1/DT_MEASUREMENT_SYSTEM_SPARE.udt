@@ -1,0 +1,31 @@
+﻿TYPE "DT_MEASUREMENT_SYSTEM_SPARE"
+VERSION : 0.1
+   STRUCT
+      TURBINE_SPEED_MEAS { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 264, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_1 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 265, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_2 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 266, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_3 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 267, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_4 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 268, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_5 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 269, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_6 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 270, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_7 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 271, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_8 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 272, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_9 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 273, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_10 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 274, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_11 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 275, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_12 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 276, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_13 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 277, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_14 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 278, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_15 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 279, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_16 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 280, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_17 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 281, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_18 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 282, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_19 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 283, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_20 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 284, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_21 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 285, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_22 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 286, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_23 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 287, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+   END_STRUCT;
+
+END_TYPE
+

@@ -1,0 +1,185 @@
+<local:SettingsEditorViewBase x:Class="CwcConfigurator.App.Settings.DbValidationColorsSettingsView"
+                              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                              xmlns:local="clr-namespace:CwcConfigurator.App">
+    <local:SettingsEditorViewBase.Resources>
+        <local:ColorValueToBrushConverter x:Key="ColorValueToBrushConverter"/>
+        <Style x:Key="DbAdvCellText" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="DbAdvEditText" TargetType="TextBox">
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="DbAdvNumberBox" TargetType="TextBox" BasedOn="{StaticResource DbAdvEditText}">
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Padding" Value="6,4"/>
+        </Style>
+        <DataTemplate x:Key="ColorPaletteTemplate">
+            <Border Background="{Binding Converter={StaticResource ColorValueToBrushConverter}}"
+                    BorderBrush="#B7C3D0"
+                    BorderThickness="1"
+                    Padding="4,2">
+                <TextBlock Text="{Binding}" HorizontalAlignment="Center" TextAlignment="Center"/>
+            </Border>
+        </DataTemplate>
+    </local:SettingsEditorViewBase.Resources>
+
+    <TabControl>
+        <TabItem x:Name="ColorsTab" Header="Status colors">
+            <DockPanel Margin="0,10,0,0">
+                <TextBlock DockPanel.Dock="Top"
+                           Text="Color shown when a status row has the listed integer value (DB DI only)."
+                           Foreground="#57606A"
+                           Margin="0,0,0,8"/>
+                <DataGrid x:Name="ColorsGrid"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="True"
+                          CanUserDeleteRows="True"
+                          CanUserResizeColumns="True"
+                          CanUserResizeRows="False"
+                          CanUserSortColumns="False"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto"
+                          GridLinesVisibility="All"
+                          HeadersVisibility="Column"
+                          RowHeaderWidth="0">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Width="100" Header="VALUE"
+                                            Binding="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ElementStyle="{StaticResource DbAdvCellText}" EditingElementStyle="{StaticResource DbAdvEditText}"/>
+                        <DataGridTextColumn Width="*" MinWidth="160" Header="COLOR NAME"
+                                            Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ElementStyle="{StaticResource DbAdvCellText}" EditingElementStyle="{StaticResource DbAdvEditText}"/>
+                        <DataGridTemplateColumn Width="200" Header="COLOR">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Background="{Binding Color, Converter={StaticResource ColorValueToBrushConverter}}"
+                                            BorderBrush="#B7C3D0"
+                                            BorderThickness="1"
+                                            Padding="4,2">
+                                        <TextBlock Text="{Binding Color}" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                            <DataGridTemplateColumn.CellEditingTemplate>
+                                <DataTemplate>
+                                    <ComboBox ItemsSource="{Binding ColorPalette, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                              SelectedItem="{Binding Color, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                              IsEditable="True"
+                                              DropDownOpened="ColorCombo_DropDownOpened"
+                                              ItemTemplate="{StaticResource ColorPaletteTemplate}"
+                                              HorizontalContentAlignment="Stretch"
+                                              VerticalContentAlignment="Center"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellEditingTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </TabItem>
+
+        <TabItem Header="Text length limits">
+            <Grid Margin="0,14,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="280"/>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.ColumnSpan="3"
+                           Text="Maximum number of characters before Validate (F5) flags the field."
+                           Foreground="#57606A"
+                           Margin="0,0,0,12"/>
+
+                <TextBlock Grid.Row="1" Text="STATUS SYSTEM ENG (max chars)" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,10"/>
+                <TextBox x:Name="SystemEngMaxText" Grid.Row="1" Grid.Column="1" Style="{StaticResource DbAdvNumberBox}" Margin="0,0,0,10"/>
+
+                <TextBlock Grid.Row="2" Text="STATUS NAME ENG (max chars)" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,10"/>
+                <TextBox x:Name="NameEngMaxText" Grid.Row="2" Grid.Column="1" Style="{StaticResource DbAdvNumberBox}" Margin="0,0,0,10"/>
+
+                <TextBlock Grid.Row="3" Text="STATUS SYSTEM OTHER (max chars)" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,10"/>
+                <TextBox x:Name="SystemOtherMaxText" Grid.Row="3" Grid.Column="1" Style="{StaticResource DbAdvNumberBox}" Margin="0,0,0,10"/>
+
+                <TextBlock Grid.Row="4" Text="STATUS NAME OTHER (max chars)" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,0"/>
+                <TextBox x:Name="NameOtherMaxText" Grid.Row="4" Grid.Column="1" Style="{StaticResource DbAdvNumberBox}"/>
+            </Grid>
+        </TabItem>
+
+        <TabItem Header="Validation lists">
+            <Grid Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" MinWidth="220"/>
+                    <ColumnDefinition Width="6"/>
+                    <ColumnDefinition Width="3*" MinWidth="260"/>
+                </Grid.ColumnDefinitions>
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                        <Button Content="Add field" MinWidth="100" Padding="10,4" Click="AddValidationField_Click"/>
+                        <Button Content="Delete field" MinWidth="100" Padding="10,4" Margin="8,0,0,0" Click="DeleteValidationField_Click"/>
+                    </StackPanel>
+                    <DataGrid x:Name="ValidationGrid"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="True"
+                              CanUserDeleteRows="True"
+                              CanUserResizeColumns="True"
+                              CanUserResizeRows="False"
+                              CanUserSortColumns="False"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"
+                              GridLinesVisibility="All"
+                              HeadersVisibility="Column"
+                              RowHeaderWidth="0"
+                              SelectionChanged="ValidationGrid_SelectionChanged">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Width="*" MinWidth="120" Header="FIELD KEY"
+                                                Binding="{Binding Key, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                ElementStyle="{StaticResource DbAdvCellText}" EditingElementStyle="{StaticResource DbAdvEditText}"/>
+                            <DataGridTextColumn Width="*" MinWidth="140" Header="DISPLAY NAME"
+                                                Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                ElementStyle="{StaticResource DbAdvCellText}" EditingElementStyle="{StaticResource DbAdvEditText}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+                <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="#D0D7DE"/>
+                <DockPanel Grid.Column="2">
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                        <Button Content="Add value" MinWidth="100" Padding="10,4" Click="AddValidationValue_Click"/>
+                        <Button Content="Delete value" MinWidth="100" Padding="10,4" Margin="8,0,0,0" Click="DeleteValidationValue_Click"/>
+                    </StackPanel>
+                    <DataGrid x:Name="ValidationOptionsGrid"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="True"
+                              CanUserDeleteRows="True"
+                              CanUserResizeColumns="True"
+                              CanUserResizeRows="False"
+                              CanUserSortColumns="False"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"
+                              GridLinesVisibility="All"
+                              HeadersVisibility="Column"
+                              RowHeaderWidth="0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Width="100" Header="VALUE"
+                                                Binding="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                ElementStyle="{StaticResource DbAdvCellText}" EditingElementStyle="{StaticResource DbAdvEditText}"/>
+                            <DataGridTextColumn Width="*" MinWidth="160" Header="DISPLAY LABEL"
+                                                Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                ElementStyle="{StaticResource DbAdvCellText}" EditingElementStyle="{StaticResource DbAdvEditText}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Grid>
+        </TabItem>
+    </TabControl>
+</local:SettingsEditorViewBase>

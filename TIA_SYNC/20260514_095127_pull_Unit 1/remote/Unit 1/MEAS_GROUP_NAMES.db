@@ -1,0 +1,38 @@
+﻿DATA_BLOCK "MEAS_GROUP_NAMES"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+NON_RETAIN
+   STRUCT 
+      LANGUAGE : Array[0..11] of String[32];
+      LANGUAGE_1 : Array[0..11] of String[32];
+   END_STRUCT;
+
+
+BEGIN
+   LANGUAGE[0] := 'Turbine & HPU';
+   LANGUAGE[1] := 'Generator Mechanical';
+   LANGUAGE[2] := 'Generator Measurement';
+   LANGUAGE[3] := 'Sepam G88';
+   LANGUAGE[4] := 'Leroy Sommer D700';
+   LANGUAGE[5] := 'ABB M4M20';
+   LANGUAGE[6] := 'ABB REF615';
+   LANGUAGE[7] := 'Control';
+   LANGUAGE[8] := 'CWS & Other';
+   LANGUAGE[9] := 'Aux. Supply';
+   LANGUAGE[10] := 'Trafo & Other';
+   LANGUAGE[11] := 'Generator speed measurements';
+   LANGUAGE_1[0] := '';
+   LANGUAGE_1[1] := '';
+   LANGUAGE_1[2] := '';
+   LANGUAGE_1[3] := '';
+   LANGUAGE_1[4] := '';
+   LANGUAGE_1[5] := '';
+   LANGUAGE_1[6] := '';
+   LANGUAGE_1[7] := '';
+   LANGUAGE_1[8] := '';
+   LANGUAGE_1[9] := '';
+   LANGUAGE_1[10] := '';
+   LANGUAGE_1[11] := '';
+
+END_DATA_BLOCK
+

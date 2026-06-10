@@ -1,0 +1,31 @@
+﻿TYPE "DT_MEASUREMENT_SYSTEM_AUX_SUPPLY"
+VERSION : 0.1
+   STRUCT
+      I_1 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 216, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'A');
+      I_2 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 217, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'A');
+      I_3 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 218, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'A');
+      I { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 219, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'A');
+      U12 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 220, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'V');
+      U13 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 221, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'V');
+      U23 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 222, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'V');
+      U_LL { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 223, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'V');
+      U1 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 224, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'V');
+      U2 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 225, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'V');
+      U3 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 226, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'V');
+      f { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 227, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'Hz');
+      PF { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 228, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '-');
+      P { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 229, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'kV');
+      Q { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 230, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'kVAr');
+      S { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 231, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'kVA');
+      E_ACT_IMP { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 232, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      E_ACT_EXP { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 233, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      E_RACT_IMP { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 234, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'kVAr');
+      E_RACT_EXP { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 235, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 'kVAr');
+      MEAS_20 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 236, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_21 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 237, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_22 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 238, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+      MEAS_23 { S7_SetPoint := 'False'} : "DT_MEASUREMENT_SOLO" := ((), (), FALSE, 1, 0, 239, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, '');
+   END_STRUCT;
+
+END_TYPE
+

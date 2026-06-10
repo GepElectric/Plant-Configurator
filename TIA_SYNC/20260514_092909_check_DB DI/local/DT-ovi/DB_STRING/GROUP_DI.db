@@ -1,0 +1,54 @@
+DATA_BLOCK "DI_GROUP_NAMES"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+NON_RETAIN
+   STRUCT 
+      LANGUAGE : Array[0..19] of String[32];
+      LANGUAGE_1 : Array[0..19] of String[32];
+   END_STRUCT;
+
+
+BEGIN
+   LANGUAGE[0] := 'Control and synchronization';
+   LANGUAGE[1] := 'Auxiliary supply';
+   LANGUAGE[2] := 'Generator cubicle';
+   LANGUAGE[3] := 'Generator';
+   LANGUAGE[4] := 'Protection';
+   LANGUAGE[5] := 'Intake';
+   LANGUAGE[6] := 'MIV & Bypass';
+   LANGUAGE[7] := 'HPU system';
+   LANGUAGE[8] := 'HPU pumps';
+   LANGUAGE[9] := 'CWS and LOU';
+   LANGUAGE[10] := 'CWS and LOU pumps';
+   LANGUAGE[11] := 'Turbine';
+   LANGUAGE[12] := 'Transformer';
+   LANGUAGE[13] := 'Drainage & Dewatering';
+   LANGUAGE[14] := 'Excitation';
+   LANGUAGE[15] := 'Line feeder';
+   LANGUAGE[16] := 'Gen and MEAS feeder';
+   LANGUAGE[17] := 'SN Auxiliary feeder';
+   LANGUAGE[18] := 'SN Trafo Feeder';
+   LANGUAGE[19] := '';
+   LANGUAGE_1[0] := 'Control and synchronization';
+   LANGUAGE_1[1] := 'Auxiliary supply';
+   LANGUAGE_1[2] := 'Generator cubicle';
+   LANGUAGE_1[3] := 'Generator';
+   LANGUAGE_1[4] := 'Protection';
+   LANGUAGE_1[5] := 'Intake';
+   LANGUAGE_1[6] := 'MIV & Bypass';
+   LANGUAGE_1[7] := 'HPU system';
+   LANGUAGE_1[8] := 'HPU pumps';
+   LANGUAGE_1[9] := 'CWS and LOU';
+   LANGUAGE_1[10] := 'CWS and LOU pumps';
+   LANGUAGE_1[11] := 'Turbine';
+   LANGUAGE_1[12] := 'Transformer';
+   LANGUAGE_1[13] := 'Drainage & Dewatering';
+   LANGUAGE_1[14] := 'Excitation';
+   LANGUAGE_1[15] := 'Line feeder';
+   LANGUAGE_1[16] := 'Gen and MEAS feeder';
+   LANGUAGE_1[17] := 'SN Auxiliary feeder';
+   LANGUAGE_1[18] := 'SN Trafo Feeder';
+   LANGUAGE_1[19] := '';
+
+END_DATA_BLOCK
+

@@ -1,0 +1,39 @@
+﻿TYPE "DT_PAR_GEN_EXC"
+VERSION : 0.1
+   STRUCT
+      GENERAL_START_EXC_REG { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 416, 1, 0.0, 2, T#0MS, 0.0, 0.0, '-');
+      GENERAL_U_REG_ENABLED { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 417, 1, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      GENERAL_CONVERT_PF_OR_Q { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 418, 1, 0.0, 2, T#0MS, 0.0, 0.0, '-');
+      GENERAL_V_MATCH_ENABLED { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 419, 1, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      GENERAL_VOLT_OK { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 420, 0, 0.8, 0, T#0MS, 0.0, 0.0, '%');
+      GENERAL_RAMP_TIME { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 421, 0, 60.0, 0, T#0MS, 0.0, 0.0, 's');
+      PARAM_5 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 422, 0, 25.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_6 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 423, 0, 1.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_7 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 424, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_8 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 425, 0, 2.0, 0, T#0MS, 0.0, 0.0, '');
+      GRID_REG_START_Q_REF { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 426, 0, 100.0, 0, T#0MS, 0.0, 0.0, 'kVar');
+      GRID_REG_START_PF_REF { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 427, 0, -0.95, 4, T#0MS, 0.0, 0.0, '-');
+      GRID_REG_START_U_REF { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 428, 0, 690.0, 0, T#0MS, 0.0, 0.0, 'V');
+      GRID_REG_MIN_Q_REF { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 429, 0, -200.0, 0, T#0MS, 0.0, 0.0, 'kVar');
+      GRID_REG_MIN_PF_REF { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 430, 0, 0.9, 4, T#0MS, 0.0, 0.0, '-');
+      GRID_REG_MIN_U_REF { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 431, 0, 650.0, 0, T#0MS, 0.0, 0.0, 'V');
+      GRID_REG_MAX_Q_REF { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 432, 0, 800.0, 0, T#0MS, 0.0, 0.0, 'kVar');
+      GRID_REG_MAX_PF_REF { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 433, 0, 0.9, 0, T#0MS, 0.0, 0.0, '-');
+      GRID_REG_MAX_U_REF { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 434, 0, 800.0, 0, T#0MS, 0.0, 0.0, 'V');
+      PARAM_18 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 435, 0, 730.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_19 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 436, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_20 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 437, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_21 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 438, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_22 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 439, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_23 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 440, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_24 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 441, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_25 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 442, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_26 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 443, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      ANA_CTRL_FIXED_LOW_LIMIT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 444, 0, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      ANA_CTRL_FIXED_HIGH_LIMIT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 445, 0, 27648.0, 0, T#0MS, 0.0, 0.0, '-');
+      ANA_CTRL_FIXED_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 446, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      ANA_CTRL_FIXED_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 447, 0, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+   END_STRUCT;
+
+END_TYPE
+

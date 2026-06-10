@@ -1,0 +1,39 @@
+﻿TYPE "DT_ALM_SYSTEM_TURBINE"
+VERSION : 0.1
+   STRUCT
+      SPARE_0 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (0, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#0MS);
+      PELTON_Y1_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (1, FALSE, FALSE, TRUE, (), (), 11, 11, 2, (), (), (), (), (), T#5S);
+      PELTON_Y2_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (2, FALSE, FALSE, TRUE, (), (), 2, 0, 2, (), (), (), (), (), T#5S);
+      PELTON_Y3_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (3, FALSE, FALSE, TRUE, (), (), 2, 4, 2, (), (), (), (), (), T#5S);
+      PELTON_Y4_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (4, FALSE, FALSE, TRUE, (), (), 2, 4, 2, (), (), (), (), (), T#5S);
+      PELTON_Y5_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (5, FALSE, FALSE, TRUE, (), (), 2, 4, 2, (), (), (), (), (), T#5S);
+      PELTON_Y6_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (6, FALSE, FALSE, TRUE, (), (), 2, 4, 2, (), (), (), (), (), T#5S);
+      PELTON_YD_1_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (7, FALSE, FALSE, TRUE, (), (), 2, 0, 2, (), (), (), (), (), T#5S);
+      PELTON_Y1_POS_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (8, FALSE, FALSE, TRUE, (), (), 0, 2, 2, (), (), (), (), (), T#5M);
+      PELTON_Y2_POS_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (9, FALSE, FALSE, TRUE, (), (), 0, 2, 2, (), (), (), (), (), T#5M);
+      PELTON_Y3_POS_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (10, FALSE, FALSE, TRUE, (), (), 4, 2, 2, (), (), (), (), (), T#5M);
+      PELTON_Y4_POS_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (11, FALSE, FALSE, TRUE, (), (), 4, 2, 2, (), (), (), (), (), T#5M);
+      PELTON_Y5_POS_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (12, FALSE, FALSE, TRUE, (), (), 4, 2, 2, (), (), (), (), (), T#5M);
+      PELTON_Y6_POS_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (13, FALSE, FALSE, TRUE, (), (), 4, 2, 2, (), (), (), (), (), T#5M);
+      PELTON_YD_1_POS_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (14, FALSE, FALSE, TRUE, (), (), 0, 2, 2, (), (), (), (), (), T#5M);
+      FRANCIS_DISTRIBUTOR_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (15, FALSE, TRUE, FALSE, (), (), 2, 0, 3, (), (), (), (), (), T#500MS);
+      FRANCIS_DISTRIBUTOR_POS_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (16, FALSE, TRUE, FALSE, (), (), 2, 0, 3, (), (), (), (), (), T#500MS);
+      KAPLAN_DISTRIBUTOR_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (17, FALSE, FALSE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      KAPLAN_DISTRIBUTOR_POS_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (18, FALSE, FALSE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      KAPLAN_RUNNER_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (19, FALSE, FALSE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      KAPLAN_RUNNER_POS_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (20, FALSE, FALSE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      CROSS_FLOW_VALVE_1_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (21, FALSE, FALSE, TRUE, (), (), 2, 0, 3, (), (), (), (), (), T#3S);
+      CROSS_FLOW_VALVE_2_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (22, FALSE, FALSE, TRUE, (), (), 2, 0, 3, (), (), (), (), (), T#3S);
+      CROSS_FLOW_VALVE_1_POS_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (23, FALSE, FALSE, TRUE, (), (), 2, 0, 3, (), (), (), (), (), T#5M);
+      CROSS_FLOW_VALVE_2_POS_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (24, FALSE, FALSE, TRUE, (), (), 2, 0, 3, (), (), (), (), (), T#5M);
+      TAIL_WATER_LEVEL_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (25, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TAIL_WATER_LEVEL_HIGH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (26, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TAIL_WATER_LEVEL_TOO_HIGH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (27, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TURBINE_NOT_CLOSED { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (28, FALSE, TRUE, TRUE, (), (), 2, 0, 0, (), (), (), (), (), T#3M);
+      SPRING_LINK_MONITORING { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (29, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      GUIDE_VANE_DIST_MONITOR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (30, FALSE, TRUE, TRUE, (), (), 3, 0, 3, (), (), (), (), (), T#500MS);
+      SPARE_31 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (31, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+   END_STRUCT;
+
+END_TYPE
+

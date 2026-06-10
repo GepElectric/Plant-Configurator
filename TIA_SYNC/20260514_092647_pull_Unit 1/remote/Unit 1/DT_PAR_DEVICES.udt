@@ -1,0 +1,39 @@
+﻿TYPE "DT_PAR_DEVICES"
+VERSION : 0.1
+   STRUCT
+      GEN_SENTRON_CURRENT_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 64, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      GEN_SENTRON_VOLT_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 65, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      GEN_SENTRON_POWER_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 66, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      GEN_SENTRON_FREQ_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 67, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      GEN_SENTRON_POWER_FACTOR_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 68, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      AUX_SENTRON_CURRENT_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 69, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      AUX_SENTRON_VOLT_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 70, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      AUX_SENTRON_POWER_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 71, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      AUX_SENTRON_FREQ_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 72, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      AUX_SENTRON_POWER_FACTOR_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 73, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      AUX_SENTRON_ENERGY_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 74, 0, 0.1, 0, T#0MS, 0.0, 0.0, '-');
+      GEN_PROT_CURRENT_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 75, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      GEN_PROT_VOLT_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 76, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      GEN_PROT_POWER_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 77, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      GEN_PROT_FREQ_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 78, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      GEN_PROT_POWER_FACTOR_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 79, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      LINE_PROT_CURRENT_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 80, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      LINE_PROT_VOLT_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 81, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      LINE_PROT_POWER_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 82, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      LINE_PROT_FREQ_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 83, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      LINE_PROT_POWER_FACTOR_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 84, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      LINE_PROT_ENERGY_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 85, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      EXC_CURRENT_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 86, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      EXC_VOLT_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 87, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      EXC_POWER_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 88, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      EXC_FREQ_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 89, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      EXC_POWER_FACTOR_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 90, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      TRAFO_CURR_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 91, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      TRAFO_VOLT_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 92, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      TRAFO_POWER_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 93, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      TRAFO_FREQ_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 94, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      TRAFO_ENERGY_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 95, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+   END_STRUCT;
+
+END_TYPE
+

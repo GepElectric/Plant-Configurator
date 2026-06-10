@@ -1,0 +1,39 @@
+﻿TYPE "DT_DIGITAL_INPUT_CWS_AND_LOU_PUMPS"
+VERSION : 0.1
+   STRUCT
+      CWS_PUMP_1_THERMAL_PROT { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 320), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      CWS_PUMP_1_REMOTE_SWITCH { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 321), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      CWS_PUMP_1_TRIPPED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 322), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      CWS_PUMP_1_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 323), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      CWS_PUMP_1_CONT_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 324), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      CWS_PUMP_2_THERMAL_PROT { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 325), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      CWS_PUMP_2_REMOTE_SWITCH { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 326), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      CWS_PUMP_2_TRIPPED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 327), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      CWS_PUMP_2_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 328), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      CWS_PUMP_2_CONT_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 329), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_1_THERMAL_PROT { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 330), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_1_REMOTE_SWITCH { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 331), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_1_TRIPPED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 332), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_1_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 333), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_1_CONT_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 334), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_2_THERMAL_PROT { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 335), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_2_REMOTE_SWITCH { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 336), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_2_TRIPPED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 337), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_2_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 338), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_2_CONT_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 339), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_DC_THERMAL_PROT { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 340), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_DC_REMOTE_SWITCH { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 341), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_DC_TRIPPED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 342), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_DC_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 343), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_DC_CONT_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 344), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_LIFT_THERMAL_PROT { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 345), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_LIFT_REMOTE_SWITCH { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 346), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_LIFT_TRIPPED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 347), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_LIFT_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 348), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LOU_PUMP_LIFT_CONT_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 349), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_350 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 350), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_351 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 351), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+   END_STRUCT;
+
+END_TYPE
+

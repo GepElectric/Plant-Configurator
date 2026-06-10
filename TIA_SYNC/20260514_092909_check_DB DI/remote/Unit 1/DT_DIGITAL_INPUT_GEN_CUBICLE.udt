@@ -1,0 +1,39 @@
+﻿TYPE "DT_DIGITAL_INPUT_GEN_CUBICLE"
+VERSION : 0.1
+   STRUCT
+      SURGE_ARRESTOR_FUSE_SWITCH_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 64), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      GRID_FUSE_SWITCH_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 65), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      GEN_FUSE_SWITCH_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 66), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SURGE_ARRESTOR_MCB_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 67), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      GRID_MCB_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 68), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      GEN_MCB_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 69), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      AUX_CB_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 70), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      AUX_CB_OFF { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 71), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      AUX_CB_TRIPPED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 72), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      GCB_TRIPPED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 73), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      GCB_READY_FOR_CLOSE { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 74), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      GCB_SPRING_CHARGED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 75), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      GRID_VOLTAGE_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 76), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      GEN_VOLTAGE_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 77), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      GCB_CONTROL_MCB_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 78), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      GEN_PROT_DEVICE_MCB_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 79), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      DIGITAL_INPUTS_PS_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 80), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      DIGITAL_OUTPUTS_PS_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 81), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      COMM_SWITCH_MCB_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 82), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SURGE_ARRESTOR_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 83), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      DC_DC_CONVERTOR_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 84), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      DC_GROUP_ALARM { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 85), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      DC_GROUP_TRIP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 86), (32000, 32000, 32000), (0, 4, 3), (FALSE, FALSE, 0));
+      BFA_SUPPLY_CB_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 87), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      BFA_SUPPLY_CB_TRIP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 88), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SURGE_ARRESTOR_2_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 89), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      Spare_90 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 90), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      Spare_91 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 91), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      Spare_92 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 92), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      Spare_93 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 93), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      Spare_94 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 94), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LAMP_TEST { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 95), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+   END_STRUCT;
+
+END_TYPE
+

@@ -1,0 +1,39 @@
+﻿TYPE "DT_ALM_SYSTEM_AUX_AC_DC_1"
+VERSION : 0.1
+   STRUCT
+      AC_MCBS_W { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (480, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AC_MCBS_T { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (481, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AC_NAPON { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (482, FALSE, FALSE, TRUE, (), (), 5, 0, 4, (), (), (), (), (), T#50MS);
+      AC_NAPON_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (483, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AC_DG_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (484, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AC_INTAKE_CUBICLE_SUPPLY_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (485, FALSE, FALSE, TRUE, (), (), 5, 0, 0, (), (), (), (), (), T#50MS);
+      AC_CONTROL_CUBICLE_SUPPLY_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (486, FALSE, TRUE, TRUE, (), (), 3, 0, 4, (), (), (), (), (), T#50MS);
+      AC_SERVICE_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (487, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SURGE_ARR_FAULT { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (488, FALSE, TRUE, TRUE, (), (), 0, 0, 2, (), (), (), (), (), T#50MS);
+      MAIN_CB_TRIP { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (489, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      "6_3_MV_CONTROL_MCB_FAULT" { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (490, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      "38_5_MV_CONTROL_MCB_FAULT" { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (491, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      OVERSPEED_PROT_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (492, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      DC_MCBS_W { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (493, FALSE, TRUE, TRUE, (), (), 0, 0, 1, (), (), (), (), (), T#50MS);
+      DC_MCBS_T { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (494, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      MV_DC_CONTROL_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (495, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      EXT_PS_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (496, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      RECTIFIER1_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (497, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      RECTIFIER2_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (498, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      RECTIFIER3_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (499, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      RECTIFIER1_FAULT_1 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (500, FALSE, TRUE, TRUE, (), (), 0, 0, 2, (), (), (), (), (), T#50MS);
+      RECTIFIER2_FAULT_1 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (501, FALSE, TRUE, TRUE, (), (), 0, 0, 2, (), (), (), (), (), T#50MS);
+      RECTIFIER3_FAULT_1 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (502, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BATTERY_DISCONNECTED { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (503, FALSE, TRUE, TRUE, (), (), 0, 0, 2, (), (), (), (), (), T#50MS);
+      BATTERY_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (504, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      DI_PS_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (505, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      DC_GCB_CUBBICLE_SUPPLY_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (506, FALSE, FALSE, TRUE, (), (), 5, 0, 4, (), (), (), (), (), T#50MS);
+      DC_MV_CUBICLE_SUPPLY_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (507, FALSE, FALSE, TRUE, (), (), 5, 0, 4, (), (), (), (), (), T#50MS);
+      DC_CONTROL_CUBICLE_SUPPLY_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (508, FALSE, FALSE, TRUE, (), (), 5, 0, 4, (), (), (), (), (), T#50MS);
+      AC_MV_CUBICLE_SUPPLY_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (509, FALSE, FALSE, TRUE, (), (), 5, 0, 4, (), (), (), (), (), T#50MS);
+      COMMON_DC_SUPPLY_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (510, FALSE, FALSE, TRUE, (), (), 3, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_479 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (511, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+   END_STRUCT;
+
+END_TYPE
+

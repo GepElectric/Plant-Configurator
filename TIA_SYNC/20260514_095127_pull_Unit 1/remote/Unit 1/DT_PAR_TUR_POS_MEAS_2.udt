@@ -1,0 +1,39 @@
+﻿TYPE "DT_PAR_TUR_POS_MEAS_2"
+VERSION : 0.1
+   STRUCT
+      PELTON_NOZZLE_4_VAL_1 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 480, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_4_VAL_2 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 481, 0, 107.3668, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_4_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 482, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_4_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 483, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      PELTON_NOZZLE_5_VAL_1 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 484, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_5_VAL_2 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 485, 0, 106.583, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_5_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 486, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_5_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 487, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      PELTON_NOZZLE_6_VAL_1 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 488, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_6_VAL_2 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 489, 0, 107.3667, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_6_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 490, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_6_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 491, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      PELTON_DEFLECTOR_1_VAL_1 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 492, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_DEFLECTOR_1_VAL_2 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 493, 0, 100.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_DEFLECTOR_1_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 494, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_DEFLECTOR_1_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 495, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      PELTON_DEFLECTOR_2_VAL_1 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 496, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_DEFLECTOR_2_VAL_2 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 497, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_DEFLECTOR_2_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 498, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_DEFLECTOR_2_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 499, 0, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      PELTON_DEFLECTOR_3_VAL_1 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 500, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_DEFLECTOR_3_VAL_2 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 501, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_DEFLECTOR_3_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 502, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_DEFLECTOR_3_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 503, 0, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      PARAM_216 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 504, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_217 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 505, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_218 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 506, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_219 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 507, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_220 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 508, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_221 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 509, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_222 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 510, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_223 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 511, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+   END_STRUCT;
+
+END_TYPE
+

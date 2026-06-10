@@ -1,0 +1,57 @@
+<Window x:Class="CwcConfigurator.App.DbAoInfoDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="DB AO info"
+        Width="1680"
+        Height="860"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterOwner"
+        Loaded="Window_Loaded">
+    <Grid Margin="20">
+        <TabControl x:Name="RootTabs">
+            <TabItem Header="AO">
+                <Viewbox Stretch="Uniform">
+                    <Canvas x:Name="InfoCanvas" Width="1720" Height="730">
+                        <Border Canvas.Left="560" Canvas.Top="10" Width="600" Height="98" Padding="8" Background="White" BorderBrush="#CBD5E1" BorderThickness="1">
+                            <TextBlock x:Name="AoText" TextWrapping="Wrap" TextAlignment="Center" FontSize="13" LineHeight="17" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        </Border>
+
+                        <Rectangle Canvas.Left="880"
+                                   Canvas.Top="130"
+                                   Width="240"
+                                   Height="520"
+                                   Stroke="#1F2937"
+                                   StrokeThickness="2"
+                                   Fill="#F8FAFC"/>
+                        <TextBlock Canvas.Left="972"
+                                   Canvas.Top="156"
+                                   Text="FB AO"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="#111827"/>
+                    </Canvas>
+                </Viewbox>
+            </TabItem>
+            <TabItem Header="Summery">
+                <Grid Margin="28">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1*"/>
+                        <ColumnDefinition Width="1.15*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Margin="0,0,18,0" Padding="20" Background="White" BorderBrush="#CBD5E1" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="MAPPING" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,18"/>
+                            <TextBlock x:Name="MappingText" TextWrapping="Wrap" FontSize="14" LineHeight="24"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Padding="20" Background="White" BorderBrush="#CBD5E1" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="TEXTS" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,18"/>
+                            <TextBlock x:Name="TextsText" TextWrapping="Wrap" FontSize="14" LineHeight="24"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

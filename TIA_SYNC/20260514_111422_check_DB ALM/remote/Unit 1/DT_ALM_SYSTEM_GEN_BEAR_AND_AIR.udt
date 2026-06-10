@@ -1,0 +1,39 @@
+﻿TYPE "DT_ALM_SYSTEM_GEN_BEAR_AND_AIR"
+VERSION : 0.1
+   STRUCT
+      BEARING_1_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (160, FALSE, TRUE, TRUE, (), (), 2, 4, 2, (), (), (), (), (), T#3S);
+      BEARING_1_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (161, FALSE, TRUE, TRUE, (), (), 2, 4, 1, (), (), (), (), (), T#5S);
+      BEARING_1_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (162, FALSE, TRUE, TRUE, (), (), 2, 4, 3, (), (), (), (), (), T#5S);
+      BEARING_2_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (163, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BEARING_2_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (164, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BEARING_2_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (165, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BEARING_3_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (166, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BEARING_3_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (167, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BEARING_3_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (168, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BEARING_4_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (169, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BEARING_4_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (170, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BEARING_4_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (171, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BEARING_5_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (172, FALSE, TRUE, TRUE, (), (), 4, 2, 2, (), (), (), (), (), T#3S);
+      BEARING_5_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (173, FALSE, TRUE, TRUE, (), (), 4, 2, 1, (), (), (), (), (), T#5S);
+      BEARING_5_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (174, FALSE, TRUE, TRUE, (), (), 4, 2, 3, (), (), (), (), (), T#5S);
+      BEARING_6_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (175, FALSE, FALSE, TRUE, (), (), 4, 2, 2, (), (), (), (), (), T#500MS);
+      BEARING_6_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (176, FALSE, FALSE, TRUE, (), (), 4, 2, 1, (), (), (), (), (), T#500MS);
+      BEARING_6_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (177, FALSE, FALSE, TRUE, (), (), 4, 2, 3, (), (), (), (), (), T#500MS);
+      AIR_INLET_OUTLET_1_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (178, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AIR_INLET_OUTLET_1_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (179, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AIR_INLET_OUTLET_1_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (180, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AIR_INLET_OUTLET_2_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (181, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AIR_INLET_OUTLET_2_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (182, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AIR_INLET_OUTLET_2_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (183, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AIR_INLET_OUTLET_3_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (184, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AIR_INLET_OUTLET_3_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (185, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AIR_INLET_OUTLET_3_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (186, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AIR_INLET_OUTLET_4_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (187, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AIR_INLET_OUTLET_4_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (188, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AIR_INLET_OUTLET_4_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (189, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_190 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (190, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_191 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (191, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+   END_STRUCT;
+
+END_TYPE
+

@@ -1,0 +1,1325 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Siemens.Simatic.Hmi.Openness.RestService</name>
+    </assembly>
+    <members>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Cores.CustomHeaderMessageInspector">
+            <summary>
+            This class implements a custom header message inspector.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Cores.CustomHeaderMessageInspector.#ctor(System.Collections.Generic.Dictionary{System.String,System.String})">
+            <summary>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Cores.CustomHeaderMessageInspector"/> instance.
+            </summary>
+            <param name="headers">A <see cref="T:System.Collections.Generic.Dictionary`2"/> dictionary containing the required headers.</param>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Cores.EnableCrossOriginResourceSharingBehavior">
+            <summary>
+            This class implements the extension element behavior to enable cross origin resource sharing.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Cores.EnableCrossOriginResourceSharingBehavior.BehaviorType">
+            <inheritdoc/>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Cores.EnableCrossOriginResourceSharingBehavior.CreateBehavior">
+            <inheritdoc/>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.EndPoints.ExportLibraryTypes">
+            <summary>
+            This class implements the endpoint <see cref="M:Siemens.Simatic.Hmi.Openness.RestService.IService.ExportLibraryTypes(System.Int32)"/>.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.EndPoints.ExportUnifiedDevices">
+            <summary>
+            This class implements the endpoint <see cref="M:Siemens.Simatic.Hmi.Openness.RestService.IService.ExportUnifiedDevices(System.Int32)"/>.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.EndPoints.GetLibraryTypes">
+            <summary>
+            This class implements the endpoint <see cref="M:Siemens.Simatic.Hmi.Openness.RestService.IService.GetLibraryTypes(System.Int32)"/>.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.EndPoints.GetTiaProcess">
+            <summary>
+            This class implements the endpoint <see cref="M:Siemens.Simatic.Hmi.Openness.RestService.IService.GetTiaProcesses"/>.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.EndPoints.GetUnifiedDevices">
+            <summary>
+            This class implements the endpoint <see cref="M:Siemens.Simatic.Hmi.Openness.RestService.IService.GetUnifiedDevices(System.Int32)"/>.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.EndPoints.ImportLibraryTypes">
+            <summary>
+            This class implements the endpoint <see cref="M:Siemens.Simatic.Hmi.Openness.RestService.IService.ImportLibraryTypes(System.Int32)"/>.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.EndPoints.ImportUnifiedDevices">
+            <summary>
+            This class implements the endpoint <see cref="M:Siemens.Simatic.Hmi.Openness.RestService.IService.ImportUnifiedDevices(System.Int32)"/>.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Extensions.OpennessExtensions">
+            <summary>
+            This class implements extensions for the Openness interface.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Extensions.OpennessExtensions.GetTiaVersion(System.Collections.Generic.IList{Siemens.Engineering.TiaPortalProduct},System.String)">
+            <summary>
+            Get the version of a TIA product
+            </summary>
+            <param name="products">TIA Portal products</param>
+            <param name="productName">Name of the product</param>
+            <returns>Version if found, otherwise null</returns>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Extensions.OpennessExtensions.AllUnifiedHmiDevices(Siemens.Engineering.ProjectBase)">
+            <summary>
+            Returns all <see cref="T:Siemens.Engineering.HW.Device"/> which have a <see cref="T:Siemens.Engineering.HW.DeviceItem"/> supporting SoftwareContainer service of type HmiTarget or HmiSoftware in <paramref name="project"/>
+            </summary>
+            <param name="project">Project</param>
+            <returns>All <see cref="T:Siemens.Engineering.HW.Device"/> with SoftwareContainer service of type HmiTarget or HmiSoftware in <paramref name="project"/></returns>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Extensions.OpennessExtensions.AllInWorkOrCommittedDefaultLibraryScriptModuleTypeVersions(Siemens.Engineering.Library.Types.LibraryTypeSystemFolder)">
+            <summary>
+            Get all project library type versions in <paramref name="systemFolder"/>
+            </summary>
+            <param name="systemFolder">Library system folder</param>
+            <returns>All library versions in "inWork" or "default" state in <paramref name="systemFolder"/></returns>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Extensions.OpennessExtensions.AllDevices(Siemens.Engineering.ProjectBase)">
+            <summary>
+            Get all devices in <paramref name="project"/> (iterates through devices, device groups and ungrouped devices recursively)
+            </summary>
+            <param name="project">Project</param>
+            <returns>All devices in <paramref name="project"/></returns>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Extensions.OpennessExtensions.AllLibraryTypes(Siemens.Engineering.Library.Types.LibraryTypeSystemFolder)">
+            <summary>
+            Get all project library types in <paramref name="systemFolder"/> (iterates through folders, types recursively)
+            </summary>
+            <param name="systemFolder">Library system folder</param>
+            <returns>All libraryTypes in <paramref name="systemFolder"/></returns>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.FeatureType">
+            <summary>
+            This enumeration defines the possible features supported by a TIA Portal version.
+            </summary>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.FeatureType.Basic">
+            <summary>
+            Basic features are supported:<br/>
+            <list type="bullet">
+            <item>Query TIA processes</item>
+            <item>Query unified devices</item>
+            <item>Export script modules of Unified devices</item>
+            <item>Import script modules of Unified devices</item>
+            </list>
+            </summary>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.FeatureType.LibraryScriptModuleTypes">
+            <summary>
+            Query, export, and import of project library script module types are supported.
+            </summary>
+            <remarks>This means either <see cref="F:Siemens.Simatic.Hmi.Openness.RestService.FeatureType.LibraryScriptModuleTypesOldAPI"/> or <see cref="F:Siemens.Simatic.Hmi.Openness.RestService.FeatureType.LibraryScriptModuleTypesNewAPI"/> must be supported.</remarks>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.FeatureType.LibraryScriptModuleTypesOldAPI">
+            <summary>
+            Query, export, and import of project library script module types are supported by using the <b>old</b> API.
+            </summary>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.FeatureType.LibraryScriptModuleTypesNewAPI">
+            <summary>
+            Query, export, and import of project library script module types are supported by using the <b>new</b> API.
+            </summary>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.FeatureType.Scheduler">
+            <summary>
+            Query, export, and import of the scheduler is supported.
+            </summary>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.FeatureType.Screens">
+            <summary>
+            Query, export, and import of the screens and screen groups are supported.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.IService">
+            <summary>
+            This interface defines the REST service endpoints used by the VS Code service connector extension to communicate with TIA Portal using the Openness API.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.IService.GetPing">
+            <summary>
+            Gets a pong response to indicate the service is alive.
+            </summary>
+            <returns>A pong response.</returns>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.IService.GetTiaProcesses">
+            <summary>
+            Gets the running TIA processes via a GET request formatted as JSON.<br/>
+            <br/>
+            <b>Example:</b><br/>
+            <code>
+            http://localhost:7979/tiaProcesses
+            </code>
+            <b>Answer:</b><br/>
+            <code>
+            {
+                "tiaProcesses": [
+                    {
+                        "Id": 51764,
+                        "Name": "Siemens.Automation.Portal.exe",
+                        "Path": "E:\\WS\\WinCC_HMI_02_W\\Binaries\\Debug\\x64\\bin\\Siemens.Automation.Portal.exe",
+                        "ProjectPath": null,
+                        "TiaPortalVersion": "20.0.0.0",
+                        "ClientResponse": null
+                    },
+                    {
+                        "Id": 22604,
+                        "Name": "Siemens.Automation.Portal.exe",
+                        "Path": "E:\\WS\\WinCC_HMI_02_W\\Binaries\\Debug\\x64\\bin\\Siemens.Automation.Portal.exe",
+                        "ProjectPath": "E:\\TIA Projects\\Project2\\Project2.ap20",
+                        "TiaPortalVersion": "20.0.0.0",
+                        "ClientResponse": null
+                    }
+                ]
+            }
+            </code>
+            </summary>
+            <returns>A list of all running TIA processes.</returns>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.IService.GetUnifiedDevices(System.Int32)">
+            <summary>
+            Gets the Unified devices in the running TIA Portal application.<br/>
+            <br/>
+            <b>Example:</b><br/>
+            <code>
+            http://localhost:7979/unifiedDevices?processId=22604
+            </code>
+            <b>Answer:</b><br/>
+            <code>
+            {
+                "unifiedDevices": [
+                    {
+                        "ProcessId": 22604,
+                        "Name": "HMI_RT_1",
+                        "DisplayName": "PC-System_1",
+                        "GlobalModuleList": [
+                            "Global module",
+                            "Global module_1"
+                        ],
+                        "ClientResponse": null
+                    },
+                    {
+                        "ProcessId": 22604,
+                        "Name": "HMI_RT_2",
+                        "DisplayName": "PC-System_2",
+                        "GlobalModuleList": [
+                            "Global module"
+                        ],
+                        "ClientResponse": null
+                    }
+                ]
+            }
+            </code>
+            </summary>
+            <returns>A <see cref="T:System.Collections.Generic.IList`1"/> list of all Unified devices.</returns>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.IService.ExportUnifiedDevices(System.Int32)">
+            <summary>
+            Exports the script modules by device from the running TIA Portal application.<br/>
+            <br/>
+            <b>Example:</b><br/>
+            <code>
+            http://localhost:7979/export/unifiedDevices?processId=22604
+            </code>
+            Request body:<br/>
+            <code>
+            {
+                "RootPath":"E:\\TIA",
+                "Entities":[
+                    {
+                        "DisplayName":"PC-System_1",
+                        "DeviceName":"HMI_RT_1",
+                        "GlobalModuleList":["Global module","Global module_1"]
+                    }
+                ]
+            }
+            </code>
+            <b>Answer:</b><br/>
+            <code>
+            {
+                "unifiedDevices": [
+                    {
+                        "ProcessId": 22604,
+                        "Name": "HMI_RT_1",
+                        "DisplayName": "PC-System_1",
+                        "GlobalModuleList": [
+                            "Global module",
+                            "Global module_1"
+                        ],
+                        "ClientResponse": null
+                    },
+                    {
+                        "ProcessId": 22604,
+                        "Name": "HMI_RT_2",
+                        "DisplayName": "PC-System_2",
+                        "GlobalModuleList": [
+                            "Global module"
+                        ],
+                        "ClientResponse": null
+                    }
+                ]
+            }
+            </code>
+            </summary>
+            <returns>A <see cref="T:System.Collections.Generic.IList`1"/> list of all client responses.</returns>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.IService.ImportUnifiedDevices(System.Int32)">
+            <summary>
+            Imports the script modules by device from the running TIA Portal application.<br/>
+            <br/>
+            <b>Example:</b><br/>
+            <code>
+            http://localhost:7979/import/unifiedDevices?processId=22604
+            </code>
+            Request body:<br/>
+            <code>
+            {
+                "RootPath":"E:\\TIA",
+                "Entities":[
+                    {
+                        "DisplayName":"PC-System_1",
+                        "DeviceName":"HMI_RT_1",
+                        "GlobalModuleList":["Global module","Global module_1"]
+                    }
+                ]
+            }
+            </code>
+            <b>Answer:</b><br/>
+            <code>
+            [
+                {
+                    "Message": "Script module 'Global module' successfully imported into device 'PC-System_1/HMI_RT_1'.",
+                    "Status": "Success"
+                },
+                {
+                    "Message": "Script module 'Global module_1' successfully imported into device 'PC-System_1/HMI_RT_1'.",
+                    "Status": "Success"
+                }
+            ]
+            </code>
+            </summary>
+            <returns>A <see cref="T:System.Collections.Generic.IList`1"/> list of all client responses.</returns>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.IService.GetLibraryTypes(System.Int32)">
+            <summary>
+            Gets all project library types from the running TIA Portal application.<br/>
+            <br/>
+            <b>Example:</b><br/>
+            <code>
+            http://localhost:7979/libraryTypes?processId=22604
+            </code>
+            <b>Answer:</b><br/>
+            <code>
+            {
+                "LibraryTypes": [
+                    {
+                        "ProcessId": 22604,
+                        "Name": "Script module type_1",
+                        "VersionType": "in work",
+                        "VersionNumber": "0.0.1",
+                        "ClientResponse": null
+                    },
+                    {
+                        "ProcessId": 22604,
+                        "Name": "Script module type_2",
+                        "VersionType": "in work",
+                        "VersionNumber": "0.0.3",
+                        "ClientResponse": null
+                    },
+                    {
+                        "ProcessId": 22604,
+                        "Name": "Script module type_3",
+                        "VersionType": "in work",
+                        "VersionNumber": "0.0.1",
+                        "ClientResponse": null
+                    },
+                    {
+                        "ProcessId": 22604,
+                        "Name": "Script module type_4",
+                        "VersionType": "in work",
+                        "VersionNumber": "0.0.1",
+                        "ClientResponse": null
+                    }
+                ]
+            }
+            </code>
+            </summary>
+            <returns>A <see cref="T:System.Collections.Generic.IList`1"/> list of all project library types.</returns>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.IService.ExportLibraryTypes(System.Int32)">
+            <summary>
+            Exports one ore more project library types from the running TIA Portal application.<br/>
+            <br/>
+            <b>Example:</b><br/>
+            <code>
+            http://localhost:7979/export/libraryTypes?processId=22604
+            </code>
+            Request body:<br/>
+            <code>
+            {
+                "RootPath":"E:\\WS\\TIA",
+                "Types":[
+                    "Script module type_1",
+                    "Script module type_2",
+                    "Script module type_3"
+                ]
+            }
+            </code>
+            <b>Answer:</b><br/>
+            <code>
+            [
+                {
+                    "Message": "Project library type 'Script module type_1' exported successfully to 'E:\\WS\\TIA\\Types\\Script module type_1'",
+                    "Status": "Success"
+                },
+                {
+                    "Message": "Project library type 'Script module type_2' exported successfully to 'E:\\WS\\TIA\\Types\\Script module type_2'",
+                    "Status": "Success"
+                },
+                {
+                    "Message": "Project library type 'Script module type_3' exported successfully to 'E:\\WS\\TIA\\Types\\Script module type_3'",
+                    "Status": "Success"
+                }
+            ]
+            </code>
+            </summary>
+            <returns>A <see cref="T:System.Collections.Generic.IList`1"/> list of all client responses.</returns>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.IService.ImportLibraryTypes(System.Int32)">
+            <summary>
+            Imports a project library type into the running TIA Portal application.<br/>
+            <br/>
+            <b>Example:</b><br/>
+            <code>
+            http://localhost:7979/import/libraryTypes?processId=22604
+            </code>
+            Request body:<br/>
+            <code>
+            {
+                "RootPath":"E:\\WS\\TIA",
+                "Types":[
+                    "Script module type_1",
+                    "Script module type_2",
+                    "Script module type_3"
+                ]
+            }
+            </code>
+            <b>Answer:</b><br/>
+            <code>
+            [
+                {
+                    "Message": "Project library type 'Script module type_1' successfully imported.",
+                    "Status": "Success"
+                },
+                {
+                    "Message": "Project library type 'Script module type_2' successfully imported.",
+                    "Status": "Success"
+                },
+                {
+                    "Message": "Project library type 'Script module type_3' successfully imported.",
+                    "Status": "Success"
+                }
+            ]
+            </code>
+            </summary>
+            <returns>A <see cref="T:System.Collections.Generic.IList`1"/> list of all client responses.</returns>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Logging.OpennessEventSource">
+            <summary>
+             This class implements the event source for logging.
+            </summary>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.Logging.OpennessEventSource.SourceName">
+            <summary>
+             Event Source Name
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Logging.OpennessEventSource.Log">
+            <summary>
+             Gets the singleton Logger instance.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Logging.OpennessEventSource.ServiceStarted">
+            <summary>
+            ServiceStarted event
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Logging.OpennessEventSource.LogMessage(System.String)">
+            <summary>
+            Log message
+            </summary>
+            <param name="message">the message</param>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Logging.OpennessEventSource.LogError(System.String)">
+            <summary>
+            Log message
+            </summary>
+            <param name="message">the message</param>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Logging.OpennessEventSource.ServiceStopped">
+            <summary>
+            ServiceStarted event
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponse">
+            <summary>
+            This class provides the status and message.
+            </summary>
+            <remarks>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponse"/> instance with the given content.
+            </remarks>
+            <param name="state">The response state.</param>
+            <param name="message">The response message.</param>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponse.#ctor(Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponseState,System.String)">
+            <summary>
+            This class provides the status and message.
+            </summary>
+            <remarks>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponse"/> instance with the given content.
+            </remarks>
+            <param name="state">The response state.</param>
+            <param name="message">The response message.</param>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponse.State">
+            <summary>
+            Gets the status of the client response.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponse.Message">
+            <summary>
+            Gets the message of the client response.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponse.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponseState">
+            <summary>
+            This enumeration defines the possible states of a client response.
+            </summary>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponseState.Success">
+            <summary>
+            The operation has succeeded.
+            </summary>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponseState.Warning">
+            <summary>
+            The operation has succeeded with a warning.
+            </summary>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponseState.Failure">
+            <summary>
+            The operation failed with an error.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.ProjectLibraryEntity">
+            <summary>
+            This class stores the data of a project library entity.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.ProjectLibraryEntity.RootPath">
+            <summary>
+            Gets the root path to import from and export to.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.ProjectLibraryEntity.Types">
+            <summary>
+            Gets the to be exported types.
+            </summary>
+            <remarks>
+            In case of V20 projects, the Guid of the Library Type is appended to the name, separated by a '#'.
+            TODO:
+            Refactor this by providing a list of struct instances which consist of a name and Guid property.
+            </remarks>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.ProjectLibraryType">
+            <summary>
+            This class stores the metadata of a project library type.
+            </summary>
+            <remarks>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.ProjectLibraryType"/> instance with the given content.
+            </remarks>
+            <param name="path">The folder path of the project library type.</param>
+            <param name="name">The name of the project library type.</param>
+            <param name="processId">The process ID of the TIA Portal process.</param>
+            <param name="versionType">The version type of the project library type.</param>
+            <param name="versionNumber">The version number of the project library type.</param>
+            <param name="clientResponse">The client response.</param>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Models.ProjectLibraryType.#ctor(System.String,System.String,System.Int32,System.String,System.String,Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponse)">
+            <summary>
+            This class stores the metadata of a project library type.
+            </summary>
+            <remarks>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.ProjectLibraryType"/> instance with the given content.
+            </remarks>
+            <param name="path">The folder path of the project library type.</param>
+            <param name="name">The name of the project library type.</param>
+            <param name="processId">The process ID of the TIA Portal process.</param>
+            <param name="versionType">The version type of the project library type.</param>
+            <param name="versionNumber">The version number of the project library type.</param>
+            <param name="clientResponse">The client response.</param>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.ProjectLibraryType.ProcessId">
+            <summary>
+            Gets the process ID.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.ProjectLibraryType.Path">
+            <summary>
+            Gets the folder path of the project library type.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.ProjectLibraryType.Name">
+            <summary>
+            Gets the name of the project library type.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.ProjectLibraryType.VersionType">
+            <summary>
+            Gets the version type.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.ProjectLibraryType.VersionNumber">
+            <summary>
+            Gets the version number.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.ProjectLibraryType.ClientResponse">
+            <summary>
+            Gets the client response.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.TiaProcess">
+            <summary>
+            This class stores the properties of a TIA Portal process.
+            </summary>
+            <remarks>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.TiaProcess"/> instance with the given data.
+            </remarks>
+            <param name="id">The process id.</param>
+            <param name="name">The name of the process.</param>
+            <param name="path">The path of the executable.</param>
+            <param name="projectPath">The path of the opened TIA project.</param>
+            <param name="tiaPortalVersion">The version of the running TIA Portal.</param>
+            <param name="clientResponse">The client response.</param>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Models.TiaProcess.#ctor(System.Int32,System.String,System.String,System.String,System.String,Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponse)">
+            <summary>
+            This class stores the properties of a TIA Portal process.
+            </summary>
+            <remarks>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.TiaProcess"/> instance with the given data.
+            </remarks>
+            <param name="id">The process id.</param>
+            <param name="name">The name of the process.</param>
+            <param name="path">The path of the executable.</param>
+            <param name="projectPath">The path of the opened TIA project.</param>
+            <param name="tiaPortalVersion">The version of the running TIA Portal.</param>
+            <param name="clientResponse">The client response.</param>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.TiaProcess.Id">
+            <summary>
+            Id
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.TiaProcess.Name">
+            <summary>
+            Name
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.TiaProcess.Path">
+            <summary>
+            Path
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.TiaProcess.ProjectPath">
+            <summary>
+            ProjectPath
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.TiaProcess.TiaPortalVersion">
+            <summary>
+            TiaPortalVersion
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.TiaProcess.ClientResponse">
+            <summary>
+            ClientResponse
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDevice">
+            <summary>
+            This class stores the data of a TIA Unified device.
+            </summary>
+            <remarks>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDevice"/> instance with the given content.
+            </remarks>
+            <param name="name">The name of the device.</param>
+            <param name="displayName">The display name of the device.</param>
+            <param name="processId">The process ID of the TIA Portal process.</param>
+            <param name="globalModules">The list of the global modules.</param>
+            <param name="schedulerTasks">The list of the scheduler tasks.</param>
+            <param name="screens">The screens.</param>
+            <param name="clientResponse">The client response.</param>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDevice.#ctor(System.String,System.String,System.Int32,System.Collections.Generic.IEnumerable{System.String},System.Collections.Generic.IEnumerable{System.String},Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenGroup,Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponse)">
+            <summary>
+            This class stores the data of a TIA Unified device.
+            </summary>
+            <remarks>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDevice"/> instance with the given content.
+            </remarks>
+            <param name="name">The name of the device.</param>
+            <param name="displayName">The display name of the device.</param>
+            <param name="processId">The process ID of the TIA Portal process.</param>
+            <param name="globalModules">The list of the global modules.</param>
+            <param name="schedulerTasks">The list of the scheduler tasks.</param>
+            <param name="screens">The screens.</param>
+            <param name="clientResponse">The client response.</param>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDevice.ProcessId">
+            <summary>
+            Gets the process ID of the TIA Portal process.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDevice.DisplayName">
+            <summary>
+            Gets the display name of the device.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDevice.Name">
+            <summary>
+            Gets the name of the runtime device.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDevice.GlobalModuleList">
+            <summary>
+            Gets the names of the global modules.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDevice.SchedulerTasks">
+            <summary>
+            Gets the scheduler tasks.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDevice.Screens">
+            <summary>
+            Gets the screens folder.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDevice.ClientResponse">
+            <summary>
+            Gets the client response.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDeviceEntities">
+            <summary>
+            This class stores the global module entities of all Unified devices within the TIA project.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDeviceEntities.RootPath">
+            <summary>
+            Gets the root path to a directory to import from and export to.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDeviceEntities.Entities">
+            <summary>
+            Gets the list of Unified device entities.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDeviceEntity">
+            <summary>
+            This class stores the common data of an entity.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDeviceEntity.DisplayName">
+            <summary>
+            Gets the display name of the device.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDeviceEntity.DeviceName">
+            <summary>
+            Gets the name of the runtime device.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDeviceEntity.GlobalModuleList">
+            <summary>
+            Gets the list of global modules of the device.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDeviceEntity.ImExportScheduler">
+            <summary>
+            Gets whether the scheduler shall be imported or exported.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDeviceEntity.Screens">
+            <summary>
+            Gets the list of full qualified screen names to be imported or exported.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDynamization">
+            <summary>
+            This class stores the data of a TIA Unified screen.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDynamization.#ctor(Siemens.Engineering.HmiUnified.UI.Dynamization.Script.ScriptDynamization)">
+            <summary>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreen"/> instance with the given content.
+            </summary>
+            <param name="scriptDynamization">The HMI screen to create a <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreen"/> instance from.</param>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDynamization.PropertyName">
+            <summary>
+            Gets the property name of the dynamization.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDynamization.DynamizationType">
+            <summary>
+            Gets the type of the dynamization.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDynamization.ScriptName">
+            <summary>
+            Gets the script name.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDynamization.ScriptCode">
+            <summary>
+            Gets the script code.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDynamization.GlobalDefinitionAreaCode">
+            <summary>
+            Gets the script code of the global definition area.
+            </summary>
+            <summary>
+            Gets the script code.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDynamization.Async">
+            <summary>
+            Gets whether the script is synchronous or asynchronous.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreen">
+            <summary>
+            This class stores the data of a TIA Unified screen.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreen.#ctor(Siemens.Engineering.HmiUnified.UI.Screens.HmiScreen,System.Boolean)">
+            <summary>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreen"/> instance with the given content.
+            </summary>
+            <param name="hmiScreen">The HMI screen to create a <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreen"/> instance from.</param>
+            <param name="deepScanForScripts">True, to scan the event handlers and screen items as well.</param>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreen.Name">
+            <summary>
+            Gets the name of the screen.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreen.EventHandlers">
+            <summary>
+            Gets the event handlers.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreen.PropertyEventHandlers">
+            <summary>
+            Gets the property event handlers.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreen.ScriptDynamizations">
+            <summary>
+            Gets the script dynamizations.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreen.ScreenItems">
+            <summary>
+            Gets the screen items.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreen.GetScreenItemsContainingScripts(Siemens.Engineering.HmiUnified.UI.Screens.HmiScreen)">
+            <summary>
+            Gets all screen items that contain or reference scripts.
+            </summary>
+            <param name="hmiScreen"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenEventHandler">
+            <summary>
+            This class stores the data of a TIA Unified device.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenEventHandler.#ctor(Siemens.Engineering.HmiUnified.UI.Events.HmiScreenEventHandler)">
+            <summary>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenEventHandler"/> instance with the given content.
+            </summary>
+            <param name="eventHandler">The HMI screen item event handler to create a <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenEventHandler"/> instance from.</param>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenEventHandler.EventType">
+            <summary>
+            Gets the event type.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenEventHandler.ScriptName">
+            <summary>
+            Gets the script name.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenEventHandler.ScriptCode">
+            <summary>
+            Gets the script code.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenEventHandler.GlobalDefinitionAreaCode">
+            <summary>
+            Gets the script code of the global definition area.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenGroup">
+            <summary>
+            This class stores the data of a TIA Unified screen group.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenGroup.#ctor(Siemens.Engineering.HmiUnified.UI.ScreenGroup.HmiScreenGroup,System.Boolean)">
+            <summary>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenGroup"/> instance with the given content.
+            </summary>
+            <param name="hmiScreenGroup">The HMI screen group to create a <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenGroup"/> from.</param>
+            <param name="excludeNestedScreensNotContainingScripts">True to exclude groups and screens that do not contain any scripts.</param>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenGroup.#ctor(Siemens.Engineering.HmiUnified.HmiSoftware,System.Boolean)">
+            <summary>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenGroup"/> instance with the given content.
+            </summary>
+            <param name="hmiSoftware">The HMI software to create a <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenGroup"/> from.</param>
+            <param name="excludeNestedScreensNotContainingScripts">True to exclude groups and screens that do not contain any scripts.</param>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenGroup.Name">
+            <summary>
+            Gets the name of the screen group.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenGroup.Groups">
+            <summary>
+            Gets the nested screen groups.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenGroup.Screens">
+            <summary>
+            Gets the screens inside this screen group.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItem">
+            <summary>
+            This class stores the data of a TIA Unified screen item.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItem.#ctor(Siemens.Engineering.HmiUnified.UI.Base.HmiScreenItemBase)">
+            <summary>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItem"/> instance with the given content.
+            </summary>
+            <param name="hmiScreenItemBase">The HMI screen item to create a <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItem"/> instance from.</param>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItem.Name">
+            <summary>
+            Gets the name of the screen item.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItem.Type">
+            <summary>
+            Gets the type of the screen item.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItem.EventHandlers">
+            <summary>
+            Gets the event handlers.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItem.PropertyEventHandlers">
+            <summary>
+            Gets the property event handlers.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItem.ScriptDynamizations">
+            <summary>
+            Gets the script dynamizations of the screen item.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemEventHandler">
+            <summary>
+            This class stores the data of a TIA Unified device.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemEventHandler.#ctor(Siemens.Engineering.IEngineeringObject)">
+            <summary>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemEventHandler"/> instance with the given content.
+            </summary>
+            <param name="eventHandler">The HMI screen item event handler to create a <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemEventHandler"/> instance from.</param>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemEventHandler.EventType">
+            <summary>
+            Gets the event type.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemEventHandler.ScriptName">
+            <summary>
+            Gets the script name.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemEventHandler.ScriptCode">
+            <summary>
+            Gets the script code.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemEventHandler.GlobalDefinitionAreaCode">
+            <summary>
+            Gets the script code of the global definition area.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemEventHandler.Async">
+            <summary>
+            Gets whether the script is synchronous or asynchronous.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemPropertyEventHandler">
+            <summary>
+            This class stores the data of a TIA Unified device.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemPropertyEventHandler.#ctor(Siemens.Engineering.HmiUnified.UI.Events.PropertyEventHandler)">
+            <summary>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemPropertyEventHandler"/> instance with the given content.
+            </summary>
+            <param name="propertyEventHandler">The HMI screen item property event handler to create a <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemPropertyEventHandler"/> instance from.</param>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemPropertyEventHandler.PropertyName">
+            <summary>
+            The property name the event is attached to.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemPropertyEventHandler.EventType">
+            <summary>
+            Gets the type of the event.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemPropertyEventHandler.ScriptName">
+            <summary>
+            Gets the script name.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemPropertyEventHandler.ScriptCode">
+            <summary>
+            Gets the script code.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemPropertyEventHandler.GlobalDefinitionAreaCode">
+            <summary>
+            Gets the script code of the global definition area.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenItemPropertyEventHandler.Async">
+            <summary>
+            Gets whether the script is synchronous or asynchronous.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenPropertyEventHandler">
+            <summary>
+            This class stores the data of a TIA Unified device.
+            </summary>
+            <remarks>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenPropertyEventHandler"/> instance with the given content.
+            </remarks>
+            <param name="propertyEventHandler">The HMI screen property event handler to create a <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenPropertyEventHandler"/> instance from.</param>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenPropertyEventHandler.#ctor(Siemens.Engineering.HmiUnified.UI.Events.PropertyEventHandler)">
+            <summary>
+            This class stores the data of a TIA Unified device.
+            </summary>
+            <remarks>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenPropertyEventHandler"/> instance with the given content.
+            </remarks>
+            <param name="propertyEventHandler">The HMI screen property event handler to create a <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenPropertyEventHandler"/> instance from.</param>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenPropertyEventHandler.PropertyName">
+            <summary>
+            The property name the event is attached to.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenPropertyEventHandler.EventType">
+            <summary>
+            Gets the type of the event.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenPropertyEventHandler.ScriptName">
+            <summary>
+            Gets the script name.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenPropertyEventHandler.ScriptCode">
+            <summary>
+            Gets the script code.
+            </summary>
+        </member>
+        <member name="P:Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedScreenPropertyEventHandler.GlobalDefinitionAreaCode">
+            <summary>
+            Gets the script code of the global definition area.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Program">
+            <summary>
+            This class implements the main entry of the Openness REST service.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Service">
+            <summary>
+            This class implements the REST service connector between the VS Code extension and TIA Openness.
+            </summary>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.Service.WrappedEngineeringException">
+            <summary>
+            This class is a wrapper for all exceptions defined in Siemens.Engineering.dll being able to forward it from the app domain to the main domain.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Service.WrappedEngineeringException.#ctor(System.String)">
+            <summary>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Service.WrappedEngineeringException"/> instance.
+            </summary>
+            <param name="message">The message text.</param>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Service.WrappedEngineeringException.#ctor(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)">
+            <summary>
+            Creates a new <see cref="T:Siemens.Simatic.Hmi.Openness.RestService.Service.WrappedEngineeringException"/> instance by serialization.
+            </summary>
+            <param name="info">The <see cref="T:System.Runtime.Serialization.SerializationInfo"/> that holds the serialized object data about the exception being thrown.</param>
+            <param name="context">The <see cref="T:System.Runtime.Serialization.StreamingContext"/> that contains the contextual information about the source or destination.</param>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Service.GetAppDomainForVersion(System.Version)">
+            <summary>
+            Used for Unit-Testing only.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Service.InitializeLifetimeService">
+            <inheritdoc/>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.Service.ImportUnifiedDevices(System.Int32,Siemens.Simatic.Hmi.Openness.RestService.Models.UnifiedDeviceEntities)">
+            <returns></returns>
+        </member>
+        <member name="T:Siemens.Simatic.Hmi.Openness.RestService.ServiceConfig">
+            <summary>
+            This class implements the REST service configuration and fundamental helpers.
+            </summary>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.ServiceConfig.MinTiaVersion">
+            <summary>
+            The absolutely minimum version of TIA Portal to use this REST server with.
+            </summary>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.ServiceConfig.MaxTiaVersion">
+            <summary>
+            The absolutely maximum version of TIA Portal to use this REST server with.
+            </summary>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.ServiceConfig.MinTiaVersionLibraryScriptTypesOldAPI">
+            <summary>
+            The minimum version of TIA Portal that supports export and import of project library Types.
+            </summary>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.ServiceConfig.MinTiaVersionLibraryScriptTypesNewAPI">
+            <summary>
+            The minimum version of TIA Portal that supports the new API for export and import of project library Types.
+            </summary>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.ServiceConfig.MinTiaVersionScheduler">
+            <summary>
+            The minimum version of TIA Portal that supports import and export of the scheduler.
+            </summary>
+        </member>
+        <member name="F:Siemens.Simatic.Hmi.Openness.RestService.ServiceConfig.MinTiaVersionScreens">
+            <summary>
+            The minimum version of TIA Portal that supports import and export of screens and screen groups.
+            </summary>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.ServiceConfig.GetAndCheckTiaPortalAndProject(System.Int32,Siemens.Simatic.Hmi.Openness.RestService.FeatureType,System.Boolean,Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponse@,Siemens.Engineering.ProjectBase@)">
+            <summary>
+            Gets the <see cref="T:Siemens.Engineering.TiaPortal"/> object and the opened <see cref="T:Siemens.Engineering.ProjectBase"/> project of the running TIA process<br/>
+            with the given process ID and checks whether the requested feature is supported.
+            </summary>
+            <param name="processId">The process ID of the running TIA Portal.</param>
+            <param name="featureType">The feature to check.</param>
+            <param name="treatWarningsAsErrors">When set to true, a warning is treated as an error; otherwise, false.</param>
+            <param name="clientResponse">A detailed response in case of an error has occurred; otherwise, null.</param>
+            <param name="tiaProject">The <see cref="T:Siemens.Engineering.ProjectBase"/> project in case the function call has succeeded; otherwise, null.</param>
+            <returns>The <see cref="T:Siemens.Engineering.TiaPortal"/> object in case the function call has succeeded; otherwise, null.</returns>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.ServiceConfig.CheckTiaPortalVersion(System.Version,Siemens.Simatic.Hmi.Openness.RestService.FeatureType,Siemens.Simatic.Hmi.Openness.RestService.Models.ClientResponse@)">
+            <summary>
+            Checks whether the given feature is supported by the given TIA Portal version.
+            </summary>
+            <param name="tiaVersion">The version of the TIA Portal.</param>
+            <param name="featureType">The feature to check.</param>
+            <param name="clientResponse">A detailed response in case of an error has occurred; otherwise null.</param>
+            <returns>True, if the feature is supported; otherwise false.</returns>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.ServiceConfig.IsFeatureSupported(Siemens.Engineering.TiaPortal,Siemens.Simatic.Hmi.Openness.RestService.FeatureType)">
+            <summary>
+            Checks whether the given feature is supported by the given <see cref="T:Siemens.Engineering.TiaPortal"/> object.
+            </summary>
+            <param name="tiaPortal">The <see cref="T:Siemens.Engineering.TiaPortal"/> object.</param>
+            <param name="featureType">The feature to check.</param>
+            <returns>True, if the feature is supported; otherwise false.</returns>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.ServiceConfig.IsFeatureSupported(System.Version,Siemens.Simatic.Hmi.Openness.RestService.FeatureType)">
+            <summary>
+            Checks whether the given feature is supported by the given TIA Portal version.
+            </summary>
+            <param name="tiaVersion">The version of the TIA Portal.</param>
+            <param name="featureType">The feature to check.</param>
+            <returns>True, if the feature is supported; otherwise false.</returns>
+        </member>
+        <member name="M:Siemens.Simatic.Hmi.Openness.RestService.ServiceConfig.PrettyFormatTiaVersion(System.Version)">
+            <summary>
+            Formats the given TIA Portal version to a human readable descriptive string.<br/>
+            Example: &lt;19.0.1.2&gt; returns "V19 Service Pack 1 Update 2"
+            </summary>
+            <param name="version">The TIA Portal version to format.</param>
+            <returns>The formatted TIA Portal version.</returns>
+        </member>
+        <member name="T:System.Runtime.CompilerServices.IsExternalInit">
+            <summary>
+            Reserved to be used by the compiler for tracking metadata.
+            This class should not be used by developers in source code.
+            </summary>
+        </member>
+        <member name="T:System.Runtime.CompilerServices.ModuleInitializerAttribute">
+            <summary>
+            Attribute to mark the module initializer class.
+            </summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.AllowNullAttribute">
+            <summary>Specifies that null is allowed as an input even if the corresponding type disallows it.</summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.DisallowNullAttribute">
+            <summary>Specifies that null is disallowed as an input even if the corresponding type allows it.</summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.MaybeNullAttribute">
+            <summary>Specifies that an output may be null even if the corresponding type disallows it.</summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.NotNullAttribute">
+            <summary>Specifies that an output will not be null even if the corresponding type allows it. Specifies that an input argument was not null when the call returns.</summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.MaybeNullWhenAttribute">
+            <summary>Specifies that when a method returns <see cref="P:System.Diagnostics.CodeAnalysis.MaybeNullWhenAttribute.ReturnValue"/>, the parameter may be null even if the corresponding type disallows it.</summary>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.MaybeNullWhenAttribute.#ctor(System.Boolean)">
+            <summary>Initializes the attribute with the specified return value condition.</summary>
+            <param name="returnValue">
+            The return value condition. If the method returns this value, the associated parameter may be null.
+            </param>
+        </member>
+        <member name="P:System.Diagnostics.CodeAnalysis.MaybeNullWhenAttribute.ReturnValue">
+            <summary>Gets the return value condition.</summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.NotNullWhenAttribute">
+            <summary>Specifies that when a method returns <see cref="P:System.Diagnostics.CodeAnalysis.NotNullWhenAttribute.ReturnValue"/>, the parameter will not be null even if the corresponding type allows it.</summary>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.NotNullWhenAttribute.#ctor(System.Boolean)">
+            <summary>Initializes the attribute with the specified return value condition.</summary>
+            <param name="returnValue">
+            The return value condition. If the method returns this value, the associated parameter will not be null.
+            </param>
+        </member>
+        <member name="P:System.Diagnostics.CodeAnalysis.NotNullWhenAttribute.ReturnValue">
+            <summary>Gets the return value condition.</summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.NotNullIfNotNullAttribute">
+            <summary>Specifies that the output will be non-null if the named parameter is non-null.</summary>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.NotNullIfNotNullAttribute.#ctor(System.String)">
+            <summary>Initializes the attribute with the associated parameter name.</summary>
+            <param name="parameterName">
+            The associated parameter name.  The output will be non-null if the argument to the parameter specified is non-null.
+            </param>
+        </member>
+        <member name="P:System.Diagnostics.CodeAnalysis.NotNullIfNotNullAttribute.ParameterName">
+            <summary>Gets the associated parameter name.</summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.DoesNotReturnAttribute">
+            <summary>Applied to a method that will never return under any circumstance.</summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.DoesNotReturnIfAttribute">
+            <summary>Specifies that the method will not return if the associated Boolean parameter is passed the specified value.</summary>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.DoesNotReturnIfAttribute.#ctor(System.Boolean)">
+            <summary>Initializes the attribute with the specified parameter value.</summary>
+            <param name="parameterValue">
+            The condition parameter value. Code after the method will be considered unreachable by diagnostics if the argument to
+            the associated parameter matches this value.
+            </param>
+        </member>
+        <member name="P:System.Diagnostics.CodeAnalysis.DoesNotReturnIfAttribute.ParameterValue">
+            <summary>Gets the condition parameter value.</summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.MemberNotNullAttribute">
+            <summary>Specifies that the method or property will ensure that the listed field and property members have not-null values.</summary>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.MemberNotNullAttribute.#ctor(System.String)">
+            <summary>Initializes the attribute with a field or property member.</summary>
+            <param name="member">
+            The field or property member that is promised to be not-null.
+            </param>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.MemberNotNullAttribute.#ctor(System.String[])">
+            <summary>Initializes the attribute with the list of field and property members.</summary>
+            <param name="members">
+            The list of field and property members that are promised to be not-null.
+            </param>
+        </member>
+        <member name="P:System.Diagnostics.CodeAnalysis.MemberNotNullAttribute.Members">
+            <summary>Gets field or property member names.</summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.MemberNotNullWhenAttribute">
+            <summary>Specifies that the method or property will ensure that the listed field and property members have not-null values when returning with the specified return value condition.</summary>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.MemberNotNullWhenAttribute.#ctor(System.Boolean,System.String)">
+            <summary>Initializes the attribute with the specified return value condition and a field or property member.</summary>
+            <param name="returnValue">
+            The return value condition. If the method returns this value, the associated parameter will not be null.
+            </param>
+            <param name="member">
+            The field or property member that is promised to be not-null.
+            </param>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.MemberNotNullWhenAttribute.#ctor(System.Boolean,System.String[])">
+            <summary>Initializes the attribute with the specified return value condition and list of field and property members.</summary>
+            <param name="returnValue">
+            The return value condition. If the method returns this value, the associated parameter will not be null.
+            </param>
+            <param name="members">
+            The list of field and property members that are promised to be not-null.
+            </param>
+        </member>
+        <member name="P:System.Diagnostics.CodeAnalysis.MemberNotNullWhenAttribute.ReturnValue">
+            <summary>Gets the return value condition.</summary>
+        </member>
+        <member name="P:System.Diagnostics.CodeAnalysis.MemberNotNullWhenAttribute.Members">
+            <summary>Gets field or property member names.</summary>
+        </member>
+    </members>
+</doc>

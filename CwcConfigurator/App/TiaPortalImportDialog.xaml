@@ -1,0 +1,60 @@
+<Window x:Class="CwcConfigurator.App.TiaPortalImportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Import TIA Portal Export"
+        Width="620"
+        Height="520"
+        MinWidth="560"
+        MinHeight="420"
+        WindowStartupLocation="CenterOwner">
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Cancel" Width="86" IsCancel="True"/>
+            <Button x:Name="BackButton" Content="Back" Width="86" Margin="8,0,0,0" Click="Back_Click" Visibility="Collapsed"/>
+            <Button x:Name="NextButton" Content="Next" Width="86" Margin="8,0,0,0" IsDefault="True" Click="Next_Click"/>
+            <Button x:Name="FinishButton" Content="Finish" Width="86" Margin="8,0,0,0" IsDefault="True" Click="Finish_Click" Visibility="Collapsed"/>
+        </StackPanel>
+
+        <Grid>
+            <Grid x:Name="FolderPage">
+                <StackPanel>
+                    <TextBlock Text="Choose folder with TIA Portal exported files" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="FolderText" Height="28" VerticalContentAlignment="Center"/>
+                        <Button Grid.Column="1" Content="Browse..." Width="92" Margin="8,0,0,0" Click="Browse_Click"/>
+                    </Grid>
+                </StackPanel>
+            </Grid>
+
+            <Grid x:Name="FilesPage" Visibility="Collapsed">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock x:Name="DetectedText" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button x:Name="ToggleAllButton" Content="Deselect all" Width="104" Margin="12,0,0,0" Click="ToggleAll_Click"/>
+                    </StackPanel>
+                    <Border BorderBrush="#D0D7DE" BorderThickness="1">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl x:Name="FilesList" Margin="8">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                  Margin="0,0,0,6">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding DisplayName}" Width="230"/>
+                                                <TextBlock Text="{Binding FileName}" Foreground="#555"/>
+                                            </StackPanel>
+                                        </CheckBox>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </DockPanel>
+            </Grid>
+        </Grid>
+    </DockPanel>
+</Window>

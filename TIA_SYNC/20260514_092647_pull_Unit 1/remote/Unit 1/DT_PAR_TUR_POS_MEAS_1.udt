@@ -1,0 +1,39 @@
+﻿TYPE "DT_PAR_TUR_POS_MEAS_1"
+VERSION : 0.1
+   STRUCT
+      FRANCIS_DISTRIBUTOR_VAL_1 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 448, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      FRANCIS_DISTRIBUTOR_VAL_2 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 449, 0, 100.0, 0, T#0MS, 0.0, 0.0, '%');
+      FRANCIS_DISTRIBUTOR_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 450, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      FRANCIS_DISTRIBUTOR_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 451, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      KAPLAN_DISTRIBUTOR_VAL_1 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 452, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      KAPLAN_DISTRIBUTOR_VAL_2 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 453, 0, 100.0, 0, T#0MS, 0.0, 0.0, '%');
+      KAPLAN_DISTRIBUTOR_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 454, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      KAPLAN_DISTRIBUTOR_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 455, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      KAPLAN_RUNNER_VAL_1 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 456, 0, 100.0, 0, T#0MS, 0.0, 0.0, '%');
+      KAPLAN_RUNNER_VAL_2 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 457, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      KAPLAN_RUNNER_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 458, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      KAPLAN_RUNNER_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 459, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      CROSS_FLOW_VALVE_1_VAL_1 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 460, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      CROSS_FLOW_VALVE_1_VAL_2 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 461, 0, 100.0, 0, T#0MS, 0.0, 0.0, '%');
+      CROSS_FLOW_VALVE_1_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 462, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      CROSS_FLOW_VALVE_1_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 463, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      CROSS_FLOW_VALVE_2_VAL_1 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 464, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      CROSS_FLOW_VALVE_2_VAL_2 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 465, 0, 100.0, 0, T#0MS, 0.0, 0.0, '%');
+      CROSS_FLOW_VALVE_2_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 466, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      CROSS_FLOW_VALVE_2_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 467, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      PELTON_NOZZLE_1_VAL_1 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 468, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_1_VAL_2 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 469, 0, 106.1129, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_1_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 470, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_1_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 471, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      PELTON_NOZZLE_2_VAL_1 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 472, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_2_VAL_2 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 473, 0, 107.533, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_2_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 474, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_2_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 475, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      PELTON_NOZZLE_3_VAL_1 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 476, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_3_VAL_2 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 477, 0, 105.4859, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_3_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 478, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_NOZZLE_3_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 479, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+   END_STRUCT;
+
+END_TYPE
+

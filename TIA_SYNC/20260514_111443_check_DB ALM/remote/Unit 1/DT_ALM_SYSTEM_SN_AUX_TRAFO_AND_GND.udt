@@ -1,0 +1,39 @@
+﻿TYPE "DT_ALM_SYSTEM_SN_AUX_TRAFO_AND_GND"
+VERSION : 0.1
+   STRUCT
+      SN_AUX_TRAFO_DS_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (608, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_AUX_TRAFO_DS_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (609, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_AUX_TRAFO_DS_GND { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (610, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_AUX_TRAFO_SWITCH_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (611, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_AUX_TRAFO_SWITCH_OPEN { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (612, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_AUX_TRAFO_SWITCH_GND { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (613, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_AUX_TRAFO_FUSE_BLOWN { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (614, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_AUX_TRAFO_AUX_SUPPLY_MCB { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (615, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_AUX_TRAFO_HEATER_MCB_TRIP { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (616, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_AUX_TRAFO_CONTROL_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (617, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_AUX_TRAFO_AC_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (618, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_555 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (619, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_556 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (620, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_557 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (621, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_558 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (622, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_559 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (623, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_GND_DS_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (624, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_GND_DS_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (625, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_GND_DS_GND { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (626, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_GND_SWITCH_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (627, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_GND_SWITCH_OPEN { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (628, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_GND_SWITCH_GND { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (629, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_GND_FUSE_BLOWN { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (630, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_GND_AUX_SUPPLY_MCB { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (631, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SN_GND_HEATER_MCB_TRIP { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (632, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_569 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (633, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_570 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (634, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_571 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (635, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_572 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (636, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_573 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (637, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_574 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (638, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_575 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (639, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+   END_STRUCT;
+
+END_TYPE
+

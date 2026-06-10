@@ -1,0 +1,39 @@
+﻿TYPE "DT_ALM_SYSTEM_SPARE_27"
+VERSION : 0.1
+   STRUCT
+      SPARE_800 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (864, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_801 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (865, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_802 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (866, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_803 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (867, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_804 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (868, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_805 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (869, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_806 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (870, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_807 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (871, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_808 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (872, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_809 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (873, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_810 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (874, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_811 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (875, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_812 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (876, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_813 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (877, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_814 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (878, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_815 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (879, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_816 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (880, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_817 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (881, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_818 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (882, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_819 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (883, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_820 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (884, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_821 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (885, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_822 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (886, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_823 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (887, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_824 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (888, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_825 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (889, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_826 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (890, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_827 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (891, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_828 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (892, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_829 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (893, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_830 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (894, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_831 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (895, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+   END_STRUCT;
+
+END_TYPE
+

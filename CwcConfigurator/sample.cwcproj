@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "projectName": "Sample CWC Project",
+  "paths": {
+    "plcToConfigSourceFolder": "",
+    "rSourceFolder": "",
+    "outputFolder": ""
+  },
+  "digitalInputs": [
+    {
+      "moduleNumber": 0,
+      "port": 0,
+      "config": 1,
+      "id": 0
+    }
+  ],
+  "digitalOutputs": [],
+  "analogInputs": [],
+  "rtdInputs": [],
+  "counters": [],
+  "analogOutputs": [],
+  "dbCatalog": {
+    "diRows": [],
+    "doRows": [],
+    "measRows": [],
+    "alarmRows": [],
+    "parameterRows": []
+  }
+}

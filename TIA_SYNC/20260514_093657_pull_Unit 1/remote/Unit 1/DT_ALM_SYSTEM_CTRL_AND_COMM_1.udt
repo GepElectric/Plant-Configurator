@@ -1,0 +1,39 @@
+﻿TYPE "DT_ALM_SYSTEM_CTRL_AND_COMM_1"
+VERSION : 0.1
+   STRUCT
+      ESD_PUSHBUTTON { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (384, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      ESD_RELAY { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (385, FALSE, TRUE, TRUE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      GCB_SIG_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (386, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#1S);
+      GCB_OFF_FAILURE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (387, FALSE, TRUE, FALSE, (), (), 7, 0, 4, (), (), (), (), (), T#2S);
+      GCB_SELFOPENING { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (388, FALSE, TRUE, TRUE, (), (), 7, 0, 4, (), (), (), (), (), T#2S);
+      DI_PS_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (389, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      EXT_IN_PS_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (390, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      ANA_INPUTS_PS_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (391, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      MAINT { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (392, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      DC_ALARM_GROUP { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (393, FALSE, FALSE, TRUE, (), (), 1, 0, 1, (), (), (), (), (), T#50MS);
+      DC_TRIP_GROUP { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (394, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      QSD_RELAY { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (395, FALSE, TRUE, TRUE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      DIG_OUT_PS_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (396, FALSE, TRUE, FALSE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      TRAFO_SENTRON_COMM_ALARM { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (397, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      ESD_FROM_COMMON { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (398, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      QSD_FROM_COMMON { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (399, FALSE, TRUE, TRUE, (), (), 0, 0, 3, (), (), (), (), (), T#500MS);
+      STI_FROM_COMMON { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (400, FALSE, TRUE, TRUE, (), (), 0, 0, 1, (), (), (), (), (), T#500MS);
+      EXTERNAL_ESD_PUSHBUTTON { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (401, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SYNCH_NOT_READY { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (402, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SYNCH_NOT_ACTIVE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (403, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      COMM_UNIT_DISTRIBUTED_MODULE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (404, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      COMM_COMMON { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (405, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      COMM_GEN_MEAS_DEVICE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (406, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      COMM_GEN_PROT_DEVICE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (407, FALSE, TRUE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      COMM_INTAKE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (408, FALSE, TRUE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      COMM_LINE_PROT { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (409, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#50MS);
+      COMM_AUX_MEAS_DEVICE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (410, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#50MS);
+      COMM_BFA_CUBICLE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (411, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      COMM_GCB_CUBICLE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (412, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      COMM_SN_CUBICLE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (413, FALSE, TRUE, TRUE, (), (), 0, 0, 4, (), (), (), (), (), T#500MS);
+      COMM_EXC { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (414, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#0MS);
+      SPARE_32 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (415, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#0MS);
+   END_STRUCT;
+
+END_TYPE
+

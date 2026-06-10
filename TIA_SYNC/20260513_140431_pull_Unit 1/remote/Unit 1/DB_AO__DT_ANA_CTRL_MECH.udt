@@ -1,0 +1,39 @@
+﻿TYPE "DT_ANA_CTRL_MECH"
+VERSION : 0.1
+   STRUCT
+      FRANCIS_DISTRIBUTOR { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (0, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', 'Francis distributor control');
+      KAPLAN_DISTRIBUTOR { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (1, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', 'Kaplan distributor control');
+      KAPLAN_RUNNER { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (2, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', 'Kaplan runner control');
+      CROSS_FLOW_VALVE_1 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (3, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', 'Crossflow valve 1 control');
+      CROSS_FLOW_VALVE_2 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (4, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', 'Crossflow valve 2 control');
+      PELTON_DEFLECTOR_1 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (5, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', 'Pelton deflector control');
+      PELTON_DEFLECTOR_2 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (6, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', '');
+      PELTON_DEFLECTOR_3 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (7, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', '');
+      PELTON_DEFLECTOR_4 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (8, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', '');
+      PELTON_DEFLECTOR_5 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (9, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', '');
+      PELTON_DEFLECTOR_6 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (10, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', '');
+      PELTON_NOZZLE_1 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (11, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', 'Pelton nozzle 1 control');
+      PELTON_NOZZLE_2 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (12, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', 'Pelton nozzle 2 control');
+      PELTON_NOZZLE_3 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (13, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', 'Pelton nozzle 3 control');
+      PELTON_NOZZLE_4 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (14, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', 'Pelton nozzle 4 control');
+      PELTON_NOZZLE_5 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (15, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', 'Pelton nozzle 5 control');
+      PELTON_NOZZLE_6 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (16, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '%', 'Pelton nozzle 6 control');
+      EXC_CTRL_1 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (17, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '', 'Excitation control');
+      EXC_CTRL_2 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (18, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '', '');
+      CWS_VALVE { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (19, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '', '');
+      CWS_PUMP_1 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (20, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '', '');
+      CWS_PUMP_2 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (21, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '', '');
+      SPARE_22 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (22, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '', '');
+      SPARE_23 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (23, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '', '');
+      SPARE_24 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (24, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '', '');
+      SPARE_25 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (25, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '', '');
+      SPARE_26 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (26, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '', '');
+      SPARE_27 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (27, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '', '');
+      SPARE_28 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (28, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '', '');
+      SPARE_29 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (29, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '', '');
+      SPARE_30 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (30, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '', '');
+      SPARE_31 { S7_SetPoint := 'False'} : "DT_ANA_CTRL_SOLO" := (31, 32000, 32000, 32000, 0, 0, 0, 0, 0, 0.0, '', '');
+   END_STRUCT;
+
+END_TYPE
+

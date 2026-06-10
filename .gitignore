@@ -1,0 +1,32 @@
+# Build outputs
+**/bin/
+**/obj/
+**/publish/
+**/publish_new/
+
+# Visual Studio / Rider local state
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Local logs and scratch files
+*.log
+macro_test_log*.txt
+*.tmp
+tmp_*/
+__*/
+
+# Excel/VBA legacy and backups are not part of the WPF app repository
+Configuration_Unit_List/
+Configuration_Unit_List.*
+Configuration_Unit_List*.xlsm
+Configuration_Unit_List.backup*/
+vba_*/
+Vba*.bas
+
+# Local analysis files
+*_analysis.txt
+*_schema.txt

@@ -1,0 +1,39 @@
+﻿TYPE "DT_DIGITAL_INPUT_EXC"
+VERSION : 0.1
+   STRUCT
+      AVR_CONTACTOR_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 448), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      VOLTAGE_LOWER { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 449), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      VOLTAGE_HIGHER { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 450), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      AVR_TRIP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 451), (32000, 32000, 32000), (0, 1, 3), (FALSE, FALSE, 0));
+      AVR_ALARM { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 452), (32000, 32000, 32000), (0, 1, 3), (FALSE, FALSE, 0));
+      AVR_SPARE { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 453), (32000, 32000, 32000), (0, 1, 3), (FALSE, FALSE, 0));
+      AVR_DO_2 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 454), (32000, 32000, 32000), (0, 1, 3), (FALSE, FALSE, 0));
+      AVR_DO_3 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 455), (32000, 32000, 32000), (0, 1, 3), (FALSE, FALSE, 0));
+      AVR_PS_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 456), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      AVR_WATCHDOG_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 457), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      AVR_NO_TRIP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 458), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      AVR_START { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 459), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      AVR_LIMITER_ACTIVE { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 460), (32000, 32000, 32000), (0, 1, 3), (FALSE, FALSE, 0));
+      VT_MCB_OFF { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 461), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      AVR_VOLTAGE_CTRL_ACTIVE { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 462), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      AVR_PF_ACTIVE { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 463), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      AVR_VAR_ACTIVE { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 464), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      AVR_FCR_ACTIVE { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 465), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      AVR_RELAY_1 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 466), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      AVR_RELAY_2 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 467), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      AVR_RELAY_3 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 468), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_469 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 469), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_470 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 470), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_471 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 471), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_472 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 472), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_473 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 473), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_474 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 474), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_475 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 475), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_476 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 476), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_477 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 477), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_478 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 478), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      Q1_AREP_PS { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 479), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+   END_STRUCT;
+
+END_TYPE
+

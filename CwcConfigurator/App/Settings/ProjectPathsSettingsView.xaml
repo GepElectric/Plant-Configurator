@@ -1,0 +1,84 @@
+<local:SettingsEditorViewBase x:Class="CwcConfigurator.App.Settings.ProjectPathsSettingsView"
+                              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                              xmlns:local="clr-namespace:CwcConfigurator.App">
+    <local:SettingsEditorViewBase.Resources>
+        <Style x:Key="PathLabel" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,12,10"/>
+        </Style>
+        <Style x:Key="MutedLabel" TargetType="TextBlock" BasedOn="{StaticResource PathLabel}">
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="#57606A"/>
+        </Style>
+        <Style x:Key="PathInput" TargetType="TextBox">
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+    </local:SettingsEditorViewBase.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="240"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Row="0" Style="{StaticResource PathLabel}"
+                   Text="Generated files output folder"
+                   ToolTip="Folder where Generate (F6) writes DB source files. Also used by TIA Sync and the ALM/PAR PDF export."/>
+        <TextBox Grid.Row="0" Grid.Column="1" x:Name="OutputPathText" Style="{StaticResource PathInput}"/>
+
+        <TextBlock Grid.Row="1" Style="{StaticResource PathLabel}"
+                   Text="TIA Portal export folder"
+                   ToolTip="Default folder shown when importing files exported from TIA Portal."/>
+        <TextBox Grid.Row="1" Grid.Column="1" x:Name="TiaExportPathText" Style="{StaticResource PathInput}"/>
+
+        <TextBlock Grid.Row="2" Style="{StaticResource PathLabel}"
+                   Text="WinCC Unified JS connector folder"
+                   ToolTip="Folder of the WinCC Unified JS Connector installation."/>
+        <TextBox Grid.Row="2" Grid.Column="1" x:Name="UnifiedJsConnectorFolderText" Style="{StaticResource PathInput}"/>
+
+        <TextBlock Grid.Row="3" Style="{StaticResource PathLabel}"
+                   Text="WinCC Unified REST server path"
+                   ToolTip="Executable / endpoint used by 'Test WinCC Unified script connection'."/>
+        <TextBox Grid.Row="3" Grid.Column="1" x:Name="UnifiedJsConnectorServerPathText" Style="{StaticResource PathInput}"/>
+
+        <Separator Grid.Row="4" Grid.ColumnSpan="2" Margin="0,10,0,14"/>
+
+        <TextBlock Grid.Row="5" Grid.ColumnSpan="2"
+                   Text="Reference paths"
+                   FontWeight="SemiBold"
+                   Foreground="#57606A"
+                   Margin="0,0,0,4"/>
+        <TextBlock Grid.Row="6" Grid.ColumnSpan="2"
+                   Text="Only printed in the Project Summary export — not used by generation, TIA sync or validation."
+                   Foreground="#57606A"
+                   FontSize="11"
+                   Margin="0,0,0,12"/>
+
+        <TextBlock Grid.Row="7" Style="{StaticResource MutedLabel}"
+                   Text="PLC source folder"
+                   ToolTip="Legacy reference path; only included in the Project Summary export."/>
+        <TextBox Grid.Row="7" Grid.Column="1" x:Name="PlcPathText" Style="{StaticResource PathInput}"/>
+
+        <TextBlock Grid.Row="8" Style="{StaticResource MutedLabel}"
+                   Text="R source folder"
+                   Margin="0,0,12,0"
+                   ToolTip="Legacy reference path; only included in the Project Summary export."/>
+        <TextBox Grid.Row="8" Grid.Column="1" x:Name="RPathText" Style="{StaticResource PathInput}" Margin="0,0,0,0"/>
+    </Grid>
+</local:SettingsEditorViewBase>

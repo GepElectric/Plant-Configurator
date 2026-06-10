@@ -1,0 +1,39 @@
+﻿TYPE "DT_ALM_SYSTEM_UNIT_TRAFO"
+VERSION : 0.1
+   STRUCT
+      TEMP_WIN_1_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (256, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMP_WIN_1_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (257, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMP_WIN_1_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (258, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMP_WIN_2_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (259, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMP_WIN_2_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (260, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMP_WIN_2_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (261, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMP_WIN_3_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (262, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMP_WIN_3_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (263, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMP_WIN_3_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (264, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMP_WIN_H_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (265, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMP_WIN_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (266, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMP_WIN_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (267, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMP_OIL_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (268, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMP_OIL_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (269, FALSE, FALSE, TRUE, (), (), 3, 0, 4, (), (), (), (), (), T#500MS);
+      TEMP_OIL_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (270, FALSE, FALSE, TRUE, (), (), 3, 0, 4, (), (), (), (), (), T#500MS);
+      TEMP_OIL_ERR_1 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (271, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMP_OIL_H_1 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (272, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMP_OIL_HH_1 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (273, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      PRESSURE_TRIP { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (274, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      PRESSURE_ALARM { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (275, FALSE, FALSE, TRUE, (), (), 3, 0, 4, (), (), (), (), (), T#500MS);
+      OIL_PRESS_L { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (276, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      OIL_PRESS_LL { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (277, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BUCHHOLZ_W { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (278, FALSE, FALSE, TRUE, (), (), 3, 4, 1, (), (), (), (), (), T#500MS);
+      BUCHHOLZ_T { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (279, FALSE, FALSE, TRUE, (), (), 3, 0, 4, (), (), (), (), (), T#500MS);
+      PRESS_REL_VALVE_FAULT { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (280, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      WARNING { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (281, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TRIP { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (282, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      OLTC_POSITION { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (283, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      OLTC_P_TRIP1 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (284, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      OLTC_P_TRIP2 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (285, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      OLTC_OIL_LEVEL_LL { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (286, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      OLTC_OIL_LEVEL_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (287, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+   END_STRUCT;
+
+END_TYPE
+

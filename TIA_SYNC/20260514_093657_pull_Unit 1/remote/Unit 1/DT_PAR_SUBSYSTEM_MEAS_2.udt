@@ -1,0 +1,39 @@
+﻿TYPE "DT_PAR_SUBSYSTEM_MEAS_2"
+VERSION : 0.1
+   STRUCT
+      PENSTOCK_PRESS_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 128, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      PENSTOCK_PRESS_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 129, 0, 25.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      PENSTOCK_PRESS_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 130, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      PENSTOCK_PRESS_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 131, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      TURBINE_PRESS_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 132, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      TURBINE_PRESS_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 133, 0, 25.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      TURBINE_PRESS_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 134, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      TURBINE_PRESS_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 135, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'bar');
+      DRAFT_TUBE_PRESS_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 136, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      DRAFT_TUBE_PRESS_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 137, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      DRAFT_TUBE_PRESS_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 138, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      DRAFT_TUBE_PRESS_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 139, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      DRAFT_TUBE_PRESSURE_H { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 140, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      DRAFT_TUBE_PRESSURE_HH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 141, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      INTAKE_WATER_LEVEL_1_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 142, 0, -4.0, 0, T#0MS, 0.0, 0.0, 'm');
+      INTAKE_WATER_LEVEL_1_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 143, 0, 1.0, 0, T#0MS, 0.0, 0.0, 'm');
+      INTAKE_WATER_LEVEL_1_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 144, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      INTAKE_WATER_LEVEL_1_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 145, 0, 1.58, 0, T#0MS, 0.0, 0.0, 'm');
+      INTAKE_WATER_LEVEL_2_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 146, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      INTAKE_WATER_LEVEL_2_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 147, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      INTAKE_WATER_LEVEL_2_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 148, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      INTAKE_WATER_LEVEL_2_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 149, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      TAIL_WATER_LEVEL_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 150, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      TAIL_WATER_LEVEL_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 151, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      TAIL_WATER_LEVEL_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 152, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      TAIL_WATER_LEVEL_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 153, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      TAIL_WATER_LEVEL_H { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 154, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_28 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 155, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_29 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 156, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_30 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 157, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_31 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 158, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_32 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 159, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+   END_STRUCT;
+
+END_TYPE
+

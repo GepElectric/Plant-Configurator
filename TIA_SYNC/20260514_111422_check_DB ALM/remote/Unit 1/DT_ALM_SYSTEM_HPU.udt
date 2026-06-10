@@ -1,0 +1,39 @@
+﻿TYPE "DT_ALM_SYSTEM_HPU"
+VERSION : 0.1
+   STRUCT
+      HEATER1_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (64, FALSE, TRUE, TRUE, (), (), 1, 0, 1, (), (), (), (), (), T#500MS);
+      HEATER1_CONT_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (65, FALSE, TRUE, TRUE, (), (), 1, 0, 1, (), (), (), (), (), T#500MS);
+      HEATER2_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (66, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      HEATER2_CONT_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (67, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      ACCU_PRESSURE_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (68, FALSE, TRUE, TRUE, (), (), 2, 0, 2, (), (), (), (), (), T#3S);
+      ACCU_PRESSURE_LL { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (69, FALSE, TRUE, TRUE, (), (), 2, 0, 4, (), (), (), (), (), T#5S);
+      ACCU_PRESSURE_L { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (70, FALSE, TRUE, TRUE, (), (), 2, 0, 1, (), (), (), (), (), T#5S);
+      SYS_PRESSURE_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (71, FALSE, FALSE, TRUE, (), (), 2, 0, 2, (), (), (), (), (), T#3S);
+      SYS_PRESSURE_LL { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (72, FALSE, FALSE, TRUE, (), (), 2, 0, 3, (), (), (), (), (), T#5S);
+      SYS_PRESSURE_L { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (73, FALSE, FALSE, TRUE, (), (), 2, 0, 1, (), (), (), (), (), T#5S);
+      SYS_PRESSURE_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (74, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SYS_PRESSURE_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (75, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LEVEL_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (76, FALSE, FALSE, TRUE, (), (), 2, 0, 2, (), (), (), (), (), T#3S);
+      LEVEL_L { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (77, FALSE, FALSE, TRUE, (), (), 2, 3, 0, (), (), (), (), (), T#5S);
+      LEVEL_LL { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (78, FALSE, TRUE, TRUE, (), (), 3, 0, 3, (), (), (), (), (), T#5S);
+      LEVEL_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (79, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LEVEL_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (80, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      TEMPERATURE_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (81, FALSE, FALSE, TRUE, (), (), 3, 4, 2, (), (), (), (), (), T#3S);
+      TEMPERATURE_L { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (82, FALSE, FALSE, TRUE, (), (), 3, 4, 1, (), (), (), (), (), T#5S);
+      TEMPERATURE_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (83, FALSE, FALSE, TRUE, (), (), 3, 4, 1, (), (), (), (), (), T#5S);
+      TEMPERATURE_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (84, FALSE, TRUE, TRUE, (), (), 3, 4, 3, (), (), (), (), (), T#5S);
+      FILTER_PRESS_W { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (85, FALSE, TRUE, TRUE, (), (), 3, 0, 0, (), (), (), (), (), T#500MS);
+      FILTER_PRESS_T { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (86, FALSE, TRUE, TRUE, (), (), 3, 0, 3, (), (), (), (), (), T#2H);
+      FILTER_RETURN_W { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (87, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      FILTER_RETURN_T { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (88, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      QSD_NOT_ACTIV { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (89, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LEAKAGE_DETECT_FLT { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (90, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BRAKE_SIG_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (91, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BRAKE_ACT_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (92, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      CONTROL_MCB_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (93, FALSE, FALSE, TRUE, (), (), 1, 0, 3, (), (), (), (), (), T#500MS);
+      ESD_PB_PRESSED { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (94, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_95 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (95, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+   END_STRUCT;
+
+END_TYPE
+

@@ -1,0 +1,39 @@
+﻿TYPE "DT_PAR_GEN_MEAS"
+VERSION : 0.1
+   STRUCT
+      WIND_TEMP_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 288, 0, 0.0, 0, T#0MS, 0.0, 0.0, '°C');
+      WIND_TEMP_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 289, 0, 150.0, 0, T#0MS, 0.0, 0.0, '°C');
+      WIND_TEMP_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 290, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      WIND_TEMP_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 291, 0, 0.0, 0, T#0MS, 0.0, 0.0, '°C');
+      WIND_TEMP_H { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 292, 0, 120.0, 0, T#0MS, 0.0, 0.0, '°C');
+      WIND_TEMP_HH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 293, 0, 130.0, 0, T#0MS, 0.0, 0.0, '°C');
+      DE_TEMP_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 294, 0, 1.0, 0, T#0MS, 0.0, 0.0, '°C');
+      DE_TEMP_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 295, 0, 0.0, 0, T#0MS, 0.0, 0.0, '°C');
+      DE_TEMP_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 296, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      DE_TEMP_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 297, 0, 0.0, 0, T#0MS, 0.0, 0.0, '°C');
+      DE_TEMP_H { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 298, 0, 70.0, 0, T#0MS, 0.0, 0.0, '°C');
+      DE_TEMP_HH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 299, 0, 80.0, 0, T#0MS, 0.0, 0.0, '°C');
+      NDE_TEMP_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 300, 0, 0.0, 0, T#0MS, 0.0, 0.0, '°C');
+      NDE_TEMP_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 301, 0, 120.0, 0, T#0MS, 0.0, 0.0, '°C');
+      NDE_TEMP_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 302, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      NDE_TEMP_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 303, 0, 0.0, 0, T#0MS, 0.0, 0.0, '°C');
+      NDE_TEMP_H { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 304, 0, 70.0, 0, T#0MS, 0.0, 0.0, '°C');
+      NDE_TEMP_HH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 305, 0, 80.0, 0, T#0MS, 0.0, 0.0, '°C');
+      AIR_INLET_TEMP_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 306, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      AIR_INLET_TEMP_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 307, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      AIR_INLET_TEMP_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 308, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      AIR_INLET_TEMP_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 309, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      AIR_INLET_TEMP_H { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 310, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      AIR_INLET_TEMP_HH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 311, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      AIR_OUTLET_TEMP_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 312, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      AIR_OUTLET_TEMP_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 313, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      AIR_OUTLET_TEMP_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 314, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      AIR_OUTLET_TEMP_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 315, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      AIR_OUTLET_TEMP_H { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 316, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      AIR_OUTLET_TEMP_HH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 317, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_94 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 318, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PARAM_95 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 319, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+   END_STRUCT;
+
+END_TYPE
+

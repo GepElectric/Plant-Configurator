@@ -1,0 +1,69 @@
+<local:SettingsEditorViewBase x:Class="CwcConfigurator.App.Settings.DbDataBlockSettingsView"
+                              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                              xmlns:local="clr-namespace:CwcConfigurator.App">
+    <local:SettingsEditorViewBase.Resources>
+        <Style x:Key="DbDataBlockCellText" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style x:Key="DbDataBlockEditText" TargetType="TextBox">
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+    </local:SettingsEditorViewBase.Resources>
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button Content="Add data block" MinWidth="130" Padding="10,4" Click="AddRow_Click"/>
+            <Button Content="Delete selected" MinWidth="130" Padding="10,4" Margin="8,0,0,0" Click="DeleteRow_Click"/>
+            <TextBlock Text="Tip: drag column header edges to resize."
+                       Foreground="#57606A"
+                       FontSize="11"
+                       VerticalAlignment="Center"
+                       Margin="16,0,0,0"/>
+        </StackPanel>
+        <DataGrid x:Name="DataBlockNamesGrid"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="True"
+                  CanUserDeleteRows="True"
+                  CanUserResizeColumns="True"
+                  CanUserResizeRows="False"
+                  CanUserSortColumns="False"
+                  HorizontalScrollBarVisibility="Auto"
+                  VerticalScrollBarVisibility="Auto"
+                  GridLinesVisibility="All"
+                  HeadersVisibility="Column"
+                  RowHeaderWidth="0">
+            <DataGrid.Columns>
+                <DataGridTextColumn Width="80" Header="DB NUMBER"
+                                    Binding="{Binding Number, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ElementStyle="{StaticResource DbDataBlockCellText}" EditingElementStyle="{StaticResource DbDataBlockEditText}"/>
+                <DataGridTextColumn Width="100" Header="DB CODE"
+                                    Binding="{Binding DbName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ElementStyle="{StaticResource DbDataBlockCellText}" EditingElementStyle="{StaticResource DbDataBlockEditText}"/>
+                <DataGridTextColumn Width="120" Header="BLOCK KIND"
+                                    Binding="{Binding BlockKind, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ElementStyle="{StaticResource DbDataBlockCellText}" EditingElementStyle="{StaticResource DbDataBlockEditText}"/>
+                <DataGridTextColumn Width="180" Header="GENERATED FILE NAME"
+                                    Binding="{Binding FileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ElementStyle="{StaticResource DbDataBlockCellText}" EditingElementStyle="{StaticResource DbDataBlockEditText}"/>
+                <DataGridTextColumn Width="*" MinWidth="180" Header="DATA BLOCK NAME"
+                                    Binding="{Binding DataBlockName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ElementStyle="{StaticResource DbDataBlockCellText}" EditingElementStyle="{StaticResource DbDataBlockEditText}"/>
+                <DataGridTextColumn Width="*" MinWidth="180" Header="DATA TYPE NAME"
+                                    Binding="{Binding DataTypeName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ElementStyle="{StaticResource DbDataBlockCellText}" EditingElementStyle="{StaticResource DbDataBlockEditText}"/>
+                <DataGridTextColumn Width="170" Header="EXCEL SOURCE COLUMN"
+                                    Binding="{Binding SourceColumn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ElementStyle="{StaticResource DbDataBlockCellText}" EditingElementStyle="{StaticResource DbDataBlockEditText}"/>
+                <DataGridTextColumn Width="100" Header="LAST USED ID"
+                                    Binding="{Binding LastId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ElementStyle="{StaticResource DbDataBlockCellText}" EditingElementStyle="{StaticResource DbDataBlockEditText}"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</local:SettingsEditorViewBase>

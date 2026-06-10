@@ -1,0 +1,100 @@
+﻿DATA_BLOCK "PAR_GROUP_NAMES"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+NON_RETAIN
+   STRUCT 
+      LANGUAGE : Array[0..42] of String[32];
+      LANGUAGE_1 : Array[0..42] of String[32];
+   END_STRUCT;
+
+
+BEGIN
+   LANGUAGE[0] := 'Nominal values and ctrl 1';
+   LANGUAGE[1] := 'Nominal values and ctrl 2';
+   LANGUAGE[2] := 'Devices measurements';
+   LANGUAGE[3] := 'Subsystem measurements 1';
+   LANGUAGE[4] := 'Subsystem measurements 2';
+   LANGUAGE[5] := 'Subsystem measurements 3';
+   LANGUAGE[6] := 'Subsystem measurements 4';
+   LANGUAGE[7] := 'Subsystem control 1';
+   LANGUAGE[8] := 'Subsystem control 2';
+   LANGUAGE[9] := 'Generator temperature meas 1';
+   LANGUAGE[10] := 'Generator temperature meas 2';
+   LANGUAGE[11] := 'Generator speed measurements';
+   LANGUAGE[12] := 'Generator WH and vibrations';
+   LANGUAGE[13] := 'Generator excitation';
+   LANGUAGE[14] := 'Turbine position meas 1';
+   LANGUAGE[15] := 'Turbine position meas 2';
+   LANGUAGE[16] := 'Turbine control 1';
+   LANGUAGE[17] := 'Turbine control 2';
+   LANGUAGE[18] := 'Turbine control 3';
+   LANGUAGE[19] := '';
+   LANGUAGE[20] := '';
+   LANGUAGE[21] := '';
+   LANGUAGE[22] := '';
+   LANGUAGE[23] := '';
+   LANGUAGE[24] := '';
+   LANGUAGE[25] := '';
+   LANGUAGE[26] := '';
+   LANGUAGE[27] := '';
+   LANGUAGE[28] := '';
+   LANGUAGE[29] := '';
+   LANGUAGE[30] := '';
+   LANGUAGE[31] := '';
+   LANGUAGE[32] := '';
+   LANGUAGE[33] := '';
+   LANGUAGE[34] := '';
+   LANGUAGE[35] := '';
+   LANGUAGE[36] := '';
+   LANGUAGE[37] := '';
+   LANGUAGE[38] := '';
+   LANGUAGE[39] := '';
+   LANGUAGE[40] := '';
+   LANGUAGE[41] := '';
+   LANGUAGE[42] := '';
+   LANGUAGE_1[0] := '';
+   LANGUAGE_1[1] := '';
+   LANGUAGE_1[2] := '';
+   LANGUAGE_1[3] := '';
+   LANGUAGE_1[4] := '';
+   LANGUAGE_1[5] := '';
+   LANGUAGE_1[6] := '';
+   LANGUAGE_1[7] := '';
+   LANGUAGE_1[8] := '';
+   LANGUAGE_1[9] := '';
+   LANGUAGE_1[10] := '';
+   LANGUAGE_1[11] := '';
+   LANGUAGE_1[12] := '';
+   LANGUAGE_1[13] := '';
+   LANGUAGE_1[14] := '';
+   LANGUAGE_1[15] := '';
+   LANGUAGE_1[16] := '';
+   LANGUAGE_1[17] := '';
+   LANGUAGE_1[18] := '';
+   LANGUAGE_1[19] := '';
+   LANGUAGE_1[20] := '';
+   LANGUAGE_1[21] := '';
+   LANGUAGE_1[22] := '';
+   LANGUAGE_1[23] := '';
+   LANGUAGE_1[24] := '';
+   LANGUAGE_1[25] := '';
+   LANGUAGE_1[26] := '';
+   LANGUAGE_1[27] := '';
+   LANGUAGE_1[28] := '';
+   LANGUAGE_1[29] := '';
+   LANGUAGE_1[30] := '';
+   LANGUAGE_1[31] := '';
+   LANGUAGE_1[32] := '';
+   LANGUAGE_1[33] := '';
+   LANGUAGE_1[34] := '';
+   LANGUAGE_1[35] := '';
+   LANGUAGE_1[36] := '';
+   LANGUAGE_1[37] := '';
+   LANGUAGE_1[38] := '';
+   LANGUAGE_1[39] := '';
+   LANGUAGE_1[40] := '';
+   LANGUAGE_1[41] := '';
+   LANGUAGE_1[42] := '';
+
+END_DATA_BLOCK
+

@@ -1,0 +1,39 @@
+﻿TYPE "DT_DIGITAL_INPUT_HPU_SYS"
+VERSION : 0.1
+   STRUCT
+      FILTER_1_ALARM { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 224), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      FILTER_1_TRIP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 225), (32000, 32000, 32000), (0, 1, 3), (FALSE, FALSE, 0));
+      FILTER_2_ALARM { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 226), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      FILTER_2_TRIP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 227), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      PRESS_ACCU_ESD { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 228), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      PRESS_ACCU_START { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 229), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      PRESS_ACCU_STOP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 230), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      PRESS_ACCU_START_STOP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 231), (32000, 32000, 32000), (0, 4, 1), (FALSE, FALSE, 0));
+      PRESS_SYS_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 232), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      LVL_TOO_LOW { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 233), (32000, 32000, 32000), (0, 4, 3), (FALSE, FALSE, 0));
+      LVL_LOW { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 234), (32000, 32000, 32000), (0, 4, 3), (FALSE, FALSE, 0));
+      LVL_HIGH { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 235), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LVL_TOO_HIGH { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 236), (32000, 32000, 32000), (0, 4, 3), (FALSE, FALSE, 0));
+      TEMP_HIGH { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 237), (32000, 32000, 32000), (0, 4, 3), (FALSE, FALSE, 0));
+      TEMP_TOO_HIGH { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 238), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      TEMP_HEATER_START { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 239), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      TEMP_HEATER_STOP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 240), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      LEAK_DETECTION { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 241), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      HEATER_MCB_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 242), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      HEATER_CONT_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 243), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      HPU_CONTROL_MCB_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 244), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      HPU_PUSHBUTTON_PRESSED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 245), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_246 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 246), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_247 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 247), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_248 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 248), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_249 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 249), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_250 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 250), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_251 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 251), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_252 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 252), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_253 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 253), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_254 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 254), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SPARE_255 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 255), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+   END_STRUCT;
+
+END_TYPE
+

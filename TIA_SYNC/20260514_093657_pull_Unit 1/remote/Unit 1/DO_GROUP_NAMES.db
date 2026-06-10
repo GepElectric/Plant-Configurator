@@ -1,0 +1,23 @@
+﻿DATA_BLOCK "DO_GROUP_NAMES"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+NON_RETAIN
+   STRUCT 
+      LANGUAGE : Array[0..11] of String[32];
+      LANGUAGE_1 : Array[0..11] of String[32];
+   END_STRUCT;
+
+
+BEGIN
+   LANGUAGE[0] := 'Control, Sync. & Exc.';
+   LANGUAGE[1] := 'Cubicles & Signalization';
+   LANGUAGE[2] := 'Middle Voltage';
+   LANGUAGE[3] := 'Subsystems';
+   LANGUAGE[4] := 'Turbine - Francis, Kaplan Cross.';
+   LANGUAGE[5] := 'Turbine - Other';
+   LANGUAGE[6] := 'Turbine - Pelton (Deflector)';
+   LANGUAGE[7] := 'Turbine - Pelton (Nozzles)';
+   LANGUAGE[8] := 'Waterway & Intake';
+
+END_DATA_BLOCK
+

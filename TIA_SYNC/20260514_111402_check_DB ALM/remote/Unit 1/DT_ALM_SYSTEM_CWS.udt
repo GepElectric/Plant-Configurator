@@ -1,0 +1,39 @@
+﻿TYPE "DT_ALM_SYSTEM_CWS"
+VERSION : 0.1
+   STRUCT
+      PUMP_MOT_CB_TRIPPED { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (672, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      PUMP_MOT_CB_ON { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (673, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      PUMP_CONT_ON { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (674, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      PRESS_OK { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (675, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      PUMP_FAULT { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (676, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      FLOW_TEMP_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (677, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      FLOW_TEMP_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (678, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      FLOW_TEMP_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (679, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BFLOW_GEN_WIN_TEMP_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (680, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BFLOW_GEN_WIN_TEMP_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (681, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BFLOW_GEN_WIN_TEMP_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (682, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BACKFLOW_DE_TEMP_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (683, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BACKFLOW_DE_TEMP_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (684, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BACKFLOW_DE_TEMP_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (685, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BACKFLOW_NDE_TEMP_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (686, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BACKFLOW_NDE_TEMP_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (687, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      BACKFLOW_NDE_TEMP_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (688, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      Q_DE_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (689, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      Q_DE_LL { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (690, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      Q_NDE_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (691, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      Q_NDE_LL { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (692, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      Q_WIN_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (693, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      Q_WIN_LL { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (694, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      DC_PUMP_MOT_CB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (695, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      DC_PUMP_INRUSH_CONT_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (696, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LEVEL_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (697, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LEVEL_L { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (698, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LEVEL_LL { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (699, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      FILTER_CLOGGED_W { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (700, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      FILTER_CLOGGED_T { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (701, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      HEATER1_CONT_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (702, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      HEATER1_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (703, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+   END_STRUCT;
+
+END_TYPE
+

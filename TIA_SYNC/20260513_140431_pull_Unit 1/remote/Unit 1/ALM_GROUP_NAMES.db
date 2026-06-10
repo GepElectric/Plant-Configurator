@@ -1,0 +1,56 @@
+﻿DATA_BLOCK "ALM_GROUP_NAMES"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+NON_RETAIN
+   STRUCT 
+      LANGUAGE : Array[0..41] of String[32];
+      LANGUAGE_1 : Array[0..41] of String[32];
+   END_STRUCT;
+
+
+BEGIN
+   LANGUAGE[0] := 'Turbine';
+   LANGUAGE[1] := 'HPU pumps';
+   LANGUAGE[2] := 'HPU';
+   LANGUAGE[3] := 'Waterway';
+   LANGUAGE[4] := 'Gen. winding temperatures';
+   LANGUAGE[5] := 'Gen. bearings temperatures';
+   LANGUAGE[6] := 'Gen. speed and WH';
+   LANGUAGE[7] := 'Gen. other alarms';
+   LANGUAGE[8] := 'Step up transformer';
+   LANGUAGE[9] := 'Auxiliary transformer';
+   LANGUAGE[10] := 'Excitation ans SYNC';
+   LANGUAGE[11] := 'Prot and auto mode';
+   LANGUAGE[12] := 'Control and common 1';
+   LANGUAGE[13] := 'Control and common 2';
+   LANGUAGE[14] := 'Gen. cubicle and other';
+   LANGUAGE[15] := 'Auxiliary AC/DC 1';
+   LANGUAGE[16] := 'Auxiliary AC/DC 2';
+   LANGUAGE[17] := 'SN line';
+   LANGUAGE[18] := 'SN gen. and meas';
+   LANGUAGE[19] := 'SN aux. trafo and meas';
+   LANGUAGE[20] := 'Intake';
+   LANGUAGE[21] := 'Gen. protection device';
+   LANGUAGE[22] := 'Spare';
+   LANGUAGE[23] := 'Spare';
+   LANGUAGE[24] := 'Sepam G88 Comm alarms';
+   LANGUAGE[25] := 'Spare';
+   LANGUAGE[26] := 'Spare';
+   LANGUAGE[27] := 'Spare';
+   LANGUAGE[28] := 'Spare';
+   LANGUAGE[29] := 'Spare';
+   LANGUAGE[30] := 'Spare';
+   LANGUAGE[31] := '';
+   LANGUAGE[32] := 'Spare';
+   LANGUAGE[33] := 'Spare';
+   LANGUAGE[34] := 'Spare';
+   LANGUAGE[35] := 'Spare';
+   LANGUAGE[36] := 'Spare';
+   LANGUAGE[37] := 'Spare';
+   LANGUAGE[38] := 'Spare';
+   LANGUAGE[39] := 'Spare';
+   LANGUAGE[40] := 'Spare';
+   LANGUAGE[41] := 'Spare';
+
+END_DATA_BLOCK
+

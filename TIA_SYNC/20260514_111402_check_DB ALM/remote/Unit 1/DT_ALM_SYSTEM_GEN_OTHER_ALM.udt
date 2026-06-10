@@ -1,0 +1,39 @@
+﻿TYPE "DT_ALM_SYSTEM_GEN_OTHER_ALM"
+VERSION : 0.1
+   STRUCT
+      HEATER_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (224, FALSE, TRUE, TRUE, (), (), 1, 0, 0, (), (), (), (), (), T#500MS);
+      HEATER_CONT_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (225, FALSE, TRUE, TRUE, (), (), 1, 0, 0, (), (), (), (), (), T#2S);
+      DE_LEVEL_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (226, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      DE_LEVEL_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (227, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      DE_LEVEL_LL { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (228, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      NDE_LEVEL_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (229, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      NDE_LEVEL_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (230, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      NDE_LEVEL_LL { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (231, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LEAKAGE_SENSOR_FAULT { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (232, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      MEASUREMENT_GEN_GRID_NOK { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (233, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SCVP_ALARM { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (234, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SCVP_TRIP { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (235, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      VT_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (236, FALSE, TRUE, TRUE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      VT_NEUTRAL_MCB_OFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (237, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      MIN_OIL_LEVEL { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (238, FALSE, FALSE, FALSE, (), (), 3, 4, 3, (), (), (), (), (), T#2S);
+      VIB_ALM { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (239, FALSE, FALSE, TRUE, (), (), 3, 0, 0, (), (), (), (), (), T#500MS);
+      GREASING_PUMP_CONT_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (240, FALSE, FALSE, TRUE, (), (), 3, 0, 2, (), (), (), (), (), T#500MS);
+      OIL_LEVEL_HIGH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (241, FALSE, FALSE, FALSE, (), (), 3, 4, 3, (), (), (), (), (), T#2S);
+      OIL_LEVEL_TOO_HIGH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (242, FALSE, FALSE, FALSE, false, false, 3, 4, 3, 0, 0, (), (), (), T#2S);
+      OIL_NDE_TEMP_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (243, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      OIL_NDE_TEMP_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (244, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      OIL_NDE_TEMP_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (245, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      THRUST_NDE_TEMP_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (246, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      THRUST_NDE_TEMP_H { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (247, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      THRUST_NDE_TEMP_HH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (248, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_249 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (249, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_250 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (250, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_251 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (251, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_252 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (252, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_253 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (253, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_254 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (254, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      SPARE_255 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (255, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+   END_STRUCT;
+
+END_TYPE
+

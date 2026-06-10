@@ -1,0 +1,39 @@
+﻿TYPE "DT_PAR_TURBINE_1"
+VERSION : 0.1
+   STRUCT
+      GENERAL_VALVE_NUMBER { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 512, 1, 0.0, 6, T#0MS, 0.0, 0.0, '-');
+      GENERAL_DEFLECTOR_NUM { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 513, 1, 0.0, 1, T#0MS, 0.0, 0.0, '-');
+      GENERAL_PELTON_SYNC_VALVE { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 514, 1, 0.1, 1, T#0MS, 0.0, 0.0, '-');
+      GENERAL_VALVE_CLOSED { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 515, 0, 0.5, 0, T#0MS, 0.0, 0.0, '%');
+      GENERAL_VALVE_OPEN { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 516, 0, 99.5, 0, T#0MS, 0.0, 0.0, '%');
+      GENERAL_SPARE_6 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 517, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      GENERAL_SPARE_7 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 518, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      CTRL_SPEED_UP_FIRST_POINT_FIRST_VALVE_POSITION { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 519, 0, 10.0, 0, T#0MS, 0.0, 0.0, '%');
+      CTRL_SPEED_UP_FIRST_POINT_SECOND_VALVE_POSITION { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 520, 0, 10.0, 0, T#0MS, 0.0, 0.0, '%');
+      CTRL_SPEED_UP_FIRST_POINT_LIMIT_SPEED { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 521, 0, 10.0, 0, T#0MS, 0.0, 0.0, '%');
+      CTRL_SPEED_UP_SECOND_POINT_FIRST_VALVE_POSITION { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 522, 0, 12.0, 0, T#0MS, 0.0, 0.0, '%');
+      CTRL_SPEED_UP_SECOND_POINT_SECOND_VALVE_POSITION { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 523, 0, 10.0, 0, T#0MS, 0.0, 0.0, '%');
+      CTRL_SPEED_UP_SECOND_POINT_LIMIT_SPEED { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 524, 0, 20.0, 0, T#0MS, 0.0, 0.0, '%');
+      CTRL_SPEED_UP_THIRD_POINT_FIRST_VALVE_POSITION { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 525, 0, 12.0, 0, T#0MS, 0.0, 0.0, '%');
+      CTRL_SPEED_UP_THIRD_POINT_SECOND_VALVE_POSITION { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 526, 0, 10.0, 0, T#0MS, 0.0, 0.0, '%');
+      CTRL_SPEED_UP_LIMIT_SPEED_FOR_START_SPEED_REG { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 527, 0, 30.0, 0, T#0MS, 0.0, 0.0, '%');
+      CTRL_SPEED_NO_LOAD_FOLLOW_GRID_FREQUENCY { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 528, 1, 0.5, 1, T#0MS, 0.0, 0.0, '-');
+      CTRL_SPEED_NO_LOAD_INCREMENT_FOR_SPEED_REF { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 529, 0, 0.1, 0, T#0MS, 0.0, 0.0, 'rpm');
+      CTRL_MIN_POWER_FIRST_VALVE { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 530, 0, 100.0, 0, T#0MS, 0.0, 0.0, 's');
+      CTRL_MIN_POWER_SECOND_VALVE { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 531, 0, 25.0, 1, T#0MS, 0.0, 0.0, 's');
+      CTRL_GRID_STARTING_REG { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 532, 1, 0.0, 1, T#0MS, 0.0, 0.0, 's');
+      CTRL_SHUTDOWN_FIRST_VALVE_NSD_RAMP_TIME { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 533, 0, 180.0, 0, T#0MS, 0.0, 0.0, 's');
+      CTRL_SHUTDOWN_FIRST_VALVE_QSD_RAMP_TIME { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 534, 0, 60.0, 0, T#0MS, 0.0, 0.0, '');
+      CTRL_SHUTDOWN_FIRST_VALVE_ESD_RAMP_TIME { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 535, 0, 0.0, 0, T#0MS, 0.0, 0.0, 's');
+      CTRL_SHUTDOWN_SECOND_VALVE_NSD_RAMP_TIME { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 536, 0, 180.0, 0, T#0MS, 0.0, 0.0, 's');
+      CTRL_SHUTDOWN_SECOND_VALVE_QSD_RAMP_TIME { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 537, 0, 70.0, 0, T#0MS, 0.0, 0.0, 's');
+      CTRL_SHUTDOWN_SECOND_VALVE_ESD_RAMP_TIME { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 538, 0, 70.0, 0, T#0MS, 0.0, 0.0, '');
+      VALVE_1_RAMP_TIME { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 539, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      VALVE_2_RAMP_TIME { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 540, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      AUTO_ALARMS_SPEED_DETECTION_LIMIT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 541, 0, 5.0, 0, T#0MS, 0.0, 0.0, '%');
+      AUTO_ALARMS_MINIMAL_POSITION_ON_GRID { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 542, 0, 0.0, 0, T#0MS, 0.0, 0.0, '%');
+      AUTO_ALARMS_MINIMAL_WATER_LEVEL { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 543, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'm');
+   END_STRUCT;
+
+END_TYPE
+

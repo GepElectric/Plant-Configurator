@@ -1,0 +1,39 @@
+﻿TYPE "DT_DIGITAL_INPUT_AUX_SUPPLY"
+VERSION : 0.1
+   STRUCT
+      AC_MCB_ALARM_GROUP_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 32), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      AC_MCB_TRIP_GROUP_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 33), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      DC_MCB_ALARM_GROUP_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 34), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      DC_MCB_TRIP_GROUP_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 35), (32000, 32000, 32000), (0, 4, 3), (FALSE, FALSE, 0));
+      MAIN_CB_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 36), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      MAIN_CB_OFF { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 37), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      MAIN_CB_MANUAL { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 38), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      MAIN_CB_AUTOMATIC { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 39), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      MAIN_CB_TRIPPED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 40), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      DIESEL_CB_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 41), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      DIESEL_CB_OFF { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 42), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      DIESEL_CB_MANUAL { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 43), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      DIESEL_CB_AUTOMATIC { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 44), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      OVERSPEED_PROT_MCB_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 45), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      VOLTAGE_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 46), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      MAIN_VOLTAGE_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 47), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      DIESEL_VOLTAGE_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 48), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SURGE_ARRESTOR_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 49), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      RECTIFIER_1_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 50), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      RECTIFIER_2_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 51), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      RECTIFIER_3_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 52), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      BATTERY_CONNECTED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 53), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      COMMON_DC_POWER_SUPPLY_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 54), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      AC_INTAKE_CUBICLE_SUPPLY_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 55), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      AC_CONTROL_CUBICLE_SUPPLY_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 56), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      DISTRIBUTION_PANEL_MCB_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 57), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      WORKSTATION_UPS_MCB_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 58), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      DC_CONTROL_CUBICLE_SUPPLY_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 59), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      DC_GCB_CUBICLE_SUPPLY_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 60), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      DC_MV_CUBICLE_SUPPLY_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 61), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      AC_MV_SUPPLY_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 62), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      Spare_63 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 63), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+   END_STRUCT;
+
+END_TYPE
+

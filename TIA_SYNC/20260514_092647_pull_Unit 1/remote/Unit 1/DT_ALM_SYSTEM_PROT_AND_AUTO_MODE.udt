@@ -1,0 +1,39 @@
+﻿TYPE "DT_ALM_SYSTEM_PROT_AND_AUTO_MODE"
+VERSION : 0.1
+   STRUCT
+      PROT_GEN_LIVE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (352, FALSE, TRUE, TRUE, (), (), 3, 0, 4, (), (), (), (), (), T#50MS);
+      PROT_GEN_W { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (353, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      PROT_GEN_T1 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (354, FALSE, TRUE, TRUE, (), (), 3, 0, 4, (), (), (), (), (), T#50MS);
+      PROT_GEN_T2 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (355, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      PROT_GEN_EASYGEN_T1 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (356, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      PROT_GEN_EASYGEN_T2 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (357, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      PROT_GEN_EASYGEN_W { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (358, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      PROT_GEN_EASYGEN_LIVE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (359, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      PROT_DIFF_LIVE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (360, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      PROT_DIFF_W { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (361, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      PROT_DIFF_T { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (362, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      LINE_PROT_LIVE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (363, FALSE, FALSE, TRUE, (), (), 3, 0, 4, (), (), (), (), (), T#50MS);
+      LINE_PROT_W { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (364, FALSE, FALSE, TRUE, (), (), 3, 0, 0, (), (), (), (), (), T#50MS);
+      LINE_PROT_TtRIP_REF615 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (365, FALSE, FALSE, TRUE, (), (), 3, 0, 4, (), (), (), (), (), T#50MS);
+      LINE_PROT_T2 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (366, FALSE, FALSE, TRUE, (), (), 3, 0, 4, (), (), (), (), (), T#50MS);
+      PROT_SPARE_1_7 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (367, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AUTO_MODE_SPEED_MEASUREMENT_ERR { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (368, FALSE, TRUE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#2M);
+      AUTO_MODE_STARTUP_SYNCHONIZATION { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (369, FALSE, TRUE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AUTO_MODE_TECHNICAL_MINIMUM { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (370, FALSE, TRUE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#20S);
+      AUTO_MODE_MINIMAL_PRESSURE { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (371, FALSE, TRUE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#20S);
+      AUTO_MODE_SPEED_DIFF { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (372, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AUTO_MODE_HEAD_WATER_LEVEL_LOW { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (373, FALSE, TRUE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#20S);
+      AUTO_MODE_HPP_CANNOT_AUTO_START { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (374, FALSE, TRUE, TRUE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AUTO_MODE_MIN_OPENING { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (375, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AUTO_MODE_MINIMAL_REACTIVE_POWER { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (376, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AUTO_MODE_START_TO_STARTUP { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (377, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AUTO_MODE_HEAD_WATER_LEVEL_HIGH { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (378, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AUTO_MODE_SPARE_1_3 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (379, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AUTO_MODE_SPARE_1_4 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (380, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AUTO_MODE_SPARE_1_5 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (381, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AUTO_MODE_SPARE_1_6 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (382, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+      AUTO_MODE_SPARE_1_7 { S7_SetPoint := 'False'} : "DT_ALM_SOLO" := (383, FALSE, FALSE, FALSE, (), (), 0, 0, 0, (), (), (), (), (), T#500MS);
+   END_STRUCT;
+
+END_TYPE
+

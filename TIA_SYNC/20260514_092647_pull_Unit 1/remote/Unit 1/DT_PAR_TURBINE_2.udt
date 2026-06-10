@@ -1,0 +1,39 @@
+﻿TYPE "DT_PAR_TURBINE_2"
+VERSION : 0.1
+   STRUCT
+      AUTO_ALARMS_MAXIMAL_WATER_LEVEL { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 544, 0, 0.0, 0, T#0MS, 0.0, 0.0, 'm');
+      VALVE_ANA_CTRL_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 545, 0, -100.0, 0, T#0MS, 0.0, 0.0, '.');
+      VALVE_ANA_CTRL_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 546, 0, 100.0, 0, T#0MS, 0.0, 0.0, '');
+      VALVE_ANA_CTRL_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 547, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      VALVE_ANA_CTRL_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 548, 0, 1.0, 0, T#0MS, 0.0, 0.0, '');
+      DEFLECTOR_ANA_CTRL_VAL_LOW { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 549, 0, -100.0, 0, T#0MS, -100.0, 0.0, '-');
+      DEFLECTOR_ANA_CTRL_VAL_HIGH { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 550, 0, 100.0, 0, T#0MS, 0.0, 0.0, '-');
+      DEFLECTOR_ANA_CTRL_OFFSET { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 551, 0, 0.0, 0, T#0MS, 0.0, 0.0, '-');
+      DEFLECTOR_ANA_CTRL_SCAL_FACTOR { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 552, 0, 1.0, 0, T#0MS, 0.0, 0.0, '-');
+      KAPLAN_SECOND_VALVE_SPEED_LIMIT_ID { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 553, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      KAPLAN_BEHAVIOR_DURING_SHUTDOWN { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 554, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      KAPLAN_LEADING_VALVE { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 555, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      CROSS_FLOW_DEAD_BAND { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 556, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      SPARE_14 { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 557, 0, 0.0, 0, T#0MS, 0.0, 0.0, '');
+      PELTON_SELECTION_LOGARITAM_RAMPING_TIME { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 558, 0, 60.0, 0, T#0MS, 0.0, 0.0, 's');
+      PELTON_SELECTION_GENERAL_Q_HYST { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 559, 0, 0.5, 0, T#0MS, 0.0, 0.0, 'm3/s');
+      PELTON_SELECTION_GENERAL_Q_MAX { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 560, 0, 1.298, 0, T#0MS, 0.0, 0.0, 'm3/s');
+      PELTON_SELECTION_NOZZLE_2_DEACTIVATION_POINT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 561, 0, 32.0, 0, T#15S, 0.0, 0.0, '%');
+      PELTON_SELECTION_NOZZLE_2_ACTIVATION_POINT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 562, 0, 90.0, 0, T#15S, 0.0, 0.0, '%');
+      PELTON_SELECTION_NOZZLE_2_HYSTERESIS { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 563, 0, 5.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_SELECTION_NOZZLE_3_DEACTIVATION_POINT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 564, 0, 39.0, 0, T#15S, 0.0, 0.0, '%');
+      PELTON_SELECTION_NOZZLE_3_ACTIVATION_POINT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 565, 0, 68.0, 0, T#15S, 0.0, 0.0, '%');
+      PELTON_SELECTION_NOZZLE_3_HYSTERESIS { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 566, 0, 5.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_SELECTION_NOZZLE_4_DEACTIVATION_POINT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 567, 0, 41.0, 0, T#15S, 0.0, 0.0, '%');
+      PELTON_SELECTION_NOZZLE_4_ACTIVATION_POINT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 568, 0, 60.0, 0, T#15S, 0.0, 0.0, '%');
+      PELTON_SELECTION_NOZZLE_4_HYSTERESIS { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 569, 0, 5.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_SELECTION_NOZZLE_5_DEACTIVATION_POINT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 570, 0, 42.0, 0, T#15S, 0.0, 0.0, '%');
+      PELTON_SELECTION_NOZZLE_5_ACTIVATION_POINT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 571, 0, 57.0, 0, T#15S, 0.0, 0.0, '%');
+      PELTON_SELECTION_NOZZLE_5_HYSTERESIS { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 572, 0, 5.0, 0, T#0MS, 0.0, 0.0, '%');
+      PELTON_SELECTION_NOZZLE_6_DEACTIVATION_POINT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 573, 0, 42.0, 0, T#15S, 0.0, 0.0, '%');
+      PELTON_SELECTION_NOZZLE_6_ACTIVATION_POINT { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 574, 0, 54.0, 0, T#15S, 0.0, 0.0, '%');
+      PELTON_SELECTION_NOZZLE_6_HYSTERESIS { S7_SetPoint := 'False'} : "DT_PARAM_SOLO" := (FALSE, 575, 0, 5.0, 0, T#0MS, 0.0, 0.0, '%');
+   END_STRUCT;
+
+END_TYPE
+

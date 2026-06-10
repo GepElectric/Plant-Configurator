@@ -1,0 +1,39 @@
+﻿TYPE "DT_DIGITAL_INPUT_CTRL_AND_SYNC"
+VERSION : 0.1
+   STRUCT
+      CTRL_MAINT { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 0), (32000, 32000, 32000), (0, 1, 3), (FALSE, FALSE, 0));
+      CTRL_LOCAL { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 1), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      CTRL_AUTO { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 2), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      CTRL_START { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 3), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      CTRL_STOP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 4), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      CTRL_RESET { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 5), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      CTRL_ESD_PB { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 6), (32000, 32000, 32000), (0, 1, 3), (FALSE, FALSE, 0));
+      EXTERNAL_CTRL_ESD_PB { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 7), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      ESD_RELAY_ACT { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 8), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      WATCHDOG { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 9), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      EXTERNAL_SIG_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 10), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      MCB_ALARM_GROUP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 11), (32000, 32000, 32000), (0, 1, 2), (FALSE, FALSE, 0));
+      MCB_TRIP_GROUP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 12), (32000, 32000, 32000), (0, 1, 3), (FALSE, FALSE, 0));
+      SYNC_MANUAL { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 13), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SYNC_AUTO { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 14), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SYNC_START { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 15), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SYNC_STOP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 16), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SYNC_DEVICE_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 17), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SYNC_ACTIVE { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 18), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      SYNC_SPEED_DOWN { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 19), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      SYNC_SPEED_UP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 20), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      SYNC_GCB_SWITCH_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 21), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SYNC_GCB_SWITCH_OFF { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 22), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      GCB_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 23), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      GCB_OFF { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 24), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      OVERSPEED_TRIP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 25), (32000, 32000, 32000), (0, 1, 3), (FALSE, FALSE, 0));
+      REMOTE_START { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 26), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      REMOTE_STOP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 27), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      QUICK_SD_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 28), (32000, 32000, 32000), (0, 3, 4), (FALSE, FALSE, 0));
+      REMOTE_RESET { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 29), (32000, 32000, 32000), (0, 0, 0), (FALSE, FALSE, 0));
+      SYNC_CONT_CLOSED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 30), (32000, 32000, 32000), (0, 1, 4), (FALSE, FALSE, 0));
+      TRIP_FROM_COMMON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 31), (32000, 32000, 32000), (0, 1, 3), (FALSE, FALSE, 0));
+   END_STRUCT;
+
+END_TYPE
+
