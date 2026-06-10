@@ -44,7 +44,8 @@
                     <ColumnDefinition Width="120"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="TIA process" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="1 · TIA process"
+                           ToolTip="Step 1: pick the running TIA Portal instance and attach. Discovered PLCs are then matched to your databases automatically."/>
                 <ComboBox x:Name="ProcessCombo" Grid.Column="1" Height="28"/>
             </Grid>
 
@@ -55,7 +56,7 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <GroupBox Header="PLC database mapping">
+                <GroupBox Header="2 · PLC database mapping — review, then Save">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
                             <Button x:Name="AutoMapButton" Content="Auto-map by name" Width="140" Click="AutoMap_Click"
@@ -124,7 +125,7 @@
                     </DockPanel>
                 </GroupBox>
 
-                <GroupBox Grid.Column="2" Header="Discovered PLC software">
+                <GroupBox Grid.Column="2" Header="Discovered PLCs in TIA project">
                     <DockPanel>
                         <TextBlock x:Name="ObjectsSummaryText"
                                    DockPanel.Dock="Bottom"
@@ -133,9 +134,10 @@
                                    TextWrapping="Wrap"/>
                         <Button x:Name="CreateDatabaseFromPlcButton"
                                 DockPanel.Dock="Bottom"
-                                Content="Create PLC database"
+                                Content="Create database from selected PLC"
                                 Margin="0,8,0,0"
-                                Click="CreateDatabaseFromPlc_Click"/>
+                                Click="CreateDatabaseFromPlc_Click"
+                                ToolTip="Adds a new PLC database mapped to the selected TIA PLC and pulls its full content immediately."/>
                         <ListBox x:Name="DiscoveredPlcList" SelectionChanged="DiscoveredPlcList_SelectionChanged"/>
                     </DockPanel>
                 </GroupBox>
