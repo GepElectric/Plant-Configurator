@@ -58,25 +58,6 @@
         <local:DbConditionalCellBrushConverter x:Key="DbConditionalCellBrushConverter"/>
         <local:ReadOnlyForegroundConverter x:Key="ReadOnlyForegroundConverter"/>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-        <Style TargetType="Button">
-            <Setter Property="MinHeight" Value="28"/>
-            <Setter Property="Padding" Value="10,3"/>
-            <Setter Property="Margin" Value="4,0,0,0"/>
-            <Setter Property="BorderBrush" Value="#AEB7C2"/>
-            <Setter Property="Background" Value="#F6F8FA"/>
-            <Setter Property="Foreground" Value="#111827"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#EAF2FF"/>
-                    <Setter Property="BorderBrush" Value="#6AA3E8"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.55"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
         <Style TargetType="DataGridCell">
             <Setter Property="TextBlock.TextWrapping" Value="Wrap"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -298,12 +279,12 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="#EAF2FF"/>
-                                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#6EA8FE"/>
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource Brush.AccentLight}"/>
+                                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
                                         </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="#BFD7FF"/>
-                                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#2F6FED"/>
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="#BBD7EC"/>
+                                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{StaticResource Brush.AccentDark}"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -332,14 +313,13 @@
             <Setter Property="BorderThickness" Value="0,0,2,0"/>
             <Setter Property="BorderBrush" Value="#404040"/>
         </Style>
-        <Style x:Key="FrozenSeparatorHeader" TargetType="DataGridColumnHeader">
-            <Setter Property="BorderThickness" Value="0,0,2,0"/>
-            <Setter Property="BorderBrush" Value="#404040"/>
-            <Setter Property="Padding" Value="6,3"/>
+        <Style x:Key="FrozenSeparatorHeader" TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+            <Setter Property="BorderThickness" Value="0,0,3,1"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.SteelDarkest}"/>
         </Style>
     </Window.Resources>
     <DockPanel>
-        <Menu x:Name="MainMenuBar" DockPanel.Dock="Top">
+        <Menu x:Name="MainMenuBar" DockPanel.Dock="Top" Background="{StaticResource Brush.Surface}">
             <MenuItem Header="_File">
                 <MenuItem Header="_New" InputGestureText="Ctrl+N" Click="NewProject_Click"/>
                 <MenuItem Header="_Open project..." InputGestureText="Ctrl+O" Click="OpenProject_Click"/>
@@ -408,9 +388,9 @@
 
         <Border x:Name="MainToolbar"
                 DockPanel.Dock="Top"
-                BorderBrush="#D0D7DE"
+                BorderBrush="{StaticResource Brush.BorderLight}"
                 BorderThickness="0,0,0,1"
-                Background="#FAFBFC"
+                Background="{StaticResource Brush.Surface}"
                 Padding="8,6">
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="ToolbarNewButton" Click="NewProject_Click" ToolTip="New project (Ctrl+N)">
@@ -425,7 +405,7 @@
                         <TextBlock Text="Open" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
-                <Button x:Name="ToolbarSaveButton" Click="SaveProject_Click" ToolTip="Save project (Ctrl+S)">
+                <Button x:Name="ToolbarSaveButton" Style="{StaticResource PrimaryButton}" Click="SaveProject_Click" ToolTip="Save project (Ctrl+S)">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE74E;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
                         <TextBlock Text="Save" VerticalAlignment="Center"/>
@@ -490,20 +470,20 @@
             <StatusBarItem>
                 <TextBlock x:Name="StatusText" Text="Ready"/>
             </StatusBarItem>
-            <Separator/>
+            <Separator Background="{StaticResource Brush.SteelDark}"/>
             <StatusBarItem>
-                <TextBlock x:Name="StatusActiveDbText" Foreground="#57606A" Text=""/>
+                <TextBlock x:Name="StatusActiveDbText" Foreground="{StaticResource Brush.TextMutedOnDark}" Text=""/>
             </StatusBarItem>
-            <Separator/>
+            <Separator Background="{StaticResource Brush.SteelDark}"/>
             <StatusBarItem>
-                <TextBlock x:Name="StatusRowCountsText" Foreground="#57606A" Text=""/>
+                <TextBlock x:Name="StatusRowCountsText" Foreground="{StaticResource Brush.TextMutedOnDark}" Text=""/>
             </StatusBarItem>
-            <Separator/>
+            <Separator Background="{StaticResource Brush.SteelDark}"/>
             <StatusBarItem>
-                <TextBlock x:Name="StatusSelectionText" Foreground="#0969DA" Text=""/>
+                <TextBlock x:Name="StatusSelectionText" Foreground="#8EC8F6" Text=""/>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
-                <TextBlock x:Name="StatusDirtyText" Foreground="#B45309" FontWeight="SemiBold" Text=""/>
+                <TextBlock x:Name="StatusDirtyText" Foreground="#F2B33D" FontWeight="SemiBold" Text=""/>
             </StatusBarItem>
         </StatusBar>
 
@@ -564,7 +544,7 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <Border Grid.Row="0" BorderBrush="#D0D7DE" BorderThickness="0,0,0,1" Padding="12,10">
+            <Border Grid.Row="0" BorderBrush="{StaticResource Brush.BorderLight}" BorderThickness="0,0,0,1" Padding="12,10">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -595,7 +575,7 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0" BorderBrush="#D0D7DE" BorderThickness="0,0,1,0" Background="#F6F8FA">
+                <Border Grid.Column="0" BorderBrush="{StaticResource Brush.BorderLight}" BorderThickness="0,0,1,0" Background="{StaticResource Brush.Surface}">
                     <DockPanel Margin="8">
                         <Button x:Name="TogglePlcPaneButton" DockPanel.Dock="Top" Content="&lt;" Width="28" HorizontalAlignment="Right" Click="TogglePlcPane_Click"/>
                         <DockPanel x:Name="PlcPaneContent" Margin="0,8,0,0">
@@ -760,12 +740,12 @@
                     </DockPanel>
                 </Border>
 
-                <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="#D0D7DE"/>
+                <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="{StaticResource Brush.BorderLight}"/>
 
             <Grid x:Name="ProjectWorkspace" Grid.Column="2">
             <TabControl x:Name="MainTabs" SelectionChanged="MainTabs_SelectionChanged" SizeChanged="MainTabs_SizeChanged">
                 <TabControl.ItemContainerStyle>
-                    <Style TargetType="TabItem">
+                    <Style TargetType="TabItem" BasedOn="{StaticResource IndustrialTabItem}">
                         <Setter Property="MinWidth" Value="72"/>
                         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                         <Setter Property="VerticalContentAlignment" Value="Stretch"/>
