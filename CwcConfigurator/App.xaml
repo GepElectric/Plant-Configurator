@@ -5,38 +5,39 @@
              Startup="Application_Startup"
              DispatcherUnhandledException="Application_DispatcherUnhandledException">
     <Application.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="Themes/IndustrialTheme.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-            <Style TargetType="DataGrid">
-                <Setter Property="AutoGenerateColumns" Value="True"/>
-                <Setter Property="CanUserAddRows" Value="False"/>
-                <Setter Property="CanUserDeleteRows" Value="False"/>
-                <Setter Property="GridLinesVisibility" Value="Horizontal"/>
-                <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource Brush.BorderLight}"/>
-                <Setter Property="HeadersVisibility" Value="Column"/>
-                <Setter Property="IsReadOnly" Value="False"/>
-                <Setter Property="Margin" Value="0"/>
-                <Setter Property="CanUserSortColumns" Value="False"/>
-                <Setter Property="ColumnWidth" Value="*"/>
-                <Setter Property="AlternationCount" Value="2"/>
-                <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderLight}"/>
-                <Setter Property="Background" Value="White"/>
-                <Setter Property="RowBackground" Value="#FFFFFF"/>
-                <Setter Property="AlternatingRowBackground" Value="#F4F6F8"/>
-                <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Visible"/>
-                <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
-            </Style>
-            <Style TargetType="DataGridCell">
-                <Setter Property="HorizontalContentAlignment" Value="Center"/>
-                <Setter Property="VerticalContentAlignment" Value="Center"/>
-                <Setter Property="TextBlock.TextAlignment" Value="Center"/>
-            </Style>
-            <Style TargetType="ComboBox" x:Key="DataGridCenteredComboBox">
-                <Setter Property="HorizontalContentAlignment" Value="Center"/>
-                <Setter Property="VerticalContentAlignment" Value="Center"/>
-            </Style>
-        </ResourceDictionary>
+        <Style TargetType="Button">
+            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="Margin" Value="4"/>
+        </Style>
+        <Style TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="True"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="CanUserDeleteRows" Value="False"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="IsReadOnly" Value="False"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="CanUserSortColumns" Value="False"/>
+            <Setter Property="ColumnWidth" Value="*"/>
+            <Setter Property="AlternationCount" Value="2"/>
+            <Setter Property="RowBackground" Value="#FFFFFF"/>
+            <Setter Property="AlternatingRowBackground" Value="#F6F8FA"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Visible"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+        </Style>
+        <Style TargetType="DataGridCell">
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="TextBlock.TextAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="ComboBox" x:Key="DataGridCenteredComboBox">
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
     </Application.Resources>
 </Application>
