@@ -33,10 +33,15 @@ public sealed class TiaPortalProcessInfo
     public string ModeLabel { get; set; } = "";
     public string AcquiredAtLabel { get; set; } = "";
 
+    /// <summary>TIA version ("V18"/"V21") this process belongs to. Stamped by the
+    /// session service from the helper that discovered it; drives helper routing on attach.</summary>
+    public string Version { get; set; } = "";
+
     public override string ToString()
     {
         var project = string.IsNullOrWhiteSpace(ProjectName) ? "(no open project)" : ProjectName;
-        return $"PID {ProcessId} | {project}" + (string.IsNullOrWhiteSpace(ModeLabel) ? "" : $" | {ModeLabel}");
+        var versionTag = string.IsNullOrWhiteSpace(Version) ? "" : $" [{Version}]";
+        return $"PID {ProcessId}{versionTag} | {project}" + (string.IsNullOrWhiteSpace(ModeLabel) ? "" : $" | {ModeLabel}");
     }
 }
 
@@ -54,7 +59,7 @@ public interface ITiaSessionService
 {
     TiaAttachedSession? CurrentSession { get; }
     Task<IList<TiaPortalProcessInfo>> GetRunningPortalProcessesAsync();
-    Task<TiaAttachedSession> AttachToRunningPortalAsync(int processId);
+    Task<TiaAttachedSession> AttachToRunningPortalAsync(int processId, string portalVersion);
     Task DisconnectAsync();
     Task<TiaSourceTransferResult> ExportSourcesAsync(IEnumerable<TiaPlcSourceExportRequest> plcs, string outputFolder);
     Task<TiaSourceTransferResult> ImportSourcesAsync(IEnumerable<TiaPlcSourceImportRequest> plcs);

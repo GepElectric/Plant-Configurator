@@ -8,40 +8,73 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
 {
     private static readonly TimeSpan HelperResponseTimeout = TimeSpan.FromMinutes(2);
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private Process? _helperProcess;
+
+    // One helper process per installed TIA version ("V18"/"V21"). Each helper build
+    // binds only its own Openness assemblies, so process listing queries every
+    // installed version and an attached session pins the active version — all later
+    // commands route to the helper that owns the attached process.
+    private readonly Dictionary<string, Process> _helpers = new(StringComparer.OrdinalIgnoreCase);
     private int _nextRequestId;
     private bool _disposed;
+    private string? _activeVersion;
 
     public TiaAttachedSession? CurrentSession { get; private set; }
 
     public async Task<IList<TiaPortalProcessInfo>> GetRunningPortalProcessesAsync()
     {
-        var response = await SendAsync<TiaProcessListResponse>("GetProcesses", null);
-        return response.Processes;
+        var result = new List<TiaPortalProcessInfo>();
+        foreach (var version in TiaApiLocator.GetInstalledVersions())
+        {
+            try
+            {
+                var response = await SendAsync<TiaProcessListResponse>(version, "GetProcesses", null);
+                foreach (var process in response.Processes)
+                {
+                    if (string.IsNullOrWhiteSpace(process.Version))
+                    {
+                        process.Version = version;
+                    }
+
+                    result.Add(process);
+                }
+            }
+            catch
+            {
+                // A version whose helper cannot answer (its Openness runtime is
+                // unavailable, etc.) must not block discovery of the other version.
+            }
+        }
+
+        return result;
     }
 
-    public async Task<TiaAttachedSession> AttachToRunningPortalAsync(int processId)
+    public async Task<TiaAttachedSession> AttachToRunningPortalAsync(int processId, string portalVersion)
     {
-        var response = await SendAsync<TiaAttachedSession>("Attach", new { ProcessId = processId });
+        var version = NormalizeVersion(portalVersion);
+        var response = await SendAsync<TiaAttachedSession>(version, "Attach", new { ProcessId = processId });
+        _activeVersion = version;
         CurrentSession = response;
         return response;
     }
 
     public async Task DisconnectAsync()
     {
-        if (_helperProcess is null || _helperProcess.HasExited)
+        var version = _activeVersion;
+        CurrentSession = null;
+        _activeVersion = null;
+        if (version is null
+            || !_helpers.TryGetValue(version, out var helper)
+            || helper.HasExited)
         {
-            CurrentSession = null;
             return;
         }
 
-        await SendAsync<object>("Disconnect", null);
-        CurrentSession = null;
+        await SendAsync<object>(version, "Disconnect", null);
     }
 
     public Task<TiaSourceTransferResult> ExportSourcesAsync(IEnumerable<TiaPlcSourceExportRequest> plcs, string outputFolder)
     {
-        return SendAsync<TiaSourceTransferResult>("ExportSources", new
+        return SendAsync<TiaSourceTransferResult>(RequireActiveVersion(), "ExportSources", new
         {
             OutputFolder = outputFolder,
             Plcs = plcs.ToList()
@@ -50,7 +83,7 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
 
     public Task<TiaSourceTransferResult> ImportSourcesAsync(IEnumerable<TiaPlcSourceImportRequest> plcs)
     {
-        return SendAsync<TiaSourceTransferResult>("ImportSources", new
+        return SendAsync<TiaSourceTransferResult>(RequireActiveVersion(), "ImportSources", new
         {
             Plcs = plcs.ToList()
         });
@@ -58,27 +91,27 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
 
     public Task<TiaCrossReferenceResult> GetCrossReferencesAsync(TiaCrossReferenceRequest request)
     {
-        return SendAsync<TiaCrossReferenceResult>("GetCrossReferences", request);
+        return SendAsync<TiaCrossReferenceResult>(RequireActiveVersion(), "GetCrossReferences", request);
     }
 
     public Task<TiaCrossReferenceBatchResult> GetCrossReferencesBatchAsync(TiaCrossReferenceBatchRequest request)
     {
-        return SendAsync<TiaCrossReferenceBatchResult>("GetCrossReferencesBatch", request);
+        return SendAsync<TiaCrossReferenceBatchResult>(RequireActiveVersion(), "GetCrossReferencesBatch", request);
     }
 
     public Task<TiaCrossReferenceOpenResult> OpenCrossReferenceAsync(TiaCrossReferenceOpenRequest request)
     {
-        return SendAsync<TiaCrossReferenceOpenResult>("OpenCrossReference", request);
+        return SendAsync<TiaCrossReferenceOpenResult>(RequireActiveVersion(), "OpenCrossReference", request);
     }
 
     public Task<TiaPlcControlResult> ExecutePlcControlAsync(TiaPlcControlRequest request)
     {
-        return SendAsync<TiaPlcControlResult>("ExecutePlcControl", request);
+        return SendAsync<TiaPlcControlResult>(RequireActiveVersion(), "ExecutePlcControl", request);
     }
 
     public Task<TiaProjectTextsImportResult> ImportProjectTextsAsync(string workbookPath)
     {
-        return SendAsync<TiaProjectTextsImportResult>("ImportProjectTexts", new
+        return SendAsync<TiaProjectTextsImportResult>(RequireActiveVersion(), "ImportProjectTexts", new
         {
             WorkbookPath = workbookPath
         });
@@ -87,34 +120,39 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
     public void AbortHelper()
     {
         CurrentSession = null;
-        try
+        _activeVersion = null;
+        foreach (var helper in _helpers.Values)
         {
-            if (_helperProcess is { HasExited: false })
-            {
-                _helperProcess.Kill();
-            }
-        }
-        catch
-        {
+            TryKill(helper);
         }
 
-        try
-        {
-            _helperProcess?.Dispose();
-        }
-        catch
-        {
-        }
-
-        _helperProcess = null;
+        _helpers.Clear();
     }
 
-    private async Task<T> SendAsync<T>(string command, object? payload)
+    private string RequireActiveVersion()
+    {
+        return _activeVersion
+               ?? throw new InvalidOperationException("Attach to TIA Portal first.");
+    }
+
+    private static string NormalizeVersion(string version)
+    {
+        var value = (version ?? "").Trim();
+        if (!string.IsNullOrEmpty(value))
+        {
+            return value;
+        }
+
+        // Defensive fallback when a caller did not carry the process version.
+        return TiaApiLocator.GetInstalledVersions().FirstOrDefault() ?? "";
+    }
+
+    private async Task<T> SendAsync<T>(string version, string command, object? payload)
     {
         await _gate.WaitAsync();
         try
         {
-            var helper = EnsureHelperProcess();
+            var helper = EnsureHelperProcess(version);
             var request = new HelperRequest
             {
                 Id = ++_nextRequestId,
@@ -130,14 +168,15 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
             var completedTask = await Task.WhenAny(readTask, Task.Delay(HelperResponseTimeout));
             if (completedTask != readTask)
             {
-                AbortHelper();
-                throw new TimeoutException($"TIA helper did not respond within {HelperResponseTimeout.TotalMinutes:0} minute(s). Attach to TIA Portal again before retrying.");
+                KillHelper(version);
+                throw new TimeoutException($"TIA helper ({version}) did not respond within {HelperResponseTimeout.TotalMinutes:0} minute(s). Attach to TIA Portal again before retrying.");
             }
 
             var responseLine = await readTask;
             if (string.IsNullOrWhiteSpace(responseLine))
             {
                 var error = await helper.StandardError.ReadToEndAsync();
+                KillHelper(version);
                 throw new InvalidOperationException("TIA helper stopped unexpectedly." + FormatHelperError(error));
             }
 
@@ -167,19 +206,25 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         }
     }
 
-    private Process EnsureHelperProcess()
+    private Process EnsureHelperProcess(string version)
     {
         if (_disposed)
         {
             throw new ObjectDisposedException(nameof(TiaSessionService));
         }
 
-        if (_helperProcess is { HasExited: false })
+        if (_helpers.TryGetValue(version, out var existing))
         {
-            return _helperProcess;
+            if (!existing.HasExited)
+            {
+                return existing;
+            }
+
+            TryKill(existing);
+            _helpers.Remove(version);
         }
 
-        var helperPath = ResolveHelperPath();
+        var helperPath = ResolveHelperPath(version);
         var startInfo = new ProcessStartInfo
         {
             FileName = helperPath,
@@ -189,21 +234,25 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
             RedirectStandardError = true,
             CreateNoWindow = true
         };
-        startInfo.Environment["CWC_TIA_PORTAL_VERSION"] = TiaApiLocator.GetPreferredVersionLabel();
+        startInfo.Environment["CWC_TIA_PORTAL_VERSION"] = version;
 
-        _helperProcess = Process.Start(startInfo)
-                         ?? throw new InvalidOperationException("Could not start the TIA helper process.");
-        return _helperProcess;
+        var process = Process.Start(startInfo)
+                      ?? throw new InvalidOperationException($"Could not start the TIA helper process for {version}.");
+        _helpers[version] = process;
+        return process;
     }
 
-    private static string ResolveHelperPath()
+    private static string ResolveHelperPath(string version)
     {
         var baseDir = AppContext.BaseDirectory;
+        var devProject = version.Equals("V21", StringComparison.OrdinalIgnoreCase)
+            ? "CwcConfigurator.TiaHelper.V21"
+            : "CwcConfigurator.TiaHelper";
         var candidates = new[]
         {
-            Path.Combine(baseDir, "TiaHelper", "CwcConfigurator.TiaHelper.exe"),
-            Path.Combine(baseDir, "TiaHelper", "win-x64", "CwcConfigurator.TiaHelper.exe"),
-            Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "CwcConfigurator.TiaHelper", "bin", "Debug", "net48", "CwcConfigurator.TiaHelper.exe"))
+            Path.Combine(baseDir, "TiaHelper", version, "CwcConfigurator.TiaHelper.exe"),
+            Path.Combine(baseDir, "TiaHelper", version, "win-x64", "CwcConfigurator.TiaHelper.exe"),
+            Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", devProject, "bin", "Debug", "net48", "CwcConfigurator.TiaHelper.exe"))
         };
 
         foreach (var candidate in candidates)
@@ -214,7 +263,44 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
             }
         }
 
-        throw new FileNotFoundException("TIA helper executable was not found.", candidates[0]);
+        throw new FileNotFoundException($"TIA helper executable for {version} was not found.", candidates[0]);
+    }
+
+    private void KillHelper(string version)
+    {
+        if (_helpers.TryGetValue(version, out var helper))
+        {
+            TryKill(helper);
+            _helpers.Remove(version);
+        }
+
+        if (string.Equals(_activeVersion, version, StringComparison.OrdinalIgnoreCase))
+        {
+            _activeVersion = null;
+            CurrentSession = null;
+        }
+    }
+
+    private static void TryKill(Process? helper)
+    {
+        try
+        {
+            if (helper is { HasExited: false })
+            {
+                helper.Kill();
+            }
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            helper?.Dispose();
+        }
+        catch
+        {
+        }
     }
 
     private static string FormatHelperError(string error)
@@ -226,18 +312,13 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
     {
         _disposed = true;
         CurrentSession = null;
-        try
+        _activeVersion = null;
+        foreach (var helper in _helpers.Values)
         {
-            if (_helperProcess is { HasExited: false })
-            {
-                _helperProcess.Kill();
-            }
-        }
-        catch
-        {
+            TryKill(helper);
         }
 
-        _helperProcess?.Dispose();
+        _helpers.Clear();
         _gate.Dispose();
     }
 

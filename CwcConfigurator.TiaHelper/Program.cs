@@ -1754,9 +1754,16 @@ namespace CwcConfigurator.TiaHelper
 
         private static string GetTiaApiDirectory()
         {
-            return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-                @"Siemens\Automation\Portal V18\PublicAPI\V18");
+            // Each helper build resolves its own TIA Openness assemblies: a build
+            // compiled against V18 can only bind V18 assemblies and vice versa, so
+            // the compile-time constant is the source of truth (not the env var,
+            // which a mismatched launch could set wrong).
+            var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+#if TIA_V21
+            return Path.Combine(programFiles, @"Siemens\Automation\Portal V21\PublicAPI\V21\net48");
+#else
+            return Path.Combine(programFiles, @"Siemens\Automation\Portal V18\PublicAPI\V18");
+#endif
         }
     }
 

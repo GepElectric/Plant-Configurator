@@ -86,7 +86,7 @@ public partial class TiaSyncDialog : Window
         SetBusy(true, "Attaching to TIA Portal...");
         try
         {
-            var session = await _sessionService.AttachToRunningPortalAsync(process.ProcessId);
+            var session = await _sessionService.AttachToRunningPortalAsync(process.ProcessId, process.Version);
             _mappingService.StoreProjectBinding(_project, session);
 
             // Attach is the moment the user finally knows what the TIA project

@@ -14,6 +14,26 @@ public static class TiaApiLocator
         return IsV21Installed() ? "V21" : "";
     }
 
+    /// <summary>
+    /// All TIA Openness versions whose PublicAPI is installed. The app launches a
+    /// matching helper build per version; process listing queries each of these.
+    /// </summary>
+    public static IReadOnlyList<string> GetInstalledVersions()
+    {
+        var versions = new List<string>();
+        if (IsV18Installed())
+        {
+            versions.Add("V18");
+        }
+
+        if (IsV21Installed())
+        {
+            versions.Add("V21");
+        }
+
+        return versions;
+    }
+
     private static bool IsV18Installed()
     {
         var dir = Path.Combine(

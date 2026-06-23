@@ -8,6 +8,7 @@
     <RootNamespace>CwcConfigurator.TiaHelper</RootNamespace>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+    <DefineConstants>$(DefineConstants);TIA_V18</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System.Web.Extensions" />

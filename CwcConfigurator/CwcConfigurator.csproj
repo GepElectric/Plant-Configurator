@@ -31,12 +31,18 @@
     <None Include="Tools\WinCCUnifiedJsConnector\server\**\*.*" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Tools\python\**\*.*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <!-- Build both version-specific helper exes and stage them under TiaHelper/V18 and
+       TiaHelper/V21. The app launches the one matching the attached TIA process version. -->
   <Target Name="CopyTiaHelper" AfterTargets="Build;Publish">
     <MSBuild Projects="..\CwcConfigurator.TiaHelper\CwcConfigurator.TiaHelper.csproj" Targets="Restore;Build" Properties="Configuration=$(Configuration)" />
+    <MSBuild Projects="..\CwcConfigurator.TiaHelper.V21\CwcConfigurator.TiaHelper.V21.csproj" Targets="Restore;Build" Properties="Configuration=$(Configuration)" />
     <ItemGroup>
-      <TiaHelperFiles Include="..\CwcConfigurator.TiaHelper\bin\$(Configuration)\net48\**\*.*" />
+      <TiaHelperV18Files Include="..\CwcConfigurator.TiaHelper\bin\$(Configuration)\net48\**\*.*" />
+      <TiaHelperV21Files Include="..\CwcConfigurator.TiaHelper.V21\bin\$(Configuration)\net48\**\*.*" />
     </ItemGroup>
-    <Copy SourceFiles="@(TiaHelperFiles)" DestinationFiles="@(TiaHelperFiles->'$(OutputPath)TiaHelper\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(TiaHelperFiles)" DestinationFiles="@(TiaHelperFiles->'$(PublishDir)TiaHelper\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
+    <Copy SourceFiles="@(TiaHelperV18Files)" DestinationFiles="@(TiaHelperV18Files->'$(OutputPath)TiaHelper\V18\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TiaHelperV21Files)" DestinationFiles="@(TiaHelperV21Files->'$(OutputPath)TiaHelper\V21\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TiaHelperV18Files)" DestinationFiles="@(TiaHelperV18Files->'$(PublishDir)TiaHelper\V18\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
+    <Copy SourceFiles="@(TiaHelperV21Files)" DestinationFiles="@(TiaHelperV21Files->'$(PublishDir)TiaHelper\V21\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
   </Target>
 </Project>
