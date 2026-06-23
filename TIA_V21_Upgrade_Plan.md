@@ -348,3 +348,18 @@ Round-trip `AUX_FUNCTIONS._SET_INTERNAL_TAG` preko Unified REST. Vidi commit; ve
 
 ### #9 — text liste (Engineering put, odgođeno/zasebno)
 REST nema text liste → ide preko HMI text list composition (Engineering), analogno #11. Nije kritično za navigaciju; raditi nakon #11.
+
+---
+
+## STATUS IMPLEMENTACIJE (2026-06-23) — branch feature/tia-v21-dual-helper
+
+| Cjelina | Commit | Stanje |
+|---|---|---|
+| Faza 1 — migracija V18→V21 (dual-helper) | c8023d0 | ✅ implementirano + verificirano |
+| #10 — SCADA round-trip `_SET_INTERNAL_TAG` | e0f65b3 | ✅ implementirano + verificirano (živi V21) |
+| #11 — katalog screenova za nav dropdownove | 62e9d2e | ✅ implementirano; helper verificiran (29 screenova) |
+| #9 — text liste (descriptioni) auto-export | — | ⏸️ ostaje: Engineering text-list export daje XML, ne app-ov `Unified_text_lists.xlsx` → treba most/konverzija; zasebna istraga |
+
+**Verificirano automatski:** clean build (app + oba helpera), 39 unit testova, V21 helper runtime (GetProcesses, Attach, GetUnifiedScreens) i Unified REST (GetUnifiedDevices, export AUX_FUNCTIONS) protiv živog projekta Kosovo_zahvat_V21.
+
+**NIJE moguće automatski (treba korisnikov klik-test u WPF UI):** vidi TEST listu — interakcije u prozorima (TIA Sync attach lista, SCADA Pull/Push gumbi, screen dropdown) i destruktivni Push u živu SCADU.
