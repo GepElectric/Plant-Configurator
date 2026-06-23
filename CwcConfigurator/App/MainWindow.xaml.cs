@@ -3631,7 +3631,7 @@ public partial class MainWindow : Window
             SaveActivePlcDatabase();
             SaveActiveScadaDatabase();
             var service = new ScadaUnifiedSyncService();
-            var result = await service.PullAsync(_project.Paths.UnifiedJsConnectorServerPath);
+            var result = await service.PullAsync(_project.Paths.UnifiedJsConnectorServerPath, _project.Paths.UnifiedScadaDeviceName);
             ApplyImportedScadaDatabase(result.Database);
             ShowMessage($"{result.Message} ({_project.Scada.Variables.Count} variables, {_project.Scada.TagWrites.Count} tag writes).");
         }
@@ -3673,7 +3673,7 @@ public partial class MainWindow : Window
             System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
             NormalizeScadaDatabase();
             var service = new ScadaUnifiedSyncService();
-            var message = await service.PushAsync(_project.Scada, _project.Paths.UnifiedJsConnectorServerPath);
+            var message = await service.PushAsync(_project.Scada, _project.Paths.UnifiedJsConnectorServerPath, _project.Paths.UnifiedScadaDeviceName);
             BindScadaViews();
             ShowMessage(message);
         }
@@ -3800,6 +3800,78 @@ public partial class MainWindow : Window
         {
             System.Windows.Input.Mouse.OverrideCursor = null;
         }
+    }
+
+    private bool _suppressScadaDeviceSelection;
+
+    // Keeps the device combo showing the persisted target even before a live refresh.
+    private void InitScadaUnifiedDeviceCombo()
+    {
+        if (ScadaUnifiedDeviceCombo is null || ScadaUnifiedDeviceCombo.Items.Count > 0)
+        {
+            // Already showing the persisted target or a fetched device list — don't clobber it.
+            return;
+        }
+
+        var persisted = _project.Paths.UnifiedScadaDeviceName;
+        _suppressScadaDeviceSelection = true;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(persisted))
+            {
+                ScadaUnifiedDeviceCombo.ItemsSource = new List<string> { persisted };
+                ScadaUnifiedDeviceCombo.SelectedItem = persisted;
+            }
+        }
+        finally
+        {
+            _suppressScadaDeviceSelection = false;
+        }
+    }
+
+    private async void RefreshScadaDevices_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+            var names = await new ScadaUnifiedSyncService().ListScadaDeviceNamesAsync(_project.Paths.UnifiedJsConnectorServerPath);
+            var persisted = _project.Paths.UnifiedScadaDeviceName;
+            _suppressScadaDeviceSelection = true;
+            try
+            {
+                ScadaUnifiedDeviceCombo.ItemsSource = names;
+                ScadaUnifiedDeviceCombo.SelectedItem =
+                    names.FirstOrDefault(name => name.Equals(persisted, StringComparison.OrdinalIgnoreCase))
+                    ?? names.FirstOrDefault();
+            }
+            finally
+            {
+                _suppressScadaDeviceSelection = false;
+            }
+
+            _project.Paths.UnifiedScadaDeviceName = ScadaUnifiedDeviceCombo.SelectedItem as string ?? "";
+            ShowMessage(names.Count == 0
+                ? "No WinCC Unified device exposing AUX_FUNCTIONS was found."
+                : $"Found {names.Count} SCADA device(s): {string.Join(", ", names)}.");
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            System.Windows.Input.Mouse.OverrideCursor = null;
+        }
+    }
+
+    private void ScadaUnifiedDevice_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_suppressScadaDeviceSelection)
+        {
+            return;
+        }
+
+        _project.Paths.UnifiedScadaDeviceName = ScadaUnifiedDeviceCombo.SelectedItem as string ?? "";
     }
 
     private void ScadaGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
@@ -7857,6 +7929,7 @@ public partial class MainWindow : Window
         _scadaScreensView.Filter = FilterScadaScreenRow;
         ScadaScreensGrid.ItemsSource = _scadaScreensView;
         RebuildScadaScreenCatalog();
+        InitScadaUnifiedDeviceCombo();
         _scadaTagWritesView = new ListCollectionView(_project.Scada.TagWrites);
         _scadaTagWritesView.SortDescriptions.Add(new SortDescription(nameof(ScadaTagWrite.Id), ListSortDirection.Ascending));
         _scadaTagWritesView.Filter = FilterScadaTagWriteRow;

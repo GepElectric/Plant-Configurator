@@ -2359,6 +2359,9 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                    <TextBlock Text="Device:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,4,0"/>
+                                    <ComboBox x:Name="ScadaUnifiedDeviceCombo" Width="150" MinHeight="24" VerticalAlignment="Center" Margin="0,0,4,0" SelectionChanged="ScadaUnifiedDevice_SelectionChanged"/>
+                                    <Button x:Name="RefreshScadaDevicesButton" Content="Refresh devices" Margin="0,0,12,0" Click="RefreshScadaDevices_Click"/>
                                     <Button x:Name="PullScadaButton" Content="Pull from Unified" Click="PullScadaFromUnified_Click"/>
                                     <Button x:Name="PushScadaButton" Content="Push to Unified" Margin="4,0,12,0" Click="PushScadaToUnified_Click"/>
                                     <Button Content="Import text..." Click="ImportScadaText_Click"/>
@@ -2369,7 +2372,7 @@
                             </Grid>
                         </Border>
                         <TabControl>
-                            <TabItem Header="Tags">
+                            <TabItem Header="Advanced (raw)">
                                 <DockPanel>
                                     <Border DockPanel.Dock="Top" Padding="8" BorderBrush="#D0D7DE" BorderThickness="0,0,0,1">
                                         <Grid>
@@ -2406,7 +2409,7 @@
                                     </DataGrid>
                                 </DockPanel>
                             </TabItem>
-                            <TabItem Header="GENERAL">
+                            <TabItem Header="GENERAL" IsSelected="True">
                                 <DockPanel Margin="8">
                                     <Border DockPanel.Dock="Top" Padding="0,0,0,8">
                                         <Button Content="Validation" Click="ValidateScadaGeneral_Click" HorizontalAlignment="Left"/>

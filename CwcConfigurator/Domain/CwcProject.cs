@@ -469,6 +469,10 @@ public sealed class ProjectPaths
     public string TiaPortalExportFolder { get; set; } = "";
     public string UnifiedJsConnectorFolder { get; set; } = "";
     public string UnifiedJsConnectorServerPath { get; set; } = "";
+
+    /// <summary>DisplayName of the WinCC Unified device the SCADA Pull/Push targets when a
+    /// project has more than one Unified device exposing the AUX_FUNCTIONS module.</summary>
+    public string UnifiedScadaDeviceName { get; set; } = "";
 }
 
 public sealed class ScadaDatabase

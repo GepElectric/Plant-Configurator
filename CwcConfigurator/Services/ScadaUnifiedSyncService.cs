@@ -25,10 +25,26 @@ public sealed class ScadaUnifiedSyncService
 
     private readonly ScadaConfigFileService _scadaService = new();
 
-    public async Task<ScadaUnifiedPullResult> PullAsync(string configuredServerPath, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Display names of every WinCC Unified device that exposes the <see cref="ModuleName"/>
+    /// module, across all running TIA processes — the candidates for Pull/Push.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> ListScadaDeviceNamesAsync(string configuredServerPath, CancellationToken cancellationToken = default)
     {
         using var runtime = new UnifiedJsConnectorRuntime();
-        var (processId, device) = await ResolveScadaDeviceAsync(runtime, configuredServerPath, cancellationToken);
+        var candidates = await ListScadaDevicesAsync(runtime, configuredServerPath, cancellationToken);
+        return candidates
+            .Select(candidate => candidate.Device.DisplayName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public async Task<ScadaUnifiedPullResult> PullAsync(string configuredServerPath, string? preferredDeviceDisplayName = null, CancellationToken cancellationToken = default)
+    {
+        using var runtime = new UnifiedJsConnectorRuntime();
+        var (processId, device) = await ResolveScadaDeviceAsync(runtime, configuredServerPath, preferredDeviceDisplayName, cancellationToken);
 
         var rootPath = CreateWorkspace();
         var modulePath = await runtime.ExportScriptModuleAsync(processId, device, ModuleName, rootPath, cancellationToken);
@@ -45,7 +61,7 @@ public sealed class ScadaUnifiedSyncService
         };
     }
 
-    public async Task<string> PushAsync(ScadaDatabase database, string configuredServerPath, CancellationToken cancellationToken = default)
+    public async Task<string> PushAsync(ScadaDatabase database, string configuredServerPath, string? preferredDeviceDisplayName = null, CancellationToken cancellationToken = default)
     {
         if (database is null)
         {
@@ -53,7 +69,7 @@ public sealed class ScadaUnifiedSyncService
         }
 
         using var runtime = new UnifiedJsConnectorRuntime();
-        var (processId, device) = await ResolveScadaDeviceAsync(runtime, configuredServerPath, cancellationToken);
+        var (processId, device) = await ResolveScadaDeviceAsync(runtime, configuredServerPath, preferredDeviceDisplayName, cancellationToken);
 
         var rootPath = CreateWorkspace();
 
@@ -79,6 +95,46 @@ public sealed class ScadaUnifiedSyncService
     private static async Task<(int ProcessId, UnifiedDeviceInfo Device)> ResolveScadaDeviceAsync(
         UnifiedJsConnectorRuntime runtime,
         string configuredServerPath,
+        string? preferredDeviceDisplayName,
+        CancellationToken cancellationToken)
+    {
+        var candidates = await ListScadaDevicesAsync(runtime, configuredServerPath, cancellationToken);
+        if (candidates.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"No WinCC Unified device exposing the '{ModuleName}' script module was found in any open TIA project.");
+        }
+
+        var chosen = !string.IsNullOrWhiteSpace(preferredDeviceDisplayName)
+            ? candidates.FirstOrDefault(candidate =>
+                candidate.Device.DisplayName.Equals(preferredDeviceDisplayName, StringComparison.OrdinalIgnoreCase))
+            : default;
+
+        if (chosen == default)
+        {
+            // No (or unmatched) preference: fall back to the only/first candidate, but make a
+            // multi-device project explicit so the user picks instead of silently guessing.
+            if (!string.IsNullOrWhiteSpace(preferredDeviceDisplayName))
+            {
+                throw new InvalidOperationException(
+                    $"WinCC Unified device '{preferredDeviceDisplayName}' was not found. Available: {string.Join(", ", candidates.Select(c => c.Device.DisplayName))}.");
+            }
+
+            if (candidates.Count > 1)
+            {
+                throw new InvalidOperationException(
+                    $"More than one WinCC Unified device exposes '{ModuleName}': {string.Join(", ", candidates.Select(c => c.Device.DisplayName))}. Select the SCADA device first.");
+            }
+
+            chosen = candidates[0];
+        }
+
+        return (chosen.ProcessId, chosen.Device);
+    }
+
+    private static async Task<List<(int ProcessId, UnifiedDeviceInfo Device)>> ListScadaDevicesAsync(
+        UnifiedJsConnectorRuntime runtime,
+        string configuredServerPath,
         CancellationToken cancellationToken)
     {
         var processes = await runtime.StartAndFetchProcessesAsync(configuredServerPath, cancellationToken);
@@ -87,19 +143,18 @@ public sealed class ScadaUnifiedSyncService
             throw new InvalidOperationException("No running TIA Portal / WinCC Unified instance was found. Open the SCADA project first.");
         }
 
+        var result = new List<(int ProcessId, UnifiedDeviceInfo Device)>();
         foreach (var process in processes)
         {
             var devices = await runtime.GetUnifiedDevicesAsync(process.ProcessId, cancellationToken);
-            var device = devices.FirstOrDefault(item =>
-                item.GlobalModules.Any(module => module.Equals(ModuleName, StringComparison.OrdinalIgnoreCase)));
-            if (device is not null)
+            foreach (var device in devices.Where(item =>
+                         item.GlobalModules.Any(module => module.Equals(ModuleName, StringComparison.OrdinalIgnoreCase))))
             {
-                return (process.ProcessId, device);
+                result.Add((process.ProcessId, device));
             }
         }
 
-        throw new InvalidOperationException(
-            $"No WinCC Unified device exposing the '{ModuleName}' script module was found in any open TIA project.");
+        return result;
     }
 
     private static string CreateWorkspace()

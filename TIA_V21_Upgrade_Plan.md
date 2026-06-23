@@ -363,3 +363,21 @@ REST nema text liste → ide preko HMI text list composition (Engineering), anal
 **Verificirano automatski:** clean build (app + oba helpera), 39 unit testova, V21 helper runtime (GetProcesses, Attach, GetUnifiedScreens) i Unified REST (GetUnifiedDevices, export AUX_FUNCTIONS) protiv živog projekta Kosovo_zahvat_V21.
 
 **NIJE moguće automatski (treba korisnikov klik-test u WPF UI):** vidi TEST listu — interakcije u prozorima (TIA Sync attach lista, SCADA Pull/Push gumbi, screen dropdown) i destruktivni Push u živu SCADU.
+
+---
+
+## SCADA REDIZAJN (nakon korisnikova testa #10/#11)
+
+Cilj: app treba *graditi* `_SET_INTERNAL_TAG` intuitivno, ne prikazivati sirove retke. Faze:
+- **R1** — odabir Unified uređaja (više SCADA uređaja u projektu) + reorg defaultnog taba. ✅ implementirano.
+- **R2** — Navigation Builder: master-detail (main-nav tipke ↔ screenovi po tipki + top-nav kartice), dropdown screenova (#11), auto-brojači (`BUTTON_X_SCREEN_NUM`), live validacija. ← sljedeće, srce redizajna.
+- **R3** — PLC rack/slot vizualni editor (grey/white klik-mreža) + validacije.
+
+### R1 — implementirano (2026-06-23)
+- `ProjectPaths.UnifiedScadaDeviceName` (persistira odabrani SCADA uređaj).
+- `ScadaUnifiedSyncService`: `ListScadaDeviceNamesAsync` + Pull/Push primaju `preferredDeviceDisplayName`; ako više uređaja ima AUX_FUNCTIONS a nije odabran → jasna greška (ne pogađa); ako jedan → auto.
+- SCADA top bar: "Device" combo + "Refresh devices" (lista uređaja iz svih TIA procesa koji imaju AUX_FUNCTIONS); odabir se pamti; Pull/Push ciljaju odabrani.
+- Reorg: default tab = **GENERAL** (umjesto sirovog); "Tags" preimenovan u **"Advanced (raw)"**.
+
+### Ideja za KASNIJE (korisnik): grey/white moduli iz PLC pulla
+Iz PLC konfiguracije (TIA Openness, kad se povuče PLC) može se izvući jesu li moduli **grey ili white**. To se može **direktno applyati** na SCADA interne tagove (`LOCATION_x_..._RACK_..._SLOT_y` = 0 grey / 1 white) umjesto ručnog unosa. Veže se na R3 (PLC rack/slot). Nije za sada — zabilježeno.
