@@ -381,3 +381,10 @@ Cilj: app treba *graditi* `_SET_INTERNAL_TAG` intuitivno, ne prikazivati sirove 
 
 ### Ideja za KASNIJE (korisnik): grey/white moduli iz PLC pulla
 Iz PLC konfiguracije (TIA Openness, kad se povuče PLC) može se izvući jesu li moduli **grey ili white**. To se može **direktno applyati** na SCADA interne tagove (`LOCATION_x_..._RACK_..._SLOT_y` = 0 grey / 1 white) umjesto ručnog unosa. Veže se na R3 (PLC rack/slot). Nije za sada — zabilježeno.
+
+### R2 — Navigation Builder: implementirano (2026-06-23, commit a8abb77)
+- `ScadaNavigationModel` (FromDatabase/ApplyTo) — verificiran test-first + na živom AUX_FUNCTIONS (Intake→[Control,HPU,PLC], Trends, Alarms, Configuration).
+- NAVIGATION tab: master-detail (tipke ↔ screenovi), editable dropdown screenova (#11 katalog), Add/Remove/Up/Down, labela tipke. Izmjene → ApplyTo → Push/Export reflektiraju; brojači auto.
+- Builder vidljivo pokazuje i zaostale matrix unose (screenovi pod tipkama bez labele) — korisnik ih sad može počistiti.
+
+Ostaje: **R3** (PLC rack/slot vizual + grey/white iz PLC pulla) — korisnik rekao za kasnije.
