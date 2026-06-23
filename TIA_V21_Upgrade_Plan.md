@@ -17,7 +17,7 @@ Kontekst: prešli smo s TIA Portal V18 na V21. Cilj: iskoristiti nove Openness z
 | 6 | Download / Upload na PLC iz aplikacije | ❌ **Odbačeno** (korisnika ne zanima) |
 | 7 | Snapshot → start values / žive vrijednosti prije pulla | ❌ **Odbačeno** (live read ne ide kroz Openness → nepouzdano) |
 | 8 | `ExportProjectTexts` (prijevodni tekstovi) | ⏸️ **Odgođeno** — za neki drugi put |
-| 9 | WinCC Unified text liste — automatski export | ✅ **Zaključeno — plan dolje** |
+| 9 | WinCC Unified text liste — automatski export | ⚠️ **Plan ispravljen** — REST nema text liste → ide Engineering put (kao #11) |
 | 10 | "Set internal tag" JS skripta — round-trip preko Unified Openness | ✅ **Zaključeno** — modul `AUX_FUNCTIONS`, funkcija `_SET_INTERNAL_TAG` |
 | 11 | Lista screenova za navigacijske dropdownove (uz #10) | ✅ **Zaključeno** — REST nema screen katalog → Engineering put (HmiSoftware.ScreenFolder) |
 
@@ -312,3 +312,18 @@ Branch: `feature/tia-v21-dual-helper`. Build čist (0 grešaka), verificirano na
 - Staged V18 helper → `Processes:[]` (nema V18 TIA); staged V21 helper → živi proces 4104. Merge bi dao `PID 4104 [V21] | Kosovo_zahvat_V21`.
 
 **Napomena:** `GetPreferredVersionLabel()` ostao (više se ne koristi za rutiranje; bezopasan).
+
+---
+
+## ISPRAVAK #9 (2026-06-23, tijekom Faze 2)
+
+Provjerom doca `Siemens.Simatic.Hmi.Openness.RestService` potvrđeno: servis **NEMA** text-list/translation/language endpoint (samo: tiaProcesses, unifiedDevices=script moduli, libraryTypes, scheduler/screens feature-flagovi). Dakle izvorni #9 plan (text liste preko REST-a) **ne vrijedi**.
+
+**Korigirani put #9:** text liste idu **Engineering Openness putem** — isto kao #11 (screenovi). Tj. nova helper komanda (HMI Unified: `HmiSoftware` → text list composition export/import), na **postojećoj TIA SYNC (Engineering) sesiji** — NE preko JS-Connector REST-a.
+
+**Posljedica na arhitekturu Faze 2:**
+- **#10 (set internal tag skripta)** → JS-Connector REST (`/export|/import/unifiedDevices`) — VERIFICIRANO, ostaje.
+- **#9 (text liste) + #11 (screenovi)** → Engineering helper (HMI Unified), piggyback na postojeći dual-version TiaSync attach.
+- "Dijeljeni Unified attach u TIA SYNC prozoru" iz starog #9 plana → **otpada za #9/#11**; treba samo za #10 (REST). #9/#11 koriste već postojeći Engineering attach.
+
+Redoslijed Faze 2: **#10 prvo** (verificirano), pa **#9+#11** kroz helper HMI Unified.

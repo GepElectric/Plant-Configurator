@@ -3586,34 +3586,104 @@ public partial class MainWindow : Window
         {
             SaveActivePlcDatabase();
             SaveActiveScadaDatabase();
-            var active = GetActiveScadaDatabase();
             var imported = _scadaConfigFileService.Import(dialog.FileName);
-            if (active is not null)
-            {
-                imported.Id = active.Id;
-                imported.Name = active.Name;
-                var index = _project.ScadaDatabases.FindIndex(database => database.Id == active.Id);
-                if (index >= 0)
-                {
-                    _project.ScadaDatabases[index] = imported;
-                }
-            }
-            else
-            {
-                imported.Name = "SCADA 1";
-                _project.ScadaDatabases.Add(imported);
-                _project.ActiveScadaDatabaseId = imported.Id;
-            }
-
-            _project.Scada = imported;
-            _project.ActiveScadaDatabaseId = imported.Id;
-            _project.ActiveWorkspace = "SCADA";
-            BindProject();
+            ApplyImportedScadaDatabase(imported);
             ShowMessage($"Imported SCADA configuration: {_project.Scada.Variables.Count} variables, {_project.Scada.TagWrites.Count} tag writes.");
         }
         catch (Exception ex)
         {
             ShowError(ex.Message);
+        }
+    }
+
+    // Replaces the active SCADA database with a freshly parsed one (from a file or a live
+    // Unified pull), keeping its id/name, and rebinds the UI.
+    private void ApplyImportedScadaDatabase(ScadaDatabase imported)
+    {
+        var active = GetActiveScadaDatabase();
+        if (active is not null)
+        {
+            imported.Id = active.Id;
+            imported.Name = active.Name;
+            var index = _project.ScadaDatabases.FindIndex(database => database.Id == active.Id);
+            if (index >= 0)
+            {
+                _project.ScadaDatabases[index] = imported;
+            }
+        }
+        else
+        {
+            imported.Name = "SCADA 1";
+            _project.ScadaDatabases.Add(imported);
+        }
+
+        _project.Scada = imported;
+        _project.ActiveScadaDatabaseId = imported.Id;
+        _project.ActiveWorkspace = "SCADA";
+        BindProject();
+    }
+
+    private async void PullScadaFromUnified_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+            SaveActivePlcDatabase();
+            SaveActiveScadaDatabase();
+            var service = new ScadaUnifiedSyncService();
+            var result = await service.PullAsync(_project.Paths.UnifiedJsConnectorServerPath);
+            ApplyImportedScadaDatabase(result.Database);
+            ShowMessage($"{result.Message} ({_project.Scada.Variables.Count} variables, {_project.Scada.TagWrites.Count} tag writes).");
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            System.Windows.Input.Mouse.OverrideCursor = null;
+        }
+    }
+
+    private async void PushScadaToUnified_Click(object sender, RoutedEventArgs e)
+    {
+        if (_project.Scada.Variables.Count == 0)
+        {
+            MessageBox.Show(this,
+                "SCADA configuration is empty. Pull from Unified or import a text file first.",
+                "SCADA push",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var confirm = MessageBox.Show(this,
+            $"This overwrites the '{ScadaUnifiedSyncService.ModuleName}.{ScadaInternalTagModule.DefaultFunctionName}' function in the live WinCC Unified project.\n\n"
+            + "The rest of the module (global definition area, other functions) is preserved, and a backup of the exported module is kept. Continue?",
+            "Push SCADA config to WinCC Unified",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+            NormalizeScadaDatabase();
+            var service = new ScadaUnifiedSyncService();
+            var message = await service.PushAsync(_project.Scada, _project.Paths.UnifiedJsConnectorServerPath);
+            BindScadaViews();
+            ShowMessage(message);
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            System.Windows.Input.Mouse.OverrideCursor = null;
         }
     }
 

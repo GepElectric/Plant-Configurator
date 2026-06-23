@@ -156,6 +156,119 @@ public sealed class UnifiedJsConnectorRuntime : IDisposable
         return 0;
     }
 
+    /// <summary>
+    /// Lists the WinCC Unified devices of a TIA process together with their global script
+    /// modules (e.g. <c>AUX_FUNCTIONS</c>). Requires the REST server to be running, which
+    /// <see cref="StartAndFetchProcessesAsync"/> guarantees.
+    /// </summary>
+    public async Task<IReadOnlyList<UnifiedDeviceInfo>> GetUnifiedDevicesAsync(int processId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync($"unifiedDevices?processId={processId}", cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        using var document = JsonDocument.Parse(json);
+
+        var devices = new List<UnifiedDeviceInfo>();
+        if (!document.RootElement.TryGetProperty("unifiedDevices", out var array) || array.ValueKind != JsonValueKind.Array)
+        {
+            return devices;
+        }
+
+        foreach (var item in array.EnumerateArray())
+        {
+            var modules = new List<string>();
+            if (item.TryGetProperty("GlobalModuleList", out var list) && list.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var module in list.EnumerateArray())
+                {
+                    if (module.ValueKind == JsonValueKind.String)
+                    {
+                        modules.Add(module.GetString() ?? "");
+                    }
+                }
+            }
+
+            devices.Add(new UnifiedDeviceInfo(
+                GetString(item, "DisplayName"),
+                GetString(item, "Name", "DeviceName"),
+                modules));
+        }
+
+        return devices;
+    }
+
+    /// <summary>
+    /// Exports a single global script module to disk and returns the path of the generated
+    /// <c>.hmi.js</c> file. Read-only with respect to the TIA project.
+    /// </summary>
+    public async Task<string> ExportScriptModuleAsync(int processId, UnifiedDeviceInfo device, string moduleName, string rootPath, CancellationToken cancellationToken = default)
+    {
+        Directory.CreateDirectory(rootPath);
+        using var content = BuildModuleRequest(device, moduleName, rootPath);
+        using var response = await _httpClient.PostAsync($"export/unifiedDevices?processId={processId}", content, cancellationToken);
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"WinCC Unified export failed ({(int)response.StatusCode}). {responseJson}");
+        }
+
+        var path = GetScriptModulePath(rootPath, device.DisplayName, moduleName);
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException($"Exported script module was not found after export. Server response: {responseJson}", path);
+        }
+
+        return path;
+    }
+
+    /// <summary>
+    /// Imports the (edited) module sitting under <paramref name="rootPath"/> back into the
+    /// running WinCC Unified project. The edited <c>.hmi.js</c> must already be in place.
+    /// </summary>
+    public async Task<string> ImportScriptModuleAsync(int processId, UnifiedDeviceInfo device, string moduleName, string rootPath, CancellationToken cancellationToken = default)
+    {
+        var path = GetScriptModulePath(rootPath, device.DisplayName, moduleName);
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException("Edited script module to import was not found.", path);
+        }
+
+        using var content = BuildModuleRequest(device, moduleName, rootPath);
+        using var response = await _httpClient.PostAsync($"import/unifiedDevices?processId={processId}", content, cancellationToken);
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"WinCC Unified import failed ({(int)response.StatusCode}). {responseJson}");
+        }
+
+        return responseJson;
+    }
+
+    /// <summary>Disk layout the REST server uses for an exported/imported module.</summary>
+    public static string GetScriptModulePath(string rootPath, string displayName, string moduleName)
+    {
+        return Path.Combine(rootPath, displayName, "Scripts", moduleName, moduleName + ".hmi.js");
+    }
+
+    private static StringContent BuildModuleRequest(UnifiedDeviceInfo device, string moduleName, string rootPath)
+    {
+        var body = new
+        {
+            RootPath = rootPath,
+            Entities = new[]
+            {
+                new
+                {
+                    DisplayName = device.DisplayName,
+                    DeviceName = device.DeviceName,
+                    GlobalModuleList = new[] { moduleName }
+                }
+            }
+        };
+
+        return new StringContent(JsonSerializer.Serialize(body), System.Text.Encoding.UTF8, "application/json");
+    }
+
     public void Dispose()
     {
         _httpClient.Dispose();
@@ -167,3 +280,5 @@ public sealed class UnifiedJsConnectorRuntime : IDisposable
 }
 
 public sealed record UnifiedTiaProcessInfo(int ProcessId, string ProjectName, string ProjectPath, string PortalVersion);
+
+public sealed record UnifiedDeviceInfo(string DisplayName, string DeviceName, IReadOnlyList<string> GlobalModules);
