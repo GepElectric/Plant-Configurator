@@ -20,6 +20,10 @@ using Siemens.Engineering.SW;
 using Siemens.Engineering.SW.Blocks;
 using Siemens.Engineering.SW.ExternalSources;
 using Siemens.Engineering.SW.Types;
+#if TIA_V21
+using Siemens.Engineering.HmiUnified;
+using Siemens.Engineering.HmiUnified.UI.ScreenGroup;
+#endif
 
 namespace CwcConfigurator.TiaHelper
 {
@@ -89,6 +93,8 @@ namespace CwcConfigurator.TiaHelper
                     return ExecutePlcControl(request.Payload);
                 case "ImportProjectTexts":
                     return ImportProjectTexts(request.Payload);
+                case "GetUnifiedScreens":
+                    return GetUnifiedScreens();
                 case "Disconnect":
                     Disconnect();
                     return new { };
@@ -200,6 +206,74 @@ namespace CwcConfigurator.TiaHelper
                 Message = "Project texts imported to TIA Portal."
             };
         }
+
+        private static TiaUnifiedScreensResult GetUnifiedScreens()
+        {
+            RequireAttachedProject();
+            var result = new TiaUnifiedScreensResult();
+#if TIA_V21
+            var names = new List<string>();
+            foreach (var device in _project.Devices)
+            {
+                foreach (var item in device.DeviceItems)
+                {
+                    CollectHmiScreens(item, names);
+                }
+            }
+
+            result.Screens = names
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (result.Screens.Count == 0)
+            {
+                result.Warnings.Add("No WinCC Unified screens were found in the attached project.");
+            }
+#else
+            result.Warnings.Add("Unified screen listing requires the TIA V21 helper.");
+#endif
+            return result;
+        }
+
+#if TIA_V21
+        private static void CollectHmiScreens(DeviceItem item, List<string> names)
+        {
+            var container = item.GetService<SoftwareContainer>();
+            if (container != null && container.Software is HmiSoftware hmiSoftware)
+            {
+                foreach (var screen in hmiSoftware.Screens)
+                {
+                    names.Add(screen.Name);
+                }
+
+                CollectHmiScreenGroups(hmiSoftware.ScreenGroups, names);
+            }
+
+            foreach (var child in item.DeviceItems)
+            {
+                CollectHmiScreens(child, names);
+            }
+        }
+
+        private static void CollectHmiScreenGroups(HmiScreenGroupComposition groups, List<string> names)
+        {
+            if (groups == null)
+            {
+                return;
+            }
+
+            foreach (var group in groups)
+            {
+                foreach (var screen in group.Screens)
+                {
+                    names.Add(screen.Name);
+                }
+
+                CollectHmiScreenGroups(group.Groups, names);
+            }
+        }
+#endif
 
         private static TiaSourceTransferResult ExportSources(IDictionary<string, object> payload)
         {
@@ -1962,6 +2036,18 @@ namespace CwcConfigurator.TiaHelper
 
         public TiaProjectTextsImportResult()
         {
+            Warnings = new List<string>();
+        }
+    }
+
+    public sealed class TiaUnifiedScreensResult
+    {
+        public List<string> Screens { get; set; }
+        public List<string> Warnings { get; set; }
+
+        public TiaUnifiedScreensResult()
+        {
+            Screens = new List<string>();
             Warnings = new List<string>();
         }
     }

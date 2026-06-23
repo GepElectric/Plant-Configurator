@@ -3731,6 +3731,77 @@ public partial class MainWindow : Window
         }
     }
 
+    // Catalog of WinCC Unified screen names, pulled from the attached TIA project, used as
+    // the dropdown for the SCREENS matrix VALUE cells. Always also includes the cells'
+    // current values so existing entries stay selectable.
+    private readonly List<string> _tiaScreenNames = new();
+
+    private void RebuildScadaScreenCatalog()
+    {
+        var catalog = new List<string>(_tiaScreenNames);
+        if (_scadaScreensView is not null)
+        {
+            foreach (var item in _scadaScreensView)
+            {
+                if (item is ScadaConfigVariable variable && !string.IsNullOrWhiteSpace(variable.Value))
+                {
+                    catalog.Add(variable.Value);
+                }
+            }
+        }
+
+        var sorted = new List<string> { "" };
+        sorted.AddRange(catalog
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase));
+
+        if (ScadaScreenValueColumn is not null)
+        {
+            ScadaScreenValueColumn.ItemsSource = sorted;
+        }
+
+        if (ScadaScreenCatalogInfo is not null)
+        {
+            ScadaScreenCatalogInfo.Text = _tiaScreenNames.Count > 0
+                ? $"{_tiaScreenNames.Count} screen(s) loaded from TIA."
+                : "No TIA screens loaded — attach a V21 project in 'TIA Sync', then click 'Refresh screens from TIA'.";
+        }
+    }
+
+    private async void RefreshScadaScreensFromTia_Click(object sender, RoutedEventArgs e)
+    {
+        if (_tiaSessionService.CurrentSession is null)
+        {
+            MessageBox.Show(this,
+                "Attach to the TIA Portal project (V21) in the 'TIA Sync' window first, then refresh screens.",
+                "Refresh screens",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        try
+        {
+            System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+            var result = await _tiaSessionService.GetUnifiedScreensAsync();
+            _tiaScreenNames.Clear();
+            _tiaScreenNames.AddRange(result.Screens);
+            RebuildScadaScreenCatalog();
+            ShowMessage(result.Warnings.Count > 0
+                ? string.Join(Environment.NewLine, result.Warnings)
+                : $"Loaded {result.Screens.Count} WinCC Unified screen(s) from TIA.");
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            System.Windows.Input.Mouse.OverrideCursor = null;
+        }
+    }
+
     private void ScadaGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
     {
         Dispatcher.BeginInvoke(new Action(() =>
@@ -7785,6 +7856,7 @@ public partial class MainWindow : Window
         _scadaScreensView = new ListCollectionView(_project.Scada.Variables);
         _scadaScreensView.Filter = FilterScadaScreenRow;
         ScadaScreensGrid.ItemsSource = _scadaScreensView;
+        RebuildScadaScreenCatalog();
         _scadaTagWritesView = new ListCollectionView(_project.Scada.TagWrites);
         _scadaTagWritesView.SortDescriptions.Add(new SortDescription(nameof(ScadaTagWrite.Id), ListSortDirection.Ascending));
         _scadaTagWritesView.Filter = FilterScadaTagWriteRow;

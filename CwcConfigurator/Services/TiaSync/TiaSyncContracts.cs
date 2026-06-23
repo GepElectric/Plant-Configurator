@@ -67,6 +67,7 @@ public interface ITiaSessionService
     Task<TiaCrossReferenceOpenResult> OpenCrossReferenceAsync(TiaCrossReferenceOpenRequest request);
     Task<TiaPlcControlResult> ExecutePlcControlAsync(TiaPlcControlRequest request);
     Task<TiaProjectTextsImportResult> ImportProjectTextsAsync(string workbookPath);
+    Task<TiaUnifiedScreensResult> GetUnifiedScreensAsync();
 }
 
 public sealed class TiaSourceArtifactRequest
@@ -104,6 +105,12 @@ public sealed class TiaSourceTransferResult
 public sealed class TiaProjectTextsImportResult
 {
     public string Message { get; set; } = "";
+    public List<string> Warnings { get; set; } = [];
+}
+
+public sealed class TiaUnifiedScreensResult
+{
+    public List<string> Screens { get; set; } = [];
     public List<string> Warnings { get; set; } = [];
 }
 

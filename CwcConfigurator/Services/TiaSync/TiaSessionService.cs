@@ -117,6 +117,11 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         });
     }
 
+    public Task<TiaUnifiedScreensResult> GetUnifiedScreensAsync()
+    {
+        return SendAsync<TiaUnifiedScreensResult>(RequireActiveVersion(), "GetUnifiedScreens", null);
+    }
+
     public void AbortHelper()
     {
         CurrentSession = null;

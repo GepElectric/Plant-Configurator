@@ -327,3 +327,24 @@ Provjerom doca `Siemens.Simatic.Hmi.Openness.RestService` potvrđeno: servis **N
 - "Dijeljeni Unified attach u TIA SYNC prozoru" iz starog #9 plana → **otpada za #9/#11**; treba samo za #10 (REST). #9/#11 koriste već postojeći Engineering attach.
 
 Redoslijed Faze 2: **#10 prvo** (verificirano), pa **#9+#11** kroz helper HMI Unified.
+
+---
+
+## FAZA 2 — status (2026-06-23)
+
+### #10 — IMPLEMENTIRANO ✅ (commit e0f65b3)
+Round-trip `AUX_FUNCTIONS._SET_INTERNAL_TAG` preko Unified REST. Vidi commit; verificirano na živom V21 (body se parsira, splice lossless, 39 testova prolaze). Pull/Push gumbi u SCADA tabu.
+
+### #11 — istraga gotova, spremno za implementaciju
+**Potvrđeni V21 screen API** (reflection nad `Siemens.Engineering.WinCCUnified.dll`):
+- `Siemens.Engineering.HmiUnified.HmiSoftware` ima `Screens` (top-level) i `ScreenGroups` (`HmiScreenGroupComposition`, rekurzivno: svaka grupa ima Screens + ScreenGroups).
+- Svaki screen ima `.Name`; namespace tipova `Siemens.Engineering.HmiUnified.*`.
+- Assembly = **`Siemens.Engineering.WinCCUnified.dll`** (V21). V18 nema `HmiUnified.dll` na PublicAPI putanji → **#11 je V21-only**, što je OK jer je SCADA V21 (RestService 21.x, projekt .ap21).
+
+**Plan implementacije #11:**
+- V21 helper (`CwcConfigurator.TiaHelper.V21`): dodati referencu `Siemens.Engineering.WinCCUnified`; nova komanda `GetUnifiedScreens` (pod `#if TIA_V21`) — naći `HmiSoftware` preko `SoftwareContainer` (kao PlcSoftware), rekurzivno pobrati Screens + ScreenGroups → lista fully-qualified imena.
+- App: nova session komanda + DTO (lista screenova); katalog screenova (refreshable).
+- UI: bind katalog kao ItemsSource na screen-kolone u nav gridovima (`ScadaNavigationGrid` / mainnav matrica).
+
+### #9 — text liste (Engineering put, odgođeno/zasebno)
+REST nema text liste → ide preko HMI text list composition (Engineering), analogno #11. Nije kritično za navigaciju; raditi nakon #11.

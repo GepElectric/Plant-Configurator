@@ -2598,6 +2598,10 @@
                                 <DockPanel>
                                     <StackPanel DockPanel.Dock="Top" Margin="8,8,8,0">
                                         <WrapPanel Margin="0,0,0,6">
+                                            <Button x:Name="RefreshScadaScreensButton" Content="Refresh screens from TIA" Height="28" Click="RefreshScadaScreensFromTia_Click"/>
+                                            <TextBlock x:Name="ScadaScreenCatalogInfo" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#57606A"/>
+                                        </WrapPanel>
+                                        <WrapPanel Margin="0,0,0,6">
                                             <TextBlock Text="Copy cell from" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                             <ComboBox x:Name="ScadaScreenCopyCellSourceCombo" Width="210" Height="28" DisplayMemberPath="Display" Margin="0,0,6,0"/>
                                             <TextBlock Text="to" VerticalAlignment="Center" Margin="0,0,6,0"/>
@@ -2690,7 +2694,7 @@
                                             <DataGridTextColumn Header="SECTION" Binding="{Binding Section, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="190" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
                                             <DataGridTextColumn Header="VARIABLE" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="320" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
                                             <DataGridTextColumn Header="TYPE" Binding="{Binding Type, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="90" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
-                                            <DataGridTextColumn Header="VALUE" Binding="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
+                                            <DataGridComboBoxColumn x:Name="ScadaScreenValueColumn" Header="VALUE" SelectedItemBinding="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300"/>
                                             <DataGridTextColumn Header="TAG" Binding="{Binding Tag, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="260" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
                                             <DataGridTextColumn Header="COMMENT" Binding="{Binding Comment, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
                                         </DataGrid.Columns>
