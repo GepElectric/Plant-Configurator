@@ -2472,6 +2472,44 @@
                                     </DataGrid>
                                 </DockPanel>
                             </TabItem>
+                            <TabItem Header="NAVIGATION">
+                                <Grid Margin="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="280"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <DockPanel Grid.Column="0" Margin="0,0,10,0">
+                                        <TextBlock DockPanel.Dock="Top" Text="Main navigation buttons" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <TextBlock DockPanel.Dock="Bottom" Text="Empty label = button hidden. Order = order in SCADA." Foreground="#57606A" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                        <ListBox x:Name="NavButtonsList" DisplayMemberPath="Display" SelectionChanged="NavButtonsList_SelectionChanged"/>
+                                    </DockPanel>
+                                    <DockPanel Grid.Column="1">
+                                        <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Button label:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,6,0"/>
+                                            <TextBox x:Name="NavButtonNameBox" Grid.Column="1" LostFocus="NavButtonName_LostFocus"/>
+                                        </Grid>
+                                        <TextBlock DockPanel.Dock="Top" Text="Screens under this button:" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <Grid DockPanel.Dock="Bottom" Margin="0,6,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <ComboBox x:Name="NavScreenPicker" Grid.Column="0" IsEditable="True" StaysOpenOnEdit="True" MinHeight="26"/>
+                                            <Button Grid.Column="1" Content="Add screen" Margin="6,0,0,0" Click="NavAddScreen_Click"/>
+                                        </Grid>
+                                        <StackPanel DockPanel.Dock="Right" Margin="6,0,0,0" VerticalAlignment="Top">
+                                            <Button Content="Up" ToolTip="Move screen up" Click="NavScreenUp_Click" Margin="0,0,0,4" MinWidth="44"/>
+                                            <Button Content="Down" ToolTip="Move screen down" Click="NavScreenDown_Click" Margin="0,0,0,4" MinWidth="44"/>
+                                            <Button Content="Remove" ToolTip="Remove screen" Click="NavScreenRemove_Click" MinWidth="44"/>
+                                        </StackPanel>
+                                        <ListBox x:Name="NavScreensList"/>
+                                    </DockPanel>
+                                </Grid>
+                            </TabItem>
                             <TabItem Header="HEADER">
                                 <DockPanel Margin="8">
                                     <Border DockPanel.Dock="Top" Padding="0,0,0,8">
