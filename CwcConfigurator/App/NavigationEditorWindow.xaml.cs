@@ -68,6 +68,12 @@ public partial class NavigationEditorWindow : Window
 
     private void RefreshCards() => CardsGrid.Items.Refresh();
 
+    // Enumerate top-nav cards 1, 2, 3... in the row-header (left) column.
+    private void CardsGrid_LoadingRow(object sender, DataGridRowEventArgs e)
+    {
+        e.Row.Header = (e.Row.GetIndex() + 1).ToString();
+    }
+
     private void RebindDetail()
     {
         // Force the TwoWay-bound detail fields to reload after we mutate the object in code.
