@@ -15,6 +15,7 @@
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.2" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
+    <PackageReference Include="YamlDotNet" Version="16.2.1" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Templates\Configuration_Unit_List_Template.xlsm" CopyToOutputDirectory="PreserveNewest" />

@@ -122,6 +122,14 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         return SendAsync<TiaUnifiedScreensResult>(RequireActiveVersion(), "GetUnifiedScreens", null);
     }
 
+    public Task<TiaTextListExportResult> ExportTextListsAsync(string outputFolder)
+    {
+        return SendAsync<TiaTextListExportResult>(RequireActiveVersion(), "ExportTextLists", new
+        {
+            OutputFolder = outputFolder
+        });
+    }
+
     public void AbortHelper()
     {
         CurrentSession = null;

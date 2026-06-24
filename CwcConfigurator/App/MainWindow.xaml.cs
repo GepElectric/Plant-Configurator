@@ -9166,7 +9166,28 @@ public partial class MainWindow : Window
         }
 
         SaveActivePlcDatabase();
-        var dialog = new DescriptionTextListsDialog(_project, _descriptionTextListService)
+
+        Func<Task<DescriptionTextListData>> pullFromTia = async () =>
+        {
+            if (_tiaSessionService.CurrentSession is null)
+            {
+                throw new InvalidOperationException("Attach to the TIA Portal project (V21) in the 'TIA Sync' window first.");
+            }
+
+            var folder = Path.Combine(Path.GetTempPath(), "PlantConfigurator", "TextListsExport", Guid.NewGuid().ToString("N"));
+            var result = await _tiaSessionService.ExportTextListsAsync(folder);
+            var listsFile = result.Files.FirstOrDefault(f => Path.GetFileName(f).Equals("TextLists.hmi.yml", StringComparison.OrdinalIgnoreCase));
+            var libraryFile = result.Files.FirstOrDefault(f => Path.GetFileName(f).Equals("TextLists.TextLibrary.hmi.yml", StringComparison.OrdinalIgnoreCase));
+            if (listsFile is null || libraryFile is null)
+            {
+                throw new InvalidOperationException("WinCC Unified text-list export did not produce the expected files."
+                    + (result.Warnings.Count > 0 ? " " + string.Join("; ", result.Warnings) : ""));
+            }
+
+            return new TextListYamlImporter().Import(listsFile, libraryFile);
+        };
+
+        var dialog = new DescriptionTextListsDialog(_project, _descriptionTextListService, pullFromTia)
         {
             Owner = EditorOwner
         };

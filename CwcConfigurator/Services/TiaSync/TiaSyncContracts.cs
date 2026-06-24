@@ -68,6 +68,7 @@ public interface ITiaSessionService
     Task<TiaPlcControlResult> ExecutePlcControlAsync(TiaPlcControlRequest request);
     Task<TiaProjectTextsImportResult> ImportProjectTextsAsync(string workbookPath);
     Task<TiaUnifiedScreensResult> GetUnifiedScreensAsync();
+    Task<TiaTextListExportResult> ExportTextListsAsync(string outputFolder);
 }
 
 public sealed class TiaSourceArtifactRequest
@@ -111,6 +112,13 @@ public sealed class TiaProjectTextsImportResult
 public sealed class TiaUnifiedScreensResult
 {
     public List<string> Screens { get; set; } = [];
+    public List<string> Warnings { get; set; } = [];
+}
+
+public sealed class TiaTextListExportResult
+{
+    public string HmiSoftwareName { get; set; } = "";
+    public List<string> Files { get; set; } = [];
     public List<string> Warnings { get; set; } = [];
 }
 

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -13,24 +14,57 @@ public partial class DescriptionTextListsDialog : Window, INotifyPropertyChanged
 {
     private readonly CwcProject _project;
     private readonly DescriptionTextListService _service;
+    private readonly Func<Task<DescriptionTextListData>>? _pullFromTia;
     private readonly ObservableCollection<DescriptionTextListMapping> _mappings;
 
     public ObservableCollection<string> AvailableListNames { get; } = ["(none)"];
     public bool Changed { get; private set; }
 
-    public DescriptionTextListsDialog(CwcProject project, DescriptionTextListService service)
+    public DescriptionTextListsDialog(CwcProject project, DescriptionTextListService service, Func<Task<DescriptionTextListData>>? pullFromTia = null)
     {
         InitializeComponent();
         _project = project;
         _service = service;
+        _pullFromTia = pullFromTia;
         _project.DescriptionTextLists ??= new DescriptionTextListConfig();
         _project.DescriptionTextLists.SyncWithDatabases(_project.PlcDatabases);
         _mappings = new ObservableCollection<DescriptionTextListMapping>(_project.DescriptionTextLists.Mappings.OrderBy(item => item.PlcName, StringComparer.OrdinalIgnoreCase));
         DataContext = this;
         MappingGrid.ItemsSource = _mappings;
         WorkbookPathBox.Text = _project.DescriptionTextLists.WorkbookPath;
+        PullFromTiaButton.IsEnabled = _pullFromTia is not null;
         RefreshAvailableLists();
         RefreshStatus();
+    }
+
+    private async void PullFromTia_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pullFromTia is null)
+        {
+            return;
+        }
+
+        try
+        {
+            System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+            var data = await _pullFromTia();
+            _project.DescriptionTextLists.TextLists = data;
+            _project.DescriptionTextLists.WorkbookPath = "";
+            RefreshAvailableLists();
+            AutoMapEmptyDescriptionLists();
+            var changed = _service.ApplyDescriptionsToProject(_project);
+            Changed = true;
+            MappingGrid.Items.Refresh();
+            RefreshStatus($"Pulled {data.AllListNames.Count} text list(s) from TIA and applied {changed} description cell(s).");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Pull descriptions from TIA", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            System.Windows.Input.Mouse.OverrideCursor = null;
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

@@ -95,6 +95,8 @@ namespace CwcConfigurator.TiaHelper
                     return ImportProjectTexts(request.Payload);
                 case "GetUnifiedScreens":
                     return GetUnifiedScreens();
+                case "ExportTextLists":
+                    return ExportTextLists(request.Payload);
                 case "Disconnect":
                     Disconnect();
                     return new { };
@@ -236,7 +238,85 @@ namespace CwcConfigurator.TiaHelper
             return result;
         }
 
+        private static TiaTextListExportResult ExportTextLists(IDictionary<string, object> payload)
+        {
+            RequireAttachedProject();
+            var outputFolder = GetString(payload, "OutputFolder");
+            var result = new TiaTextListExportResult();
+            if (string.IsNullOrWhiteSpace(outputFolder))
+            {
+                result.Warnings.Add("No output folder was supplied for text-list export.");
+                return result;
+            }
+
+            Directory.CreateDirectory(outputFolder);
 #if TIA_V21
+            foreach (var device in _project.Devices)
+            {
+                var exported = false;
+                foreach (var item in device.DeviceItems)
+                {
+                    if (ExportHmiTextLists(item, outputFolder, result))
+                    {
+                        exported = true;
+                        break;
+                    }
+                }
+
+                if (exported)
+                {
+                    break;
+                }
+            }
+
+            if (result.Files.Count == 0 && result.Warnings.Count == 0)
+            {
+                result.Warnings.Add("No WinCC Unified HMI software was found in the attached project.");
+            }
+#else
+            result.Warnings.Add("Text-list export requires the TIA V21 helper.");
+#endif
+            return result;
+        }
+
+#if TIA_V21
+        private static bool ExportHmiTextLists(DeviceItem item, string outputFolder, TiaTextListExportResult result)
+        {
+            var container = item.GetService<SoftwareContainer>();
+            if (container != null && container.Software is HmiSoftware hmi)
+            {
+                try
+                {
+                    hmi.HmiTextLists.Export(new DirectoryInfo(outputFolder), "");
+                    foreach (var file in Directory.GetFiles(outputFolder, "*.hmi.yml", SearchOption.AllDirectories))
+                    {
+                        if (!result.Files.Contains(file))
+                        {
+                            result.Files.Add(file);
+                        }
+                    }
+
+                    result.HmiSoftwareName = hmi.Name;
+                }
+                catch (Exception ex)
+                {
+                    result.Warnings.Add(hmi.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+                }
+
+                return true; // export from the first HMI software only
+            }
+
+            foreach (var child in item.DeviceItems)
+            {
+                if (ExportHmiTextLists(child, outputFolder, result))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static void CollectHmiScreens(DeviceItem item, List<string> names)
         {
             var container = item.GetService<SoftwareContainer>();
@@ -2048,6 +2128,20 @@ namespace CwcConfigurator.TiaHelper
         public TiaUnifiedScreensResult()
         {
             Screens = new List<string>();
+            Warnings = new List<string>();
+        }
+    }
+
+    public sealed class TiaTextListExportResult
+    {
+        public string HmiSoftwareName { get; set; }
+        public List<string> Files { get; set; }
+        public List<string> Warnings { get; set; }
+
+        public TiaTextListExportResult()
+        {
+            HmiSoftwareName = "";
+            Files = new List<string>();
             Warnings = new List<string>();
         }
     }
