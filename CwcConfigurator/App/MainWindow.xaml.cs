@@ -3788,12 +3788,6 @@ public partial class MainWindow : Window
             _tiaScreenNames.Clear();
             _tiaScreenNames.AddRange(result.Screens);
             RebuildScadaScreenCatalog();
-            if (NavScreenPicker is not null)
-            {
-                NavScreenPicker.ItemsSource = null;
-                NavScreenPicker.ItemsSource = _tiaScreenNames;
-            }
-
             ShowMessage(result.Warnings.Count > 0
                 ? string.Join(Environment.NewLine, result.Warnings)
                 : $"Loaded {result.Screens.Count} WinCC Unified screen(s) from TIA.");
@@ -3808,149 +3802,40 @@ public partial class MainWindow : Window
         }
     }
 
-    private ScadaNavigationModel? _scadaNavModel;
-    private ScadaNavButton? _selectedNavButton;
-
-    // Builds the friendly button->screens model over the flat SCADA variables and binds the
-    // navigation builder. Rebuilt whenever the SCADA database is (re)loaded.
-    private void BuildScadaNavigationView()
+    private void ConfigureNavigation_Click(object sender, RoutedEventArgs e)
     {
-        if (NavButtonsList is null)
+        NormalizeScadaDatabase();
+
+        // Screen catalog for the editor dropdowns: TIA-fetched screens plus whatever the
+        // current config already references (so existing entries stay selectable offline).
+        var model = ScadaNavigationModel.FromDatabase(_project.Scada);
+        var catalog = new List<string>(_tiaScreenNames);
+        foreach (var button in model.Buttons)
         {
-            return;
+            if (!string.IsNullOrWhiteSpace(button.SideContentScreen))
+            {
+                catalog.Add(button.SideContentScreen);
+            }
+
+            foreach (var card in button.Cards.Where(card => !string.IsNullOrWhiteSpace(card.Screen)))
+            {
+                catalog.Add(card.Screen);
+            }
         }
 
-        _scadaNavModel = ScadaNavigationModel.FromDatabase(_project.Scada);
-        NavButtonsList.ItemsSource = _scadaNavModel.Buttons;
-        NavButtonsList.Items.Refresh();
-        if (NavScreenPicker is not null)
+        var screens = catalog
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var dialog = new NavigationEditorWindow(_project.Scada, screens) { Owner = this };
+        if (dialog.ShowDialog() == true && dialog.Applied)
         {
-            NavScreenPicker.ItemsSource = _tiaScreenNames;
+            NormalizeScadaDatabase();
+            BindScadaViews();
+            ShowMessage("Navigation applied to the SCADA database. Use 'Push to Unified' or 'Export text...' to write it back.");
         }
-
-        if (NavButtonsList.SelectedItem is null && _scadaNavModel.Buttons.Count > 0)
-        {
-            NavButtonsList.SelectedItem = _scadaNavModel.Buttons[0];
-        }
-
-        LoadSelectedNavButton();
-    }
-
-    private void NavButtonsList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-    {
-        LoadSelectedNavButton();
-    }
-
-    private void LoadSelectedNavButton()
-    {
-        _selectedNavButton = NavButtonsList.SelectedItem as ScadaNavButton;
-        NavButtonNameBox.Text = _selectedNavButton?.Name ?? "";
-        RefreshNavScreens();
-    }
-
-    private void RefreshNavScreens()
-    {
-        NavScreensList.ItemsSource = null;
-        NavScreensList.ItemsSource = _selectedNavButton?.Screens;
-    }
-
-    private void ApplyNavModel()
-    {
-        if (_scadaNavModel is null)
-        {
-            return;
-        }
-
-        _scadaNavModel.ApplyTo(_project.Scada);
-        NormalizeScadaDatabase();          // recomputes BUTTON_x_SCREEN_NUM / MAIN_NAV_BUTTONS_NUM + tags
-        NavButtonsList.Items.Refresh();    // labels/counts in the list reflect the edit
-    }
-
-    private void NavButtonName_LostFocus(object sender, RoutedEventArgs e)
-    {
-        if (_selectedNavButton is null)
-        {
-            return;
-        }
-
-        var newName = (NavButtonNameBox.Text ?? "").Trim();
-        if (string.Equals(newName, _selectedNavButton.Name, StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        _selectedNavButton.Name = newName;
-        ApplyNavModel();
-    }
-
-    private void NavAddScreen_Click(object sender, RoutedEventArgs e)
-    {
-        if (_selectedNavButton is null)
-        {
-            return;
-        }
-
-        var screen = (NavScreenPicker.Text ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(screen))
-        {
-            return;
-        }
-
-        if (_selectedNavButton.Screens.Count >= ScadaNavigationModel.MaxScreensPerButton)
-        {
-            MessageBox.Show(this, $"A button can hold at most {ScadaNavigationModel.MaxScreensPerButton} screens.", "Navigation", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        _selectedNavButton.Screens.Add(screen);
-        ApplyNavModel();
-        RefreshNavScreens();
-        NavScreensList.SelectedIndex = _selectedNavButton.Screens.Count - 1;
-    }
-
-    private void NavScreenRemove_Click(object sender, RoutedEventArgs e)
-    {
-        if (_selectedNavButton is null || NavScreensList.SelectedIndex < 0)
-        {
-            return;
-        }
-
-        var index = NavScreensList.SelectedIndex;
-        _selectedNavButton.Screens.RemoveAt(index);
-        ApplyNavModel();
-        RefreshNavScreens();
-        NavScreensList.SelectedIndex = Math.Min(index, _selectedNavButton.Screens.Count - 1);
-    }
-
-    private void NavScreenUp_Click(object sender, RoutedEventArgs e)
-    {
-        MoveSelectedNavScreen(-1);
-    }
-
-    private void NavScreenDown_Click(object sender, RoutedEventArgs e)
-    {
-        MoveSelectedNavScreen(1);
-    }
-
-    private void MoveSelectedNavScreen(int direction)
-    {
-        if (_selectedNavButton is null)
-        {
-            return;
-        }
-
-        var index = NavScreensList.SelectedIndex;
-        var target = index + direction;
-        if (index < 0 || target < 0 || target >= _selectedNavButton.Screens.Count)
-        {
-            return;
-        }
-
-        (_selectedNavButton.Screens[index], _selectedNavButton.Screens[target]) =
-            (_selectedNavButton.Screens[target], _selectedNavButton.Screens[index]);
-        ApplyNavModel();
-        RefreshNavScreens();
-        NavScreensList.SelectedIndex = target;
     }
 
     private bool _suppressScadaDeviceSelection;
@@ -8081,7 +7966,6 @@ public partial class MainWindow : Window
         ScadaScreensGrid.ItemsSource = _scadaScreensView;
         RebuildScadaScreenCatalog();
         InitScadaUnifiedDeviceCombo();
-        BuildScadaNavigationView();
         _scadaTagWritesView = new ListCollectionView(_project.Scada.TagWrites);
         _scadaTagWritesView.SortDescriptions.Add(new SortDescription(nameof(ScadaTagWrite.Id), ListSortDirection.Ascending));
         _scadaTagWritesView.Filter = FilterScadaTagWriteRow;

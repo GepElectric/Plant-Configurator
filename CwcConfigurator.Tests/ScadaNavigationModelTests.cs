@@ -23,30 +23,40 @@ public class ScadaNavigationModelTests
         db.Variables.First(v => v.Name == name).Value;
 
     [Fact]
-    public void FromDatabase_ReadsButtonsAndScreens()
+    public void FromDatabase_ReadsButtonAndCards()
     {
         var db = MakeDb(
             ("MAIN_NAV_BUTTONS_ENTRY_1", "Intake"),
+            ("MAIN_NAV_BTTN_1_TEXT_LANGUAGE_1", "Intake"),
+            ("MAIN_NAV_BTTN_1_TEXT_LANGUAGE_2", "Fellesanlegg"),
+            ("MAIN_NAV_BTTN_1_GRAPHIC_LIST_ID", "1"),
+            ("MAIN_NAV_SCREEN_SHAPE_1", "2"),
+            ("SIDE_CONTENT_DEFAULT_SCREENS_ENTRY_1", "SIDE_CONTENT_Button_1"),
             ("SCREENS_Button_1_ENTRY_1", "Intake_Control"),
+            ("Button_1_TOP_NAV_CARD_1_TEXT_LANGUAGE_1", "Control"),
+            ("Button_1_TOP_NAV_CARD_1_TEXT_LANGUAGE_2", "Energi"),
+            ("Button_1_TOP_NAV_CARD_1_GRAPHIC_LIST_ID", "19"),
             ("SCREENS_Button_1_ENTRY_2", "Intake_HPU"),
-            ("SCREENS_Button_1_ENTRY_3", ""),
-            ("MAIN_NAV_BUTTONS_ENTRY_2", "Trends"),
-            ("SCREENS_Button_2_ENTRY_1", "Trends"));
+            ("SCREENS_Button_1_ENTRY_3", "")); // empty -> not a card
 
         var model = ScadaNavigationModel.FromDatabase(db);
-
-        Assert.Equal(ScadaNavigationModel.MaxButtons, model.Buttons.Count);
         var b1 = model.Buttons.Single(b => b.Index == 1);
-        Assert.Equal("Intake", b1.Name);
-        Assert.Equal(new[] { "Intake_Control", "Intake_HPU" }, b1.Screens); // empty slot skipped
-        var b2 = model.Buttons.Single(b => b.Index == 2);
-        Assert.Equal("Trends", b2.Name);
-        Assert.Single(b2.Screens);
-        Assert.Equal("", model.Buttons.Single(b => b.Index == 3).Name);
+
+        Assert.Equal("Intake", b1.Identity);
+        Assert.Equal("Intake", b1.LabelEn);
+        Assert.Equal("Fellesanlegg", b1.LabelOther);
+        Assert.Equal("1", b1.IconId);
+        Assert.Equal(2, b1.LayoutShape);
+        Assert.Equal("SIDE_CONTENT_Button_1", b1.SideContentScreen);
+        Assert.Equal(2, b1.Cards.Count);
+        Assert.Equal("Intake_Control", b1.Cards[0].Screen);
+        Assert.Equal("Control", b1.Cards[0].LabelEn);
+        Assert.Equal("19", b1.Cards[0].IconId);
+        Assert.Equal("Intake_HPU", b1.Cards[1].Screen);
     }
 
     [Fact]
-    public void ApplyTo_PacksScreensAndClearsTrailing()
+    public void ApplyTo_PacksCardsAndClearsTrailing()
     {
         var db = ScadaDatabase.CreateDefault();
         var model = new ScadaNavigationModel();
@@ -56,42 +66,52 @@ public class ScadaNavigationModelTests
         }
 
         var b1 = model.Buttons.Single(b => b.Index == 1);
-        b1.Name = "Intake";
-        b1.Screens.Add("A");
-        b1.Screens.Add("");   // gap that must be removed
-        b1.Screens.Add("B");
+        b1.Identity = "Intake";
+        b1.LabelEn = "Intake";
+        b1.IconId = "1";
+        b1.LayoutShape = 3;
+        b1.Cards.Add(new ScadaTopNavCard { Screen = "A", LabelEn = "Ca", IconId = "7" });
+        b1.Cards.Add(new ScadaTopNavCard { Screen = "", LabelEn = "gap" });    // dropped (no screen)
+        b1.Cards.Add(new ScadaTopNavCard { Screen = "B", LabelEn = "Cb", IconId = "8" });
 
         model.ApplyTo(db);
 
         Assert.Equal("Intake", Value(db, "MAIN_NAV_BUTTONS_ENTRY_1"));
+        Assert.Equal("1", Value(db, "MAIN_NAV_BTTN_1_GRAPHIC_LIST_ID"));
+        Assert.Equal("3", Value(db, "MAIN_NAV_SCREEN_SHAPE_1"));
         Assert.Equal("A", Value(db, "SCREENS_Button_1_ENTRY_1"));
+        Assert.Equal("Ca", Value(db, "Button_1_TOP_NAV_CARD_1_TEXT_LANGUAGE_1"));
+        Assert.Equal("7", Value(db, "Button_1_TOP_NAV_CARD_1_GRAPHIC_LIST_ID"));
         Assert.Equal("B", Value(db, "SCREENS_Button_1_ENTRY_2")); // packed
         Assert.Equal("", Value(db, "SCREENS_Button_1_ENTRY_3"));  // cleared
-        Assert.Equal("", Value(db, "MAIN_NAV_BUTTONS_ENTRY_2"));
+        Assert.Equal("0", Value(db, "Button_1_TOP_NAV_CARD_3_GRAPHIC_LIST_ID")); // cleared icon
     }
 
     [Fact]
-    public void FromDatabase_Then_ApplyTo_RoundTrips()
+    public void RoundTrips_ThroughDatabase()
     {
         var source = MakeDb(
-            ("MAIN_NAV_BUTTONS_ENTRY_1", "Intake"),
-            ("SCREENS_Button_1_ENTRY_1", "Intake_Control"),
-            ("SCREENS_Button_1_ENTRY_2", "Intake_HPU"),
-            ("SCREENS_Button_1_ENTRY_3", "Intake_PLC"),
-            ("MAIN_NAV_BUTTONS_ENTRY_3", "Alarms"),
-            ("SCREENS_Button_3_ENTRY_1", "Alarms_Intake"));
+            ("MAIN_NAV_BUTTONS_ENTRY_2", "Trends"),
+            ("MAIN_NAV_BTTN_2_TEXT_LANGUAGE_1", "Trends"),
+            ("MAIN_NAV_BTTN_2_GRAPHIC_LIST_ID", "2"),
+            ("MAIN_NAV_SCREEN_SHAPE_2", "1"),
+            ("SCREENS_Button_2_ENTRY_1", "Trends"),
+            ("Button_2_TOP_NAV_CARD_1_TEXT_LANGUAGE_1", "Trend"),
+            ("Button_2_TOP_NAV_CARD_1_GRAPHIC_LIST_ID", "5"));
 
         var model = ScadaNavigationModel.FromDatabase(source);
-
         var target = ScadaDatabase.CreateDefault();
         model.ApplyTo(target);
-        var roundTripped = ScadaNavigationModel.FromDatabase(target);
+        var again = ScadaNavigationModel.FromDatabase(target);
 
-        var b1 = roundTripped.Buttons.Single(b => b.Index == 1);
-        Assert.Equal("Intake", b1.Name);
-        Assert.Equal(new[] { "Intake_Control", "Intake_HPU", "Intake_PLC" }, b1.Screens);
-        var b3 = roundTripped.Buttons.Single(b => b.Index == 3);
-        Assert.Equal("Alarms", b3.Name);
-        Assert.Equal(new[] { "Alarms_Intake" }, b3.Screens);
+        var b2 = again.Buttons.Single(b => b.Index == 2);
+        Assert.Equal("Trends", b2.Identity);
+        Assert.Equal("Trends", b2.LabelEn);
+        Assert.Equal("2", b2.IconId);
+        Assert.Equal(1, b2.LayoutShape);
+        Assert.Single(b2.Cards);
+        Assert.Equal("Trends", b2.Cards[0].Screen);
+        Assert.Equal("Trend", b2.Cards[0].LabelEn);
+        Assert.Equal("5", b2.Cards[0].IconId);
     }
 }
