@@ -4,10 +4,14 @@
         Title="Configure navigation" Height="720" Width="1120"
         WindowStartupLocation="CenterOwner">
     <DockPanel Margin="10">
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button Content="OK" Width="90" Click="Ok_Click" Margin="0,0,8,0" IsDefault="True"/>
-            <Button Content="Cancel" Width="90" Click="Cancel_Click" IsCancel="True"/>
-        </StackPanel>
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <Button DockPanel.Dock="Left" x:Name="RefreshScreensButton" Content="Refresh screens from TIA" Click="RefreshScreens_Click" MinWidth="180"/>
+            <TextBlock x:Name="ScreensInfo" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#57606A"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="OK" Width="90" Click="Ok_Click" Margin="0,0,8,0" IsDefault="True"/>
+                <Button Content="Cancel" Width="90" Click="Cancel_Click" IsCancel="True"/>
+            </StackPanel>
+        </DockPanel>
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="300"/>
@@ -17,11 +21,13 @@
             <DockPanel Grid.Column="0" Margin="0,0,10,0">
                 <TextBlock DockPanel.Dock="Top" Text="Main navigation buttons" FontWeight="Bold" Margin="0,0,0,6"/>
                 <TextBlock DockPanel.Dock="Top" Text="Empty identity = button hidden." Foreground="#57606A" Margin="0,0,0,6"/>
-                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0">
-                    <Button Content="Up" Click="ButtonUp_Click" MinWidth="48" Margin="0,0,4,0"/>
-                    <Button Content="Down" Click="ButtonDown_Click" MinWidth="48" Margin="0,0,4,0"/>
-                    <Button Content="Clear" ToolTip="Clear this button (hide it)" Click="ButtonClear_Click" MinWidth="52"/>
-                </StackPanel>
+                <WrapPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
+                    <Button Content="Up" Click="ButtonUp_Click" MinWidth="44" Margin="0,0,4,4"/>
+                    <Button Content="Down" Click="ButtonDown_Click" MinWidth="44" Margin="0,0,4,4"/>
+                    <Button Content="Copy" ToolTip="Copy this whole button (config + cards)" Click="ButtonCopy_Click" MinWidth="44" Margin="0,0,4,4"/>
+                    <Button Content="Paste" ToolTip="Overwrite this button with the copied one" Click="ButtonPaste_Click" MinWidth="44" Margin="0,0,4,4"/>
+                    <Button Content="Clear" ToolTip="Clear this button (hide it)" Click="ButtonClear_Click" MinWidth="44" Margin="0,0,0,4"/>
+                </WrapPanel>
                 <ListBox x:Name="ButtonsList" DisplayMemberPath="Display" SelectionChanged="ButtonsList_SelectionChanged"/>
             </DockPanel>
 
@@ -41,7 +47,7 @@
                             <RowDefinition/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Identity / prefix:" VerticalAlignment="Center" Margin="0,3,6,3"/>
-                        <TextBox Grid.Row="0" Grid.Column="1" Margin="0,3" Text="{Binding Identity, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Margin="0,3" LostFocus="DetailField_LostFocus" Text="{Binding Identity, UpdateSourceTrigger=PropertyChanged}"/>
                         <TextBlock Grid.Row="0" Grid.Column="2" Text="Layout:" VerticalAlignment="Center" Margin="12,3,6,3"/>
                         <ComboBox Grid.Row="0" Grid.Column="3" Margin="0,3" SelectedIndex="{Binding LayoutShape}">
                             <ComboBoxItem Content="With top nav"/>
@@ -50,7 +56,7 @@
                             <ComboBoxItem Content="Content only"/>
                         </ComboBox>
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Label (EN):" VerticalAlignment="Center" Margin="0,3,6,3"/>
-                        <TextBox Grid.Row="1" Grid.Column="1" Margin="0,3" Text="{Binding LabelEn, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Margin="0,3" LostFocus="DetailField_LostFocus" Text="{Binding LabelEn, UpdateSourceTrigger=PropertyChanged}"/>
                         <TextBlock Grid.Row="1" Grid.Column="2" Text="Label (2nd):" VerticalAlignment="Center" Margin="12,3,6,3"/>
                         <TextBox Grid.Row="1" Grid.Column="3" Margin="0,3" Text="{Binding LabelOther, UpdateSourceTrigger=PropertyChanged}"/>
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Icon (id):" VerticalAlignment="Center" Margin="0,3,6,3"/>
@@ -66,6 +72,8 @@
                 <TextBlock DockPanel.Dock="Top" Text="Top nav cards (screen opened + label + icon):" FontWeight="Bold" Margin="0,0,0,4"/>
                 <StackPanel DockPanel.Dock="Right" Margin="6,0,0,0" VerticalAlignment="Top">
                     <Button Content="Add" Click="CardAdd_Click" MinWidth="56" Margin="0,0,0,4"/>
+                    <Button Content="Copy" ToolTip="Copy selected card" Click="CardCopy_Click" MinWidth="56" Margin="0,0,0,4"/>
+                    <Button Content="Paste" ToolTip="Paste copied card (also from another button)" Click="CardPaste_Click" MinWidth="56" Margin="0,0,0,10"/>
                     <Button Content="Remove" Click="CardRemove_Click" MinWidth="56" Margin="0,0,0,4"/>
                     <Button Content="Up" Click="CardUp_Click" MinWidth="56" Margin="0,0,0,4"/>
                     <Button Content="Down" Click="CardDown_Click" MinWidth="56"/>

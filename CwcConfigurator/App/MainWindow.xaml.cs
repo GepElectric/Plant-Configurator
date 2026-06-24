@@ -3829,7 +3829,20 @@ public partial class MainWindow : Window
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var dialog = new NavigationEditorWindow(_project.Scada, screens) { Owner = this };
+        Func<Task<IReadOnlyList<string>>> refresh = async () =>
+        {
+            if (_tiaSessionService.CurrentSession is null)
+            {
+                throw new InvalidOperationException("Attach to the TIA Portal project (V21) in the 'TIA Sync' window first.");
+            }
+
+            var result = await _tiaSessionService.GetUnifiedScreensAsync();
+            _tiaScreenNames.Clear();
+            _tiaScreenNames.AddRange(result.Screens);
+            return result.Screens;
+        };
+
+        var dialog = new NavigationEditorWindow(_project.Scada, screens, refresh) { Owner = this };
         if (dialog.ShowDialog() == true && dialog.Applied)
         {
             NormalizeScadaDatabase();
