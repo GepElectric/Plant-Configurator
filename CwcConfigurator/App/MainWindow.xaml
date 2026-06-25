@@ -342,6 +342,7 @@
                 <Separator/>
                 <MenuItem Header="Export _Project Summary" Click="ExportSummary_Click"/>
                 <MenuItem Header="ALM/PAR List PDF Exporter..." Click="AlmParExport_Click"/>
+                <MenuItem Header="Alarm Tester..." Click="AlarmTester_Click"/>
                 <Separator/>
                 <MenuItem Header="_WinCC">
                     <MenuItem Header="WinCC Tag Browser..." Click="OpenTagBrowser_Click"/>
@@ -350,15 +351,19 @@
                 </MenuItem>
             </MenuItem>
             <MenuItem Header="_Descriptions">
-                <MenuItem Header="Import text list from TIA Portal exported Excel..." Click="DescriptionTextLists_Click"/>
-                <MenuItem Header="Export text list to TIA Portal Excel..." Click="ExportDescriptionTextLists_Click"/>
+                <MenuItem Header="Text lists — pull / push / Excel..." Click="DescriptionTextLists_Click"
+                          ToolTip="The descriptions hub: pull/push ALM/PAR descriptions to/from WinCC Unified (Openness), or load/save the Excel workbook."/>
+                <MenuItem Header="Text lists — write descriptions into an exported Excel..." Click="ExportDescriptionTextLists_Click"
+                          ToolTip="Write the current descriptions into an existing TIA-exported text-list Excel file (updated in place, with a .bak backup)."/>
                 <Separator/>
-                <MenuItem Header="Export DB Text Workbook..." Click="ExportAllDbText_Click"/>
-                <MenuItem Header="Import DB Text Workbook..." Click="ImportAllDbText_Click"/>
+                <MenuItem Header="Templates — editor..." Click="DescriptionTemplates_Click"
+                          ToolTip="Edit reusable description templates applied to ALM/PAR rows."/>
+                <MenuItem Header="Templates — import from Excel..." Click="ImportDescriptionTemplates_Click"/>
+                <MenuItem Header="Templates — export to Excel..." Click="ExportDescriptionTemplates_Click"/>
                 <Separator/>
-                <MenuItem Header="Template Editor..." Click="DescriptionTemplates_Click"/>
-                <MenuItem Header="Import templates from Excel..." Click="ImportDescriptionTemplates_Click"/>
-                <MenuItem Header="Export templates to Excel..." Click="ExportDescriptionTemplates_Click"/>
+                <MenuItem Header="DB text workbook — export..." Click="ExportAllDbText_Click"
+                          ToolTip="Export all DB string tables (names, system names, descriptions) of the active database to an Excel workbook."/>
+                <MenuItem Header="DB text workbook — import..." Click="ImportAllDbText_Click"/>
             </MenuItem>
             <MenuItem Header="_TIA Sync" Click="TiaSync_Click"/>
             <MenuItem Header="_Settings">
@@ -2242,8 +2247,10 @@
                 <TabItem Header="Text lists">
                     <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,6,8,6">
-                        <Button Content="Import texts" MinWidth="110" Height="28" Margin="0,0,6,0" Click="DescriptionTextLists_Click"/>
-                        <Button Content="Export texts" MinWidth="110" Height="28" Click="ExportDescriptionTextLists_Click"/>
+                        <Button Content="Pull / Push / Excel..." MinWidth="140" Height="28" Margin="0,0,6,0" Click="DescriptionTextLists_Click"
+                                ToolTip="The descriptions hub: pull/push descriptions to/from WinCC Unified, or load/save the Excel workbook."/>
+                        <Button Content="Write to exported Excel..." MinWidth="160" Height="28" Click="ExportDescriptionTextLists_Click"
+                                ToolTip="Write the current descriptions into an existing TIA-exported text-list Excel file (in place, with a .bak backup)."/>
                     </StackPanel>
                     <TabControl>
                         <TabItem Header="ALM BLOCKING CLASS">
