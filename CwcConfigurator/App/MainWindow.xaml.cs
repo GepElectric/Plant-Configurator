@@ -9116,7 +9116,7 @@ public partial class MainWindow : Window
 
         SaveActivePlcDatabase();
 
-        Func<Task<DescriptionTextListData>> pullFromTia = async () =>
+        Func<string, Task<DescriptionTextListData>> pullFromTia = async device =>
         {
             if (_tiaSessionService.CurrentSession is null)
             {
@@ -9124,7 +9124,7 @@ public partial class MainWindow : Window
             }
 
             var folder = Path.Combine(Path.GetTempPath(), "PlantConfigurator", "TextListsExport", Guid.NewGuid().ToString("N"));
-            var result = await _tiaSessionService.ExportTextListsAsync(folder, GetActiveScadaDeviceName());
+            var result = await _tiaSessionService.ExportTextListsAsync(folder, device);
             var listsFile = result.Files.FirstOrDefault(f => Path.GetFileName(f).Equals("TextLists.hmi.yml", StringComparison.OrdinalIgnoreCase));
             var libraryFile = result.Files.FirstOrDefault(f => Path.GetFileName(f).Equals("TextLists.TextLibrary.hmi.yml", StringComparison.OrdinalIgnoreCase));
             if (listsFile is null || libraryFile is null)
@@ -9136,7 +9136,7 @@ public partial class MainWindow : Window
             return new TextListYamlImporter().Import(listsFile, libraryFile);
         };
 
-        var dialog = new DescriptionTextListsDialog(_project, _descriptionTextListService, pullFromTia)
+        var dialog = new DescriptionTextListsDialog(_project, _descriptionTextListService, pullFromTia, GetMappedScadaDeviceNames())
         {
             Owner = EditorOwner
         };
@@ -11513,6 +11513,31 @@ public partial class MainWindow : Window
         return string.IsNullOrWhiteSpace(id)
             ? ""
             : _project.TiaSync.ScadaBindings.FirstOrDefault(binding => binding.ScadaDatabaseId == id)?.DeviceName ?? "";
+    }
+
+    // Mapped WinCC Unified device names (TIA Sync mapping), with the active SCADA database's
+    // device first as the default source for pulling descriptions.
+    private IReadOnlyList<string> GetMappedScadaDeviceNames()
+    {
+        _project.TiaSync ??= new TiaSyncConfig();
+        if (_project.ScadaDatabases.Count > 0)
+        {
+            _project.TiaSync.SyncWithScadaDatabases(_project.ScadaDatabases);
+        }
+
+        var devices = _project.TiaSync.ScadaBindings
+            .Select(binding => binding.DeviceName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var active = GetActiveScadaDeviceName();
+        if (!string.IsNullOrWhiteSpace(active) && devices.Remove(active))
+        {
+            devices.Insert(0, active);
+        }
+
+        return devices;
     }
 
     private ScadaDatabase? GetSelectedScadaDatabase()

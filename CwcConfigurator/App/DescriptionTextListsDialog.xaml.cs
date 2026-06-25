@@ -12,15 +12,22 @@ namespace CwcConfigurator.App;
 
 public partial class DescriptionTextListsDialog : Window, INotifyPropertyChanged
 {
+    private const string AutoSourceLabel = "(auto — first device)";
+
     private readonly CwcProject _project;
     private readonly DescriptionTextListService _service;
-    private readonly Func<Task<DescriptionTextListData>>? _pullFromTia;
+    private readonly Func<string, Task<DescriptionTextListData>>? _pullFromTia;
     private readonly ObservableCollection<DescriptionTextListMapping> _mappings;
 
     public ObservableCollection<string> AvailableListNames { get; } = ["(none)"];
+    public ObservableCollection<string> ScadaSourceDevices { get; } = [];
     public bool Changed { get; private set; }
 
-    public DescriptionTextListsDialog(CwcProject project, DescriptionTextListService service, Func<Task<DescriptionTextListData>>? pullFromTia = null)
+    public DescriptionTextListsDialog(
+        CwcProject project,
+        DescriptionTextListService service,
+        Func<string, Task<DescriptionTextListData>>? pullFromTia = null,
+        IReadOnlyList<string>? scadaDevices = null)
     {
         InitializeComponent();
         _project = project;
@@ -32,6 +39,20 @@ public partial class DescriptionTextListsDialog : Window, INotifyPropertyChanged
         DataContext = this;
         MappingGrid.ItemsSource = _mappings;
         WorkbookPathBox.Text = _project.DescriptionTextLists.WorkbookPath;
+
+        if (scadaDevices is { Count: > 0 })
+        {
+            foreach (var device in scadaDevices)
+            {
+                ScadaSourceDevices.Add(device);
+            }
+        }
+        else
+        {
+            ScadaSourceDevices.Add(AutoSourceLabel);
+        }
+
+        ScadaSourceCombo.SelectedIndex = 0;
         PullFromTiaButton.IsEnabled = _pullFromTia is not null;
         RefreshAvailableLists();
         RefreshStatus();
@@ -47,7 +68,9 @@ public partial class DescriptionTextListsDialog : Window, INotifyPropertyChanged
         try
         {
             System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
-            var data = await _pullFromTia();
+            var selected = ScadaSourceCombo.SelectedItem as string ?? "";
+            var device = selected == AutoSourceLabel ? "" : selected;
+            var data = await _pullFromTia(device);
             _project.DescriptionTextLists.TextLists = data;
             _project.DescriptionTextLists.WorkbookPath = "";
             RefreshAvailableLists();

@@ -27,12 +27,18 @@
             <TextBlock x:Name="StatusText" Margin="0,8,0,0" Foreground="#57606A"/>
         </StackPanel>
 
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button x:Name="PullFromTiaButton" Content="Pull from TIA" Width="120" Margin="0,0,8,0" FontWeight="SemiBold" Click="PullFromTia_Click"/>
-            <Button Content="Apply descriptions" Width="132" Margin="0,0,8,0" Click="Apply_Click"/>
-            <Button Content="OK" Width="86" Margin="0,0,8,0" IsDefault="True" Click="Ok_Click"/>
-            <Button Content="Close" Width="86" IsCancel="True"/>
-        </StackPanel>
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <TextBlock DockPanel.Dock="Left" Text="Pull from:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,6,0"/>
+            <ComboBox x:Name="ScadaSourceCombo" DockPanel.Dock="Left" Width="170" VerticalAlignment="Center"
+                      ItemsSource="{Binding ScadaSourceDevices}"
+                      ToolTip="WinCC Unified device to pull the description text lists from. Pick the SCADA that has all units (typically the main one); lists are distributed to PLCs by name."/>
+            <Button x:Name="PullFromTiaButton" DockPanel.Dock="Left" Content="Pull from TIA" Width="120" Margin="8,0,0,0" FontWeight="SemiBold" Click="PullFromTia_Click"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Apply descriptions" Width="132" Margin="0,0,8,0" Click="Apply_Click"/>
+                <Button Content="OK" Width="86" Margin="0,0,8,0" IsDefault="True" Click="Ok_Click"/>
+                <Button Content="Close" Width="86" IsCancel="True"/>
+            </StackPanel>
+        </DockPanel>
 
         <DataGrid x:Name="MappingGrid"
                   AutoGenerateColumns="False"
