@@ -3631,7 +3631,7 @@ public partial class MainWindow : Window
             SaveActivePlcDatabase();
             SaveActiveScadaDatabase();
             var service = new ScadaUnifiedSyncService();
-            var result = await service.PullAsync(_project.Paths.UnifiedJsConnectorServerPath, _project.Paths.UnifiedScadaDeviceName);
+            var result = await service.PullAsync(_project.Paths.UnifiedJsConnectorServerPath, GetActiveScadaDeviceName());
             ApplyImportedScadaDatabase(result.Database);
             ShowMessage($"{result.Message} ({_project.Scada.Variables.Count} variables, {_project.Scada.TagWrites.Count} tag writes).");
         }
@@ -3673,7 +3673,7 @@ public partial class MainWindow : Window
             System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
             NormalizeScadaDatabase();
             var service = new ScadaUnifiedSyncService();
-            var message = await service.PushAsync(_project.Scada, _project.Paths.UnifiedJsConnectorServerPath, _project.Paths.UnifiedScadaDeviceName);
+            var message = await service.PushAsync(_project.Scada, _project.Paths.UnifiedJsConnectorServerPath, GetActiveScadaDeviceName());
             BindScadaViews();
             ShowMessage(message);
         }
@@ -3784,7 +3784,7 @@ public partial class MainWindow : Window
         try
         {
             System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
-            var result = await _tiaSessionService.GetUnifiedScreensAsync();
+            var result = await _tiaSessionService.GetUnifiedScreensAsync(GetActiveScadaDeviceName());
             _tiaScreenNames.Clear();
             _tiaScreenNames.AddRange(result.Screens);
             RebuildScadaScreenCatalog();
@@ -3836,7 +3836,7 @@ public partial class MainWindow : Window
                 throw new InvalidOperationException("Attach to the TIA Portal project (V21) in the 'TIA Sync' window first.");
             }
 
-            var result = await _tiaSessionService.GetUnifiedScreensAsync();
+            var result = await _tiaSessionService.GetUnifiedScreensAsync(GetActiveScadaDeviceName());
             _tiaScreenNames.Clear();
             _tiaScreenNames.AddRange(result.Screens);
             return result.Screens;
@@ -3851,76 +3851,25 @@ public partial class MainWindow : Window
         }
     }
 
-    private bool _suppressScadaDeviceSelection;
-
-    // Keeps the device combo showing the persisted target even before a live refresh.
-    private void InitScadaUnifiedDeviceCombo()
+    // Shows which WinCC Unified device the active SCADA database is mapped to (TIA Sync mapping).
+    private void UpdateScadaMappedDeviceText()
     {
-        if (ScadaUnifiedDeviceCombo is null || ScadaUnifiedDeviceCombo.Items.Count > 0)
-        {
-            // Already showing the persisted target or a fetched device list — don't clobber it.
-            return;
-        }
-
-        var persisted = _project.Paths.UnifiedScadaDeviceName;
-        _suppressScadaDeviceSelection = true;
-        try
-        {
-            if (!string.IsNullOrWhiteSpace(persisted))
-            {
-                ScadaUnifiedDeviceCombo.ItemsSource = new List<string> { persisted };
-                ScadaUnifiedDeviceCombo.SelectedItem = persisted;
-            }
-        }
-        finally
-        {
-            _suppressScadaDeviceSelection = false;
-        }
-    }
-
-    private async void RefreshScadaDevices_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
-            var names = await new ScadaUnifiedSyncService().ListScadaDeviceNamesAsync(_project.Paths.UnifiedJsConnectorServerPath);
-            var persisted = _project.Paths.UnifiedScadaDeviceName;
-            _suppressScadaDeviceSelection = true;
-            try
-            {
-                ScadaUnifiedDeviceCombo.ItemsSource = names;
-                ScadaUnifiedDeviceCombo.SelectedItem =
-                    names.FirstOrDefault(name => name.Equals(persisted, StringComparison.OrdinalIgnoreCase))
-                    ?? names.FirstOrDefault();
-            }
-            finally
-            {
-                _suppressScadaDeviceSelection = false;
-            }
-
-            _project.Paths.UnifiedScadaDeviceName = ScadaUnifiedDeviceCombo.SelectedItem as string ?? "";
-            ShowMessage(names.Count == 0
-                ? "No WinCC Unified device exposing AUX_FUNCTIONS was found."
-                : $"Found {names.Count} SCADA device(s): {string.Join(", ", names)}.");
-        }
-        catch (Exception ex)
-        {
-            ShowError(ex.Message);
-        }
-        finally
-        {
-            System.Windows.Input.Mouse.OverrideCursor = null;
-        }
-    }
-
-    private void ScadaUnifiedDevice_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-    {
-        if (_suppressScadaDeviceSelection)
+        if (ScadaMappedDeviceText is null)
         {
             return;
         }
 
-        _project.Paths.UnifiedScadaDeviceName = ScadaUnifiedDeviceCombo.SelectedItem as string ?? "";
+        var device = GetActiveScadaDeviceName();
+        if (string.IsNullOrWhiteSpace(device))
+        {
+            ScadaMappedDeviceText.Text = "(not mapped — map in TIA Sync)";
+            ScadaMappedDeviceText.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+        }
+        else
+        {
+            ScadaMappedDeviceText.Text = device;
+            ScadaMappedDeviceText.Foreground = System.Windows.Media.Brushes.ForestGreen;
+        }
     }
 
     private void ScadaGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
@@ -7978,7 +7927,7 @@ public partial class MainWindow : Window
         _scadaScreensView.Filter = FilterScadaScreenRow;
         ScadaScreensGrid.ItemsSource = _scadaScreensView;
         RebuildScadaScreenCatalog();
-        InitScadaUnifiedDeviceCombo();
+        UpdateScadaMappedDeviceText();
         _scadaTagWritesView = new ListCollectionView(_project.Scada.TagWrites);
         _scadaTagWritesView.SortDescriptions.Add(new SortDescription(nameof(ScadaTagWrite.Id), ListSortDirection.Ascending));
         _scadaTagWritesView.Filter = FilterScadaTagWriteRow;
@@ -9175,7 +9124,7 @@ public partial class MainWindow : Window
             }
 
             var folder = Path.Combine(Path.GetTempPath(), "PlantConfigurator", "TextListsExport", Guid.NewGuid().ToString("N"));
-            var result = await _tiaSessionService.ExportTextListsAsync(folder);
+            var result = await _tiaSessionService.ExportTextListsAsync(folder, GetActiveScadaDeviceName());
             var listsFile = result.Files.FirstOrDefault(f => Path.GetFileName(f).Equals("TextLists.hmi.yml", StringComparison.OrdinalIgnoreCase));
             var libraryFile = result.Files.FirstOrDefault(f => Path.GetFileName(f).Equals("TextLists.TextLibrary.hmi.yml", StringComparison.OrdinalIgnoreCase));
             if (listsFile is null || libraryFile is null)
@@ -11548,6 +11497,22 @@ public partial class MainWindow : Window
         return _project.ScadaDatabases.FirstOrDefault(database => database.Id == _project.ActiveScadaDatabaseId)
                ?? _project.ScadaDatabases.FirstOrDefault()
                ?? _project.Scada;
+    }
+
+    // The WinCC Unified device the active SCADA database is mapped to (TIA Sync mapping).
+    // Empty when unmapped → REST/helper fall back to the single/first Unified device.
+    private string GetActiveScadaDeviceName()
+    {
+        _project.TiaSync ??= new TiaSyncConfig();
+        if (_project.ScadaDatabases.Count > 0)
+        {
+            _project.TiaSync.SyncWithScadaDatabases(_project.ScadaDatabases);
+        }
+
+        var id = GetActiveScadaDatabase()?.Id ?? _project.ActiveScadaDatabaseId;
+        return string.IsNullOrWhiteSpace(id)
+            ? ""
+            : _project.TiaSync.ScadaBindings.FirstOrDefault(binding => binding.ScadaDatabaseId == id)?.DeviceName ?? "";
     }
 
     private ScadaDatabase? GetSelectedScadaDatabase()

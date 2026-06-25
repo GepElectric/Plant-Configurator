@@ -25,26 +25,10 @@ public sealed class ScadaUnifiedSyncService
 
     private readonly ScadaConfigFileService _scadaService = new();
 
-    /// <summary>
-    /// Display names of every WinCC Unified device that exposes the <see cref="ModuleName"/>
-    /// module, across all running TIA processes — the candidates for Pull/Push.
-    /// </summary>
-    public async Task<IReadOnlyList<string>> ListScadaDeviceNamesAsync(string configuredServerPath, CancellationToken cancellationToken = default)
+    public async Task<ScadaUnifiedPullResult> PullAsync(string configuredServerPath, string? deviceName = null, CancellationToken cancellationToken = default)
     {
         using var runtime = new UnifiedJsConnectorRuntime();
-        var candidates = await ListScadaDevicesAsync(runtime, configuredServerPath, cancellationToken);
-        return candidates
-            .Select(candidate => candidate.Device.DisplayName)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    public async Task<ScadaUnifiedPullResult> PullAsync(string configuredServerPath, string? preferredDeviceDisplayName = null, CancellationToken cancellationToken = default)
-    {
-        using var runtime = new UnifiedJsConnectorRuntime();
-        var (processId, device) = await ResolveScadaDeviceAsync(runtime, configuredServerPath, preferredDeviceDisplayName, cancellationToken);
+        var (processId, device) = await ResolveScadaDeviceAsync(runtime, configuredServerPath, deviceName, cancellationToken);
 
         var rootPath = CreateWorkspace();
         var modulePath = await runtime.ExportScriptModuleAsync(processId, device, ModuleName, rootPath, cancellationToken);
@@ -61,7 +45,7 @@ public sealed class ScadaUnifiedSyncService
         };
     }
 
-    public async Task<string> PushAsync(ScadaDatabase database, string configuredServerPath, string? preferredDeviceDisplayName = null, CancellationToken cancellationToken = default)
+    public async Task<string> PushAsync(ScadaDatabase database, string configuredServerPath, string? deviceName = null, CancellationToken cancellationToken = default)
     {
         if (database is null)
         {
@@ -69,7 +53,7 @@ public sealed class ScadaUnifiedSyncService
         }
 
         using var runtime = new UnifiedJsConnectorRuntime();
-        var (processId, device) = await ResolveScadaDeviceAsync(runtime, configuredServerPath, preferredDeviceDisplayName, cancellationToken);
+        var (processId, device) = await ResolveScadaDeviceAsync(runtime, configuredServerPath, deviceName, cancellationToken);
 
         var rootPath = CreateWorkspace();
 
@@ -95,7 +79,7 @@ public sealed class ScadaUnifiedSyncService
     private static async Task<(int ProcessId, UnifiedDeviceInfo Device)> ResolveScadaDeviceAsync(
         UnifiedJsConnectorRuntime runtime,
         string configuredServerPath,
-        string? preferredDeviceDisplayName,
+        string? deviceName,
         CancellationToken cancellationToken)
     {
         var candidates = await ListScadaDevicesAsync(runtime, configuredServerPath, cancellationToken);
@@ -105,25 +89,25 @@ public sealed class ScadaUnifiedSyncService
                 $"No WinCC Unified device exposing the '{ModuleName}' script module was found in any open TIA project.");
         }
 
-        var chosen = !string.IsNullOrWhiteSpace(preferredDeviceDisplayName)
+        // The mapped device name is the HMI device name (e.g. "SCADA_PC") = HmiSoftware.Name,
+        // which the REST service returns as DeviceName (DisplayName is the friendly PC name).
+        var chosen = !string.IsNullOrWhiteSpace(deviceName)
             ? candidates.FirstOrDefault(candidate =>
-                candidate.Device.DisplayName.Equals(preferredDeviceDisplayName, StringComparison.OrdinalIgnoreCase))
+                candidate.Device.DeviceName.Equals(deviceName, StringComparison.OrdinalIgnoreCase))
             : default;
 
         if (chosen == default)
         {
-            // No (or unmatched) preference: fall back to the only/first candidate, but make a
-            // multi-device project explicit so the user picks instead of silently guessing.
-            if (!string.IsNullOrWhiteSpace(preferredDeviceDisplayName))
+            if (!string.IsNullOrWhiteSpace(deviceName))
             {
                 throw new InvalidOperationException(
-                    $"WinCC Unified device '{preferredDeviceDisplayName}' was not found. Available: {string.Join(", ", candidates.Select(c => c.Device.DisplayName))}.");
+                    $"WinCC Unified device '{deviceName}' was not found. Available: {string.Join(", ", candidates.Select(c => c.Device.DeviceName))}.");
             }
 
             if (candidates.Count > 1)
             {
                 throw new InvalidOperationException(
-                    $"More than one WinCC Unified device exposes '{ModuleName}': {string.Join(", ", candidates.Select(c => c.Device.DisplayName))}. Select the SCADA device first.");
+                    $"More than one WinCC Unified device exposes '{ModuleName}': {string.Join(", ", candidates.Select(c => c.Device.DeviceName))}. Map the SCADA database to a device first.");
             }
 
             chosen = candidates[0];

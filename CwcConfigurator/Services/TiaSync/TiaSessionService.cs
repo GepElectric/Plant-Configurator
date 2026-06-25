@@ -117,17 +117,26 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         });
     }
 
-    public Task<TiaUnifiedScreensResult> GetUnifiedScreensAsync()
+    public Task<TiaUnifiedScreensResult> GetUnifiedScreensAsync(string deviceName)
     {
-        return SendAsync<TiaUnifiedScreensResult>(RequireActiveVersion(), "GetUnifiedScreens", null);
+        return SendAsync<TiaUnifiedScreensResult>(RequireActiveVersion(), "GetUnifiedScreens", new
+        {
+            DeviceName = deviceName ?? ""
+        });
     }
 
-    public Task<TiaTextListExportResult> ExportTextListsAsync(string outputFolder)
+    public Task<TiaTextListExportResult> ExportTextListsAsync(string outputFolder, string deviceName)
     {
         return SendAsync<TiaTextListExportResult>(RequireActiveVersion(), "ExportTextLists", new
         {
-            OutputFolder = outputFolder
+            OutputFolder = outputFolder,
+            DeviceName = deviceName ?? ""
         });
+    }
+
+    public Task<TiaUnifiedDevicesResult> GetUnifiedDevicesAsync()
+    {
+        return SendAsync<TiaUnifiedDevicesResult>(RequireActiveVersion(), "GetUnifiedDevices", null);
     }
 
     public void AbortHelper()

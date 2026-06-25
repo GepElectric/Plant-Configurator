@@ -289,6 +289,7 @@ public sealed class TiaSyncConfig
     public bool Enabled { get; set; } = true;
     public TiaProjectBinding ProjectBinding { get; set; } = new();
     public List<TiaPlcBinding> PlcBindings { get; set; } = [];
+    public List<TiaScadaBinding> ScadaBindings { get; set; } = [];
 
     public void SyncWithDatabases(IEnumerable<PlcDatabase> databases, DbCatalog? catalog)
     {
@@ -339,6 +340,41 @@ public sealed class TiaSyncConfig
         }
 
         binding.PlcName = plcName;
+        return binding;
+    }
+
+    /// <summary>
+    /// Keeps the SCADA database -> WinCC Unified device mapping in step with the project's
+    /// SCADA databases (mirrors <see cref="SyncWithDatabases"/> for PLCs). Each SCADA database
+    /// maps to one Unified device; pulling from another device means adding a SCADA database.
+    /// </summary>
+    public void SyncWithScadaDatabases(IEnumerable<ScadaDatabase> scadaDatabases)
+    {
+        var list = scadaDatabases.ToList();
+        foreach (var database in list)
+        {
+            GetOrCreateScada(database.Id, database.Name);
+        }
+
+        ScadaBindings = ScadaBindings
+            .Where(binding => list.Any(database => database.Id == binding.ScadaDatabaseId))
+            .ToList();
+    }
+
+    public TiaScadaBinding GetOrCreateScada(string scadaDatabaseId, string scadaName)
+    {
+        var binding = ScadaBindings.FirstOrDefault(item => item.ScadaDatabaseId == scadaDatabaseId);
+        if (binding is null)
+        {
+            binding = new TiaScadaBinding
+            {
+                ScadaDatabaseId = scadaDatabaseId,
+                ScadaName = scadaName
+            };
+            ScadaBindings.Add(binding);
+        }
+
+        binding.ScadaName = scadaName;
         return binding;
     }
 
@@ -425,6 +461,16 @@ public sealed class TiaPlcBinding
     public List<TiaPlcObjectEntry> Objects { get; set; } = [];
 }
 
+public sealed class TiaScadaBinding
+{
+    public string ScadaDatabaseId { get; set; } = "";
+    public string ScadaName { get; set; } = "";
+    /// <summary>WinCC Unified device the SCADA database is mapped to (e.g. "SCADA_PC").
+    /// Empty = not mapped. Used by all Unified operations (set internal tag, screens, text lists).</summary>
+    public string DeviceName { get; set; } = "";
+    public string SyncState { get; set; } = "Not mapped";
+}
+
 public sealed class TiaPlcObjectEntry
 {
     public string Name { get; set; } = "";
@@ -469,10 +515,6 @@ public sealed class ProjectPaths
     public string TiaPortalExportFolder { get; set; } = "";
     public string UnifiedJsConnectorFolder { get; set; } = "";
     public string UnifiedJsConnectorServerPath { get; set; } = "";
-
-    /// <summary>DisplayName of the WinCC Unified device the SCADA Pull/Push targets when a
-    /// project has more than one Unified device exposing the AUX_FUNCTIONS module.</summary>
-    public string UnifiedScadaDeviceName { get; set; } = "";
 }
 
 public sealed class ScadaDatabase

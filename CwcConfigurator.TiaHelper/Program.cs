@@ -94,7 +94,9 @@ namespace CwcConfigurator.TiaHelper
                 case "ImportProjectTexts":
                     return ImportProjectTexts(request.Payload);
                 case "GetUnifiedScreens":
-                    return GetUnifiedScreens();
+                    return GetUnifiedScreens(request.Payload);
+                case "GetUnifiedDevices":
+                    return GetUnifiedDevices();
                 case "ExportTextLists":
                     return ExportTextLists(request.Payload);
                 case "Disconnect":
@@ -209,20 +211,20 @@ namespace CwcConfigurator.TiaHelper
             };
         }
 
-        private static TiaUnifiedScreensResult GetUnifiedScreens()
+        private static TiaUnifiedScreensResult GetUnifiedScreens(IDictionary<string, object> payload)
         {
             RequireAttachedProject();
             var result = new TiaUnifiedScreensResult();
 #if TIA_V21
-            var names = new List<string>();
-            foreach (var device in _project.Devices)
+            var hmi = FindHmiSoftware(GetString(payload, "DeviceName"));
+            if (hmi == null)
             {
-                foreach (var item in device.DeviceItems)
-                {
-                    CollectHmiScreens(item, names);
-                }
+                result.Warnings.Add(UnifiedDeviceNotFoundMessage(GetString(payload, "DeviceName")));
+                return result;
             }
 
+            var names = new List<string>();
+            CollectScreensFrom(hmi, names);
             result.Screens = names
                 .Where(name => !string.IsNullOrWhiteSpace(name))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -230,7 +232,7 @@ namespace CwcConfigurator.TiaHelper
                 .ToList();
             if (result.Screens.Count == 0)
             {
-                result.Warnings.Add("No WinCC Unified screens were found in the attached project.");
+                result.Warnings.Add("No WinCC Unified screens were found on device '" + hmi.Name + "'.");
             }
 #else
             result.Warnings.Add("Unified screen listing requires the TIA V21 helper.");
@@ -251,27 +253,29 @@ namespace CwcConfigurator.TiaHelper
 
             Directory.CreateDirectory(outputFolder);
 #if TIA_V21
-            foreach (var device in _project.Devices)
+            var hmi = FindHmiSoftware(GetString(payload, "DeviceName"));
+            if (hmi == null)
             {
-                var exported = false;
-                foreach (var item in device.DeviceItems)
+                result.Warnings.Add(UnifiedDeviceNotFoundMessage(GetString(payload, "DeviceName")));
+                return result;
+            }
+
+            try
+            {
+                hmi.HmiTextLists.Export(new DirectoryInfo(outputFolder), "");
+                foreach (var file in Directory.GetFiles(outputFolder, "*.hmi.yml", SearchOption.AllDirectories))
                 {
-                    if (ExportHmiTextLists(item, outputFolder, result))
+                    if (!result.Files.Contains(file))
                     {
-                        exported = true;
-                        break;
+                        result.Files.Add(file);
                     }
                 }
 
-                if (exported)
-                {
-                    break;
-                }
+                result.HmiSoftwareName = hmi.Name;
             }
-
-            if (result.Files.Count == 0 && result.Warnings.Count == 0)
+            catch (Exception ex)
             {
-                result.Warnings.Add("No WinCC Unified HMI software was found in the attached project.");
+                result.Warnings.Add(hmi.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
             }
 #else
             result.Warnings.Add("Text-list export requires the TIA V21 helper.");
@@ -279,61 +283,92 @@ namespace CwcConfigurator.TiaHelper
             return result;
         }
 
+        private static TiaUnifiedDevicesResult GetUnifiedDevices()
+        {
+            RequireAttachedProject();
+            var result = new TiaUnifiedDevicesResult();
 #if TIA_V21
-        private static bool ExportHmiTextLists(DeviceItem item, string outputFolder, TiaTextListExportResult result)
+            foreach (var hmi in EnumerateHmiSoftware())
+            {
+                if (!result.Devices.Contains(hmi.Name))
+                {
+                    result.Devices.Add(hmi.Name);
+                }
+            }
+#else
+            result.Warnings.Add("Unified device listing requires the TIA V21 helper.");
+#endif
+            return result;
+        }
+
+#if TIA_V21
+        private static string UnifiedDeviceNotFoundMessage(string deviceName)
+        {
+            return string.IsNullOrWhiteSpace(deviceName)
+                ? "No WinCC Unified HMI software was found in the attached project."
+                : "WinCC Unified device '" + deviceName + "' was not found in the attached project.";
+        }
+
+        private static IEnumerable<HmiSoftware> EnumerateHmiSoftware()
+        {
+            foreach (var device in _project.Devices)
+            {
+                foreach (var item in device.DeviceItems)
+                {
+                    foreach (var hmi in EnumerateHmiSoftware(item))
+                    {
+                        yield return hmi;
+                    }
+                }
+            }
+        }
+
+        private static IEnumerable<HmiSoftware> EnumerateHmiSoftware(DeviceItem item)
         {
             var container = item.GetService<SoftwareContainer>();
             if (container != null && container.Software is HmiSoftware hmi)
             {
-                try
-                {
-                    hmi.HmiTextLists.Export(new DirectoryInfo(outputFolder), "");
-                    foreach (var file in Directory.GetFiles(outputFolder, "*.hmi.yml", SearchOption.AllDirectories))
-                    {
-                        if (!result.Files.Contains(file))
-                        {
-                            result.Files.Add(file);
-                        }
-                    }
-
-                    result.HmiSoftwareName = hmi.Name;
-                }
-                catch (Exception ex)
-                {
-                    result.Warnings.Add(hmi.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
-                }
-
-                return true; // export from the first HMI software only
+                yield return hmi;
             }
 
             foreach (var child in item.DeviceItems)
             {
-                if (ExportHmiTextLists(child, outputFolder, result))
+                foreach (var nested in EnumerateHmiSoftware(child))
                 {
-                    return true;
+                    yield return nested;
                 }
             }
-
-            return false;
         }
 
-        private static void CollectHmiScreens(DeviceItem item, List<string> names)
+        // Resolves the mapped WinCC Unified device by name; empty name falls back to the first
+        // HMI software found (single-device projects). Returns null when a named device is missing.
+        private static HmiSoftware FindHmiSoftware(string deviceName)
         {
-            var container = item.GetService<SoftwareContainer>();
-            if (container != null && container.Software is HmiSoftware hmiSoftware)
+            HmiSoftware first = null;
+            foreach (var hmi in EnumerateHmiSoftware())
             {
-                foreach (var screen in hmiSoftware.Screens)
+                if (first == null)
                 {
-                    names.Add(screen.Name);
+                    first = hmi;
                 }
 
-                CollectHmiScreenGroups(hmiSoftware.ScreenGroups, names);
+                if (!string.IsNullOrWhiteSpace(deviceName) && hmi.Name.Equals(deviceName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return hmi;
+                }
             }
 
-            foreach (var child in item.DeviceItems)
+            return string.IsNullOrWhiteSpace(deviceName) ? first : null;
+        }
+
+        private static void CollectScreensFrom(HmiSoftware hmiSoftware, List<string> names)
+        {
+            foreach (var screen in hmiSoftware.Screens)
             {
-                CollectHmiScreens(child, names);
+                names.Add(screen.Name);
             }
+
+            CollectHmiScreenGroups(hmiSoftware.ScreenGroups, names);
         }
 
         private static void CollectHmiScreenGroups(HmiScreenGroupComposition groups, List<string> names)
@@ -2142,6 +2177,18 @@ namespace CwcConfigurator.TiaHelper
         {
             HmiSoftwareName = "";
             Files = new List<string>();
+            Warnings = new List<string>();
+        }
+    }
+
+    public sealed class TiaUnifiedDevicesResult
+    {
+        public List<string> Devices { get; set; }
+        public List<string> Warnings { get; set; }
+
+        public TiaUnifiedDevicesResult()
+        {
+            Devices = new List<string>();
             Warnings = new List<string>();
         }
     }

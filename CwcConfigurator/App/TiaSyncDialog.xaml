@@ -56,7 +56,12 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <GroupBox Header="2 · PLC database mapping — review, then Save">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto" MinHeight="150"/>
+                    </Grid.RowDefinitions>
+                    <GroupBox Grid.Row="0" Header="2 · PLC database mapping — review, then Save">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
                             <Button x:Name="AutoMapButton" Content="Auto-map by name" Width="140" Click="AutoMap_Click"
@@ -123,7 +128,53 @@
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
-                </GroupBox>
+                    </GroupBox>
+                    <GroupBox Grid.Row="1" Header="3 · SCADA database → WinCC Unified device" Margin="0,8,0,0"
+                              ToolTip="Map each SCADA database to one WinCC Unified device. To pull from another device, add a new SCADA database and map it.">
+                        <DataGrid x:Name="ScadaMappingGrid"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  IsReadOnly="False">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="SCADA database" Binding="{Binding ScadaName}" IsReadOnly="True" Width="*"/>
+                                <DataGridTemplateColumn Header="Unified device" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DeviceName}" VerticalAlignment="Center" Margin="4,0"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                    <DataGridTemplateColumn.CellEditingTemplate>
+                                        <DataTemplate>
+                                            <ComboBox IsEditable="True"
+                                                      Text="{Binding DeviceName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                      ItemsSource="{Binding UnifiedDeviceNames, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellEditingTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="State" Binding="{Binding State}" IsReadOnly="True" Width="150">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="VerticalAlignment" Value="Center"/>
+                                            <Setter Property="Margin" Value="4,0"/>
+                                            <Setter Property="Foreground" Value="#CF222E"/>
+                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding State}" Value="OK">
+                                                    <Setter Property="Foreground" Value="#1A7F37"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding State}" Value="Not attached">
+                                                    <Setter Property="Foreground" Value="#57606A"/>
+                                                    <Setter Property="FontWeight" Value="Normal"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </GroupBox>
+                </Grid>
 
                 <GroupBox Grid.Column="2" Header="Discovered PLCs in TIA project">
                     <DockPanel>

@@ -67,8 +67,9 @@ public interface ITiaSessionService
     Task<TiaCrossReferenceOpenResult> OpenCrossReferenceAsync(TiaCrossReferenceOpenRequest request);
     Task<TiaPlcControlResult> ExecutePlcControlAsync(TiaPlcControlRequest request);
     Task<TiaProjectTextsImportResult> ImportProjectTextsAsync(string workbookPath);
-    Task<TiaUnifiedScreensResult> GetUnifiedScreensAsync();
-    Task<TiaTextListExportResult> ExportTextListsAsync(string outputFolder);
+    Task<TiaUnifiedScreensResult> GetUnifiedScreensAsync(string deviceName);
+    Task<TiaTextListExportResult> ExportTextListsAsync(string outputFolder, string deviceName);
+    Task<TiaUnifiedDevicesResult> GetUnifiedDevicesAsync();
 }
 
 public sealed class TiaSourceArtifactRequest
@@ -119,6 +120,12 @@ public sealed class TiaTextListExportResult
 {
     public string HmiSoftwareName { get; set; } = "";
     public List<string> Files { get; set; } = [];
+    public List<string> Warnings { get; set; } = [];
+}
+
+public sealed class TiaUnifiedDevicesResult
+{
+    public List<string> Devices { get; set; } = [];
     public List<string> Warnings { get; set; } = [];
 }
 

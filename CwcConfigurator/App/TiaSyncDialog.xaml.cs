@@ -15,12 +15,14 @@ public partial class TiaSyncDialog : Window
     private readonly TiaLiveSyncService _liveSyncService;
     private readonly ObservableCollection<TiaPortalProcessInfo> _processes = [];
     private readonly ObservableCollection<MappingRow> _rows = [];
+    private readonly ObservableCollection<ScadaMappingRow> _scadaRows = [];
     private Dictionary<string, MappingSnapshot> _savedMapping = new();
     private bool _databasesCreated;
     private bool _isBusy;
 
     public ObservableCollection<string> DeviceNames { get; } = [];
     public ObservableCollection<string> SoftwareNames { get; } = [];
+    public ObservableCollection<string> UnifiedDeviceNames { get; } = [];
 
     private sealed record MappingSnapshot(string DeviceName, string SoftwareName, bool IncludeSequence);
 
@@ -35,7 +37,9 @@ public partial class TiaSyncDialog : Window
 
         ProcessCombo.ItemsSource = _processes;
         MappingGrid.ItemsSource = _rows;
+        ScadaMappingGrid.ItemsSource = _scadaRows;
         RebuildMappingRows();
+        RebuildScadaMappingRows();
         TakeMappingSnapshot();
         RefreshSessionUi();
         Loaded += async (_, _) => await RefreshProcessesAsync();
@@ -97,6 +101,7 @@ public partial class TiaSyncDialog : Window
             StoreDiscoveredObjects(session);
             RefreshDiscoveredNames(session);
             RebuildMappingRows();
+            await RefreshUnifiedDevicesAsync();
 
             var autoMapNote = autoMapped > 0
                 ? $"Auto-mapped {autoMapped} PLC database(s) by name — review the mapping and save."
@@ -122,6 +127,8 @@ public partial class TiaSyncDialog : Window
         try
         {
             await _sessionService.DisconnectAsync();
+            UnifiedDeviceNames.Clear();
+            UpdateScadaRowStates();
             WriteOutput("Disconnected from TIA Portal.");
         }
         catch (Exception ex)
@@ -320,6 +327,63 @@ public partial class TiaSyncDialog : Window
         }
 
         UpdateRowStates();
+    }
+
+    private async Task RefreshUnifiedDevicesAsync()
+    {
+        UnifiedDeviceNames.Clear();
+        try
+        {
+            var result = await _sessionService.GetUnifiedDevicesAsync();
+            foreach (var device in result.Devices)
+            {
+                UnifiedDeviceNames.Add(device);
+            }
+        }
+        catch
+        {
+            // V18 / no WinCC Unified in this project — leave the device list empty.
+        }
+
+        RebuildScadaMappingRows();
+    }
+
+    private void RebuildScadaMappingRows()
+    {
+        _project.TiaSync ??= new TiaSyncConfig();
+        _project.TiaSync.SyncWithScadaDatabases(_project.ScadaDatabases);
+        _scadaRows.Clear();
+        foreach (var binding in _project.TiaSync.ScadaBindings)
+        {
+            _scadaRows.Add(new ScadaMappingRow(binding, UpdateScadaRowStates));
+        }
+
+        UpdateScadaRowStates();
+    }
+
+    private void UpdateScadaRowStates()
+    {
+        foreach (var row in _scadaRows)
+        {
+            row.State = ComputeScadaRowState(row);
+        }
+    }
+
+    private string ComputeScadaRowState(ScadaMappingRow row)
+    {
+        if (string.IsNullOrWhiteSpace(row.DeviceName))
+        {
+            return "Not mapped";
+        }
+
+        if (_sessionService.CurrentSession is null || UnifiedDeviceNames.Count == 0)
+        {
+            return "Mapped"; // can't verify against TIA until attached / devices fetched
+        }
+
+        return UnifiedDeviceNames.Any(name => name.Equals(row.DeviceName, StringComparison.OrdinalIgnoreCase))
+            ? "OK"
+            : "Not found in TIA";
     }
 
     private void UpdateRowStates()
@@ -539,6 +603,56 @@ public partial class TiaSyncDialog : Window
     /// grid can both write through immediately and reflect the live per-row
     /// mapping state without rebinding the whole ItemsSource.
     /// </summary>
+    private sealed class ScadaMappingRow : INotifyPropertyChanged
+    {
+        private readonly Action _mappingChanged;
+        private string _state = "";
+
+        public ScadaMappingRow(TiaScadaBinding binding, Action mappingChanged)
+        {
+            Binding = binding;
+            _mappingChanged = mappingChanged;
+        }
+
+        public TiaScadaBinding Binding { get; }
+
+        public string ScadaName => Binding.ScadaName;
+
+        public string DeviceName
+        {
+            get => Binding.DeviceName;
+            set
+            {
+                if (!string.Equals(Binding.DeviceName, value, StringComparison.Ordinal))
+                {
+                    Binding.DeviceName = value ?? "";
+                    OnPropertyChanged();
+                    _mappingChanged();
+                }
+            }
+        }
+
+        public string State
+        {
+            get => _state;
+            set
+            {
+                if (!string.Equals(_state, value, StringComparison.Ordinal))
+                {
+                    _state = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
     private sealed class MappingRow : INotifyPropertyChanged
     {
         private readonly Action _mappingChanged;
