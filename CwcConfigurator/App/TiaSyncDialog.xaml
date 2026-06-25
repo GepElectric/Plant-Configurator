@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="TIA Sync"
         Width="980"
-        Height="620"
+        Height="820"
         MinWidth="860"
-        MinHeight="520"
+        MinHeight="700"
         WindowStartupLocation="CenterOwner">
     <DockPanel Margin="14">
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
