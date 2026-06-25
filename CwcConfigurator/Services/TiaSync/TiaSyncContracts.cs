@@ -69,6 +69,7 @@ public interface ITiaSessionService
     Task<TiaProjectTextsImportResult> ImportProjectTextsAsync(string workbookPath);
     Task<TiaUnifiedScreensResult> GetUnifiedScreensAsync(string deviceName);
     Task<TiaTextListExportResult> ExportTextListsAsync(string outputFolder, string deviceName);
+    Task<TiaTextListImportResult> ImportTextListsAsync(string inputFolder, string deviceName);
     Task<TiaUnifiedDevicesResult> GetUnifiedDevicesAsync();
 }
 
@@ -126,6 +127,13 @@ public sealed class TiaTextListExportResult
 public sealed class TiaUnifiedDevicesResult
 {
     public List<string> Devices { get; set; } = [];
+    public List<string> Warnings { get; set; } = [];
+}
+
+public sealed class TiaTextListImportResult
+{
+    public string HmiSoftwareName { get; set; } = "";
+    public bool Success { get; set; }
     public List<string> Warnings { get; set; } = [];
 }
 

@@ -134,6 +134,15 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         });
     }
 
+    public Task<TiaTextListImportResult> ImportTextListsAsync(string inputFolder, string deviceName)
+    {
+        return SendAsync<TiaTextListImportResult>(RequireActiveVersion(), "ImportTextLists", new
+        {
+            InputFolder = inputFolder,
+            DeviceName = deviceName ?? ""
+        });
+    }
+
     public Task<TiaUnifiedDevicesResult> GetUnifiedDevicesAsync()
     {
         return SendAsync<TiaUnifiedDevicesResult>(RequireActiveVersion(), "GetUnifiedDevices", null);

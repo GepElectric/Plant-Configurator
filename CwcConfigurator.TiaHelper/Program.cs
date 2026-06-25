@@ -99,6 +99,8 @@ namespace CwcConfigurator.TiaHelper
                     return GetUnifiedDevices();
                 case "ExportTextLists":
                     return ExportTextLists(request.Payload);
+                case "ImportTextLists":
+                    return ImportTextLists(request.Payload);
                 case "Disconnect":
                     Disconnect();
                     return new { };
@@ -279,6 +281,41 @@ namespace CwcConfigurator.TiaHelper
             }
 #else
             result.Warnings.Add("Text-list export requires the TIA V21 helper.");
+#endif
+            return result;
+        }
+
+        private static TiaTextListImportResult ImportTextLists(IDictionary<string, object> payload)
+        {
+            RequireAttachedProject();
+            var inputFolder = GetString(payload, "InputFolder");
+            var result = new TiaTextListImportResult();
+            if (string.IsNullOrWhiteSpace(inputFolder) || !Directory.Exists(inputFolder))
+            {
+                result.Warnings.Add("Text-list input folder was not found: " + inputFolder);
+                return result;
+            }
+
+#if TIA_V21
+            var hmi = FindHmiSoftware(GetString(payload, "DeviceName"));
+            if (hmi == null)
+            {
+                result.Warnings.Add(UnifiedDeviceNotFoundMessage(GetString(payload, "DeviceName")));
+                return result;
+            }
+
+            try
+            {
+                hmi.HmiTextLists.Import(new DirectoryInfo(inputFolder), "");
+                result.HmiSoftwareName = hmi.Name;
+                result.Success = true;
+            }
+            catch (Exception ex)
+            {
+                result.Warnings.Add(hmi.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+            }
+#else
+            result.Warnings.Add("Text-list import requires the TIA V21 helper.");
 #endif
             return result;
         }
@@ -2189,6 +2226,19 @@ namespace CwcConfigurator.TiaHelper
         public TiaUnifiedDevicesResult()
         {
             Devices = new List<string>();
+            Warnings = new List<string>();
+        }
+    }
+
+    public sealed class TiaTextListImportResult
+    {
+        public string HmiSoftwareName { get; set; }
+        public bool Success { get; set; }
+        public List<string> Warnings { get; set; }
+
+        public TiaTextListImportResult()
+        {
+            HmiSoftwareName = "";
             Warnings = new List<string>();
         }
     }

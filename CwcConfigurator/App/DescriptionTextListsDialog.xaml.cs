@@ -17,6 +17,7 @@ public partial class DescriptionTextListsDialog : Window, INotifyPropertyChanged
     private readonly CwcProject _project;
     private readonly DescriptionTextListService _service;
     private readonly Func<string, Task<DescriptionTextListData>>? _pullFromTia;
+    private readonly Func<Window, Task<string>>? _pushToTia;
     private readonly ObservableCollection<DescriptionTextListMapping> _mappings;
 
     public ObservableCollection<string> AvailableListNames { get; } = ["(none)"];
@@ -27,12 +28,14 @@ public partial class DescriptionTextListsDialog : Window, INotifyPropertyChanged
         CwcProject project,
         DescriptionTextListService service,
         Func<string, Task<DescriptionTextListData>>? pullFromTia = null,
-        IReadOnlyList<string>? scadaDevices = null)
+        IReadOnlyList<string>? scadaDevices = null,
+        Func<Window, Task<string>>? pushToTia = null)
     {
         InitializeComponent();
         _project = project;
         _service = service;
         _pullFromTia = pullFromTia;
+        _pushToTia = pushToTia;
         _project.DescriptionTextLists ??= new DescriptionTextListConfig();
         _project.DescriptionTextLists.SyncWithDatabases(_project.PlcDatabases);
         _mappings = new ObservableCollection<DescriptionTextListMapping>(_project.DescriptionTextLists.Mappings.OrderBy(item => item.PlcName, StringComparer.OrdinalIgnoreCase));
@@ -54,8 +57,33 @@ public partial class DescriptionTextListsDialog : Window, INotifyPropertyChanged
 
         ScadaSourceCombo.SelectedIndex = 0;
         PullFromTiaButton.IsEnabled = _pullFromTia is not null;
+        PushToTiaButton.IsEnabled = _pushToTia is not null;
         RefreshAvailableLists();
         RefreshStatus();
+    }
+
+    private async void PushToTia_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pushToTia is null)
+        {
+            return;
+        }
+
+        try
+        {
+            System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+            var message = await _pushToTia(this);
+            Changed = true;
+            RefreshStatus(message);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Push descriptions to TIA", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            System.Windows.Input.Mouse.OverrideCursor = null;
+        }
     }
 
     private async void PullFromTia_Click(object sender, RoutedEventArgs e)

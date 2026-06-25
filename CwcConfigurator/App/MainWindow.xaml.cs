@@ -9136,7 +9136,45 @@ public partial class MainWindow : Window
             return new TextListYamlImporter().Import(listsFile, libraryFile);
         };
 
-        var dialog = new DescriptionTextListsDialog(_project, _descriptionTextListService, pullFromTia, GetMappedScadaDeviceNames())
+        Func<Window, Task<string>> pushToTia = async owner =>
+        {
+            if (_tiaSessionService.CurrentSession is null)
+            {
+                throw new InvalidOperationException("Attach to the TIA Portal project (V21) in 'TIA Sync' first.");
+            }
+
+            _descriptionTextListService.PushDescriptionsIntoTextLists(_project); // PLC row edits -> text-list data
+            var managed = GetManagedDescriptionListNames();
+            var devices = GetMappedScadaDeviceNames();
+            if (devices.Count == 0)
+            {
+                return "No mapped SCADA devices. Map SCADA databases to Unified devices in 'TIA Sync' first.";
+            }
+
+            var pushService = new ScadaTextListPushService(_tiaSessionService);
+            var targets = await pushService.ScanAsync(devices, managed);
+            var selector = new PushTargetsDialog(targets) { Owner = owner };
+            if (selector.ShowDialog() != true)
+            {
+                return "Push cancelled.";
+            }
+
+            var selected = targets.Where(target => target.Selected).ToList();
+            if (selected.Count == 0)
+            {
+                return "No SCADA selected — nothing pushed.";
+            }
+
+            var messages = new List<string>();
+            foreach (var target in selected)
+            {
+                messages.Add(await pushService.PushAsync(target, _project.DescriptionTextLists.TextLists, managed));
+            }
+
+            return string.Join(Environment.NewLine, messages);
+        };
+
+        var dialog = new DescriptionTextListsDialog(_project, _descriptionTextListService, pullFromTia, GetMappedScadaDeviceNames(), pushToTia)
         {
             Owner = EditorOwner
         };
@@ -11538,6 +11576,33 @@ public partial class MainWindow : Window
         }
 
         return devices;
+    }
+
+    // The description text-list names the app manages (per the PLC->list mappings). Push updates
+    // only these on each SCADA; everything else on the SCADA is left untouched.
+    private IReadOnlyList<string> GetManagedDescriptionListNames()
+    {
+        _project.DescriptionTextLists ??= new DescriptionTextListConfig();
+        _project.DescriptionTextLists.SyncWithDatabases(_project.PlcDatabases);
+
+        var names = new List<string>();
+        foreach (var mapping in _project.DescriptionTextLists.Mappings)
+        {
+            names.Add(mapping.AlmDescriptionsList);
+            names.Add(mapping.ParDescriptionsList);
+            names.Add(mapping.SequenceControlStatusList);
+            names.Add(mapping.SequenceCommandList);
+            names.Add(mapping.AlmBlockingClassList);
+            names.Add(mapping.CabinetsList);
+            names.Add(mapping.PortConfigurationList);
+            names.Add(mapping.SeqCmdList);
+            names.Add(mapping.SeqConfigList);
+        }
+
+        return names
+            .Where(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("(none)", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private ScadaDatabase? GetSelectedScadaDatabase()
