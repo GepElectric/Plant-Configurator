@@ -114,10 +114,11 @@ public class EplanProjectReaderTests
 
     [Theory]
     [InlineData("??_??@TITLE PAGE;", "TITLE PAGE")]
-    [InlineData("en_US@Device tag List;hr_HR@Aparatna lista;", "Aparatna lista")]
+    [InlineData("en_US@Device tag List;hr_HR@Aparatna lista;", "Device tag List")]
+    [InlineData("en_US@VOLTAGE\nLOWER;hr_HR@NAPON\nNIŽE;", "VOLTAGE LOWER")]
     [InlineData("??_??@HPU PUMP 1\nCB CLOSED;", "HPU PUMP 1 CB CLOSED")]
     [InlineData("plain", "plain")]
-    public void Text_PicksCroatianThenNeutral(string raw, string expected)
+    public void Text_PicksSchematicLanguage(string raw, string expected)
     {
         Assert.Equal(expected, EplanProjectReader.Text(raw));
     }

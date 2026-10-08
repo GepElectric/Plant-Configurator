@@ -396,7 +396,13 @@ public static class EplanProjectReader
         return (x, y);
     }
 
-    /// <summary>EPLAN multilingual string ("hr_HR@..;en_US@..;") to plain text: hr_HR, then neutral, then en_US.</summary>
+    /// <summary>
+    /// Language order for multilingual texts. English first: the printed schematics (PDF) are in English and the
+    /// Croatian variants in the project are incomplete.
+    /// </summary>
+    private static readonly string[] LanguageOrder = ["en_US", "??_??", "hr_HR"];
+
+    /// <summary>EPLAN multilingual string ("en_US@..;hr_HR@..;") to plain text in the schematic language.</summary>
     public static string Text(string? value)
     {
         if (string.IsNullOrEmpty(value))
@@ -412,7 +418,7 @@ public static class EplanProjectReader
 
         var text = parts.Count == 0
             ? value
-            : new[] { "hr_HR", "??_??", "en_US" }.Select(k => parts.GetValueOrDefault(k)).FirstOrDefault(v => !string.IsNullOrEmpty(v))
+            : LanguageOrder.Select(k => parts.GetValueOrDefault(k)).FirstOrDefault(v => !string.IsNullOrEmpty(v))
               ?? parts.Values.First();
         return Whitespace.Replace(text, " ").Trim();
     }
