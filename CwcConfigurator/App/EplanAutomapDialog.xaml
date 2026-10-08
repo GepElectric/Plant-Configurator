@@ -22,13 +22,15 @@
             <TextBlock x:Name="CountText" Grid.Column="3" Margin="16,0,0,0" VerticalAlignment="Center" Foreground="#57606A" TextTrimming="CharacterEllipsis"/>
         </Grid>
         <TextBlock DockPanel.Dock="Top" Foreground="#57606A" TextWrapping="Wrap" Margin="0,0,0,8"
-                   Text="The EPLAN signal name of every hardware row is compared with the English names in DB DI / DB DO / DB MEAS / DB AO. Only the hardware ID is written – DB tables are not changed. Green = same name, yellow = similar, check it. You can type another ID."/>
+                   Text="The EPLAN signal name of every hardware row is compared with the English names in DB DI / DB DO / DB MEAS / DB AO, using the dictionary (abbreviations, synonyms) and the names learned earlier. Only the hardware ID is written – DB tables are not changed. Green = same meaning, yellow = similar, check it. You can type another ID; links you confirm are learned."/>
 
         <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
                 <Button Content="Tick exact" Padding="10,0" Click="TickExact_Click" ToolTip="Tick every green row that changes the ID"/>
                 <Button Content="Tick all proposals" Padding="10,0" Margin="6,0,0,0" Click="TickAll_Click"/>
                 <Button Content="Untick all" Padding="10,0" Margin="6,0,0,0" Click="UntickAll_Click"/>
+                <Button Content="Dictionary..." Padding="10,0" Margin="18,0,0,0" Click="Dictionary_Click"
+                        ToolTip="Abbreviations, synonyms and learned name pairs used to compare schematic and DB names."/>
             </StackPanel>
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                 <Button x:Name="ApplyButton" Content="Apply" Width="90" Click="Apply_Click"/>

@@ -105,6 +105,7 @@ public partial class EplanAutomapDialog : Window
         }
     }
 
+    private readonly EplanImportConfig _config;
     private List<Item> _items = [];
 
     public PlcDatabase? Database => DatabaseCombo.SelectedItem as PlcDatabase;
@@ -112,14 +113,20 @@ public partial class EplanAutomapDialog : Window
     /// <summary>Ticked rows with an ID to write.</summary>
     public IReadOnlyList<AutomapProposal> Chosen => _items.Where(i => i.Use && i.Proposal.Proposed is not null).Select(i => i.Proposal).ToList();
 
-    public EplanAutomapDialog(IReadOnlyList<PlcDatabase> databases, string activeDatabaseId)
+    /// <summary>True when the dictionary or the learned names were edited (they are already stored in the config).</summary>
+    public bool DictionaryChanged { get; private set; }
+
+    public EplanAutomapDialog(IReadOnlyList<PlcDatabase> databases, string activeDatabaseId, EplanImportConfig config)
     {
         InitializeComponent();
+        _config = config;
         DatabaseCombo.ItemsSource = databases;
         DatabaseCombo.SelectedItem = databases.FirstOrDefault(d => d.Id == activeDatabaseId) ?? databases.FirstOrDefault();
     }
 
-    private void DatabaseCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    private void DatabaseCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e) => Propose();
+
+    private void Propose()
     {
         if (Database is not { } database)
         {
@@ -127,13 +134,28 @@ public partial class EplanAutomapDialog : Window
         }
 
         var candidates = Enum.GetValues<EplanModuleKind>().ToDictionary(k => k, k => EplanIdAutomap.Candidates(database, k));
-        _items = EplanIdAutomap.Propose(database)
+        var matcher = new EplanNameMatcher(_config.Synonyms, _config.LearnedNames);
+        _items = EplanIdAutomap.Propose(database, matcher)
             .Select(p => new Item(p, candidates[p.Kind]) { Use = p.Match == AutomapMatch.Exact && p.Proposed!.Id != p.CurrentId })
             .ToList();
         RefreshView();
     }
 
     private void Filter_Changed(object sender, RoutedEventArgs e) => RefreshView();
+
+    private void Dictionary_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new EplanDictionaryDialog(_config) { Owner = this };
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        _config.Synonyms = dialog.Synonyms;
+        _config.LearnedNames = dialog.LearnedNames;
+        DictionaryChanged = true;
+        Propose();      // propose again with the new words
+    }
 
     private void RefreshView()
     {

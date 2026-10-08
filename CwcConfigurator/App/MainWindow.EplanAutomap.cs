@@ -18,16 +18,22 @@ public partial class MainWindow
         }
 
         SaveActivePlcDatabase();
-        var dialog = new EplanAutomapDialog(_project.PlcDatabases, _project.ActivePlcDatabaseId) { Owner = EditorOwner };
+        RecordUndoSnapshot();       // the dialog may also edit the dictionary of the project
+        var dialog = new EplanAutomapDialog(_project.PlcDatabases, _project.ActivePlcDatabaseId, _project.EplanImport) { Owner = EditorOwner };
         if (dialog.ShowDialog() != true || dialog.Database is null)
         {
+            if (dialog.DictionaryChanged)
+            {
+                ShowMessage("Automap dictionary saved.");
+            }
+
             return;
         }
 
-        RecordUndoSnapshot();
         var changed = EplanIdAutomap.Apply(dialog.Chosen);
+        var learned = EplanIdAutomap.Learn(_project.EplanImport, dialog.Chosen);
         LoadActivePlcDatabase();
         BindProject();
-        ShowMessage($"Automap: {changed} hardware IDs written in {dialog.Database.Name}.");
+        ShowMessage($"Automap: {changed} hardware IDs written in {dialog.Database.Name}" + (learned > 0 ? $", {learned} new name pairs learned." : "."));
     }
 }

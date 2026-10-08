@@ -1,6 +1,3 @@
-using System.Globalization;
-using System.Text;
-using System.Text.RegularExpressions;
 using CwcConfigurator.Domain;
 
 namespace CwcConfigurator.Services.Eplan;
@@ -42,8 +39,6 @@ public static class EplanIdAutomap
 {
     public const double LikelyThreshold = 0.6;
 
-    private static readonly Regex NonWord = new(@"[^A-Z0-9]+", RegexOptions.Compiled);
-    private static readonly Regex Bracketed = new(@"\(([^)]*)\)", RegexOptions.Compiled);
     private static readonly HashSet<string> Spare = ["SPARE", "RESERVE", "REZERVA"];
 
     public static IReadOnlyList<AutomapCandidate> Candidates(PlcDatabase database, EplanModuleKind kind)
@@ -59,8 +54,9 @@ public static class EplanIdAutomap
         return list.Where(c => c.Id > 0 && !string.IsNullOrWhiteSpace(c.Name)).ToList();
     }
 
-    public static List<AutomapProposal> Propose(PlcDatabase database)
+    public static List<AutomapProposal> Propose(PlcDatabase database, EplanNameMatcher? matcher = null)
     {
+        matcher ??= new EplanNameMatcher();
         var proposals = new List<AutomapProposal>();
         foreach (var kind in Enum.GetValues<EplanModuleKind>())
         {
@@ -76,7 +72,7 @@ public static class EplanIdAutomap
                 }
 
                 var best = candidates
-                    .Select(c => (Candidate: c, Score: Similarity(p.EplanSignal, p.EplanConnectedTo, c.Name)))
+                    .Select(c => (Candidate: c, Score: matcher.Similarity(p.EplanSignal, p.EplanConnectedTo, c.Name)))
                     .OrderByDescending(x => x.Score)
                     .Take(2)
                     .ToList();
@@ -138,69 +134,34 @@ public static class EplanIdAutomap
         return changed;
     }
 
+    /// <summary>Similarity with the default dictionary (see <see cref="EplanNameMatcher"/>).</summary>
+    public static double Similarity(string eplanSignal, string eplanConnectedTo, string dbName) =>
+        new EplanNameMatcher().Similarity(eplanSignal, eplanConnectedTo, dbName);
+
     /// <summary>
-    /// 1.0 when the names are equal ignoring case, punctuation and a device tag in brackets ("ESD RESET" =
-    /// "ESD reset (-2K02)"); otherwise the word overlap (Dice) of the names without brackets, raised when a bracketed
-    /// tag of the DB name is the EPLAN connected device or appears in the EPLAN text. Different numbers
-    /// ("PUMP 1" / "PUMP 2") rule a candidate out.
+    /// Remembers the links the user confirmed although the names differ (likely or typed by hand), so the same
+    /// schematic name is exact next time – the designer's "ABC" is the programmer's "BCA".
     /// </summary>
-    public static double Similarity(string eplanSignal, string eplanConnectedTo, string dbName)
+    public static int Learn(EplanImportConfig config, IEnumerable<AutomapProposal> applied)
     {
-        var a = Normalize(Bracketed.Replace(eplanSignal, " "));
-        var b = Normalize(Bracketed.Replace(dbName, " "));
-        if (a.Length == 0 || b.Length == 0)
+        var added = 0;
+        foreach (var p in applied.Where(p => p.Proposed is not null && p.Match != AutomapMatch.Exact))
         {
-            return 0;
-        }
-
-        if (a == b || Normalize(eplanSignal) == Normalize(dbName))
-        {
-            return 1.0;
-        }
-
-        var wordsA = Words(a);
-        var wordsB = Words(b);
-        var numbersA = wordsA.Where(IsNumber).ToHashSet();
-        var numbersB = wordsB.Where(IsNumber).ToHashSet();
-        if (numbersA.Count > 0 && numbersB.Count > 0 && !numbersA.SetEquals(numbersB))
-        {
-            return 0;       // HPU PUMP 1 is never HPU PUMP 2
-        }
-
-        var common = wordsA.Intersect(wordsB).Count();
-        var dice = 2.0 * common / (wordsA.Count + wordsB.Count);
-        if (numbersA.Count != numbersB.Count)
-        {
-            dice -= 0.15;   // a number on one side only
-        }
-
-        var device = Normalize(eplanConnectedTo.Split(':')[0]);
-        var fullA = Normalize(eplanSignal);
-        var tagHit = Bracketed.Matches(dbName).Select(m => Normalize(m.Groups[1].Value)).Where(t => t.Length > 0)
-            .Any(t => t == device || fullA.Contains(t, StringComparison.Ordinal));
-        return Math.Clamp(dice + (tagHit ? 0.25 : 0), 0, 0.99);
-    }
-
-    private static bool IsNumber(string word) => word.All(char.IsDigit);
-
-    private static string Normalize(string text)
-    {
-        var plain = new StringBuilder();
-        foreach (var ch in text.Normalize(NormalizationForm.FormD))
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
+            var schematic = EplanNameMatcher.Key(p.EplanSignal);
+            var db = EplanNameMatcher.Key(p.Proposed!.Name);
+            if (schematic.Length == 0 || config.LearnedNames.Any(l => EplanNameMatcher.Key(l.SchematicName) == schematic && EplanNameMatcher.Key(l.DbName) == db))
             {
-                plain.Append(ch);
+                continue;
             }
+
+            config.LearnedNames.Add(new EplanLearnedName { SchematicName = p.EplanSignal, DbName = p.Proposed.Name });
+            added++;
         }
 
-        return NonWord.Replace(plain.ToString().ToUpperInvariant(), " ").Trim();
+        return added;
     }
 
-    private static HashSet<string> Words(string normalized) =>
-        normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
-
-    private static bool IsSpare(string signal) => Spare.Contains(Normalize(signal));
+    private static bool IsSpare(string signal) => Spare.Contains(EplanNameMatcher.Key(signal));
 
     private static IEnumerable<object> Rows(PlcDatabase db, EplanModuleKind kind) => kind switch
     {

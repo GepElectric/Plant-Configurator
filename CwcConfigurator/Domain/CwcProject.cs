@@ -56,6 +56,59 @@ public sealed class EplanImportConfig
 {
     public string LastEpjPath { get; set; } = "";
     public List<EplanCpuAssignment> Assignments { get; set; } = [];
+    /// <summary>Abbreviations and synonyms used by Automap IDs to compare schematic and DB signal names.</summary>
+    public List<EplanSynonym> Synonyms { get; set; } = EplanSynonym.Defaults();
+    /// <summary>Schematic names the user linked to a DB name by hand; Automap treats them as exact next time.</summary>
+    public List<EplanLearnedName> LearnedNames { get; set; } = [];
+}
+
+/// <summary>"CB" means "CIRCUIT BREAKER", "FASTER" means "UP" … (whole words, case-insensitive).</summary>
+public sealed class EplanSynonym
+{
+    public string Words { get; set; } = "";
+    public string Means { get; set; } = "";
+
+    public static List<EplanSynonym> Defaults() =>
+    [
+        new() { Words = "CB", Means = "CIRCUIT BREAKER" },
+        new() { Words = "GCB", Means = "GENERATOR CIRCUIT BREAKER" },
+        new() { Words = "MCB", Means = "MINIATURE CIRCUIT BREAKER" },
+        new() { Words = "TIV", Means = "TURBINE INLET VALVE" },
+        new() { Words = "MIV", Means = "MAIN INLET VALVE" },
+        new() { Words = "TRAFO", Means = "TRANSFORMER" },
+        new() { Words = "GEN", Means = "GENERATOR" },
+        new() { Words = "MEAS", Means = "MEASUREMENT" },
+        new() { Words = "TEMP", Means = "TEMPERATURE" },
+        new() { Words = "PRESS", Means = "PRESSURE" },
+        new() { Words = "POS", Means = "POSITION" },
+        new() { Words = "VIB", Means = "VIBRATION" },
+        new() { Words = "LUBRIFICATION", Means = "LUBRICATION" },
+        new() { Words = "BUCHOLZ", Means = "BUCHHOLZ" },
+        new() { Words = "RAISE", Means = "UP" },
+        new() { Words = "HIGHER", Means = "UP" },
+        new() { Words = "FASTER", Means = "UP" },
+        new() { Words = "INCREASE", Means = "UP" },
+        new() { Words = "LOWER", Means = "DOWN" },
+        new() { Words = "SLOWER", Means = "DOWN" },
+        new() { Words = "DECREASE", Means = "DOWN" },
+        new() { Words = "CLOSE", Means = "CLOSED" },
+        new() { Words = "OPENED", Means = "OPEN" },
+        new() { Words = "AUTO", Means = "AUTOMATIC" },
+        new() { Words = "MAN", Means = "MANUAL" },
+        new() { Words = "ESD", Means = "EMERGENCY SHUTDOWN" },
+        new() { Words = "QSD", Means = "QUICK SHUTDOWN" },
+        new() { Words = "NSD", Means = "NORMAL SHUTDOWN" },
+        new() { Words = "PSU", Means = "POWER SUPPLY" },
+        new() { Words = "PS", Means = "POWER SUPPLY" },
+        new() { Words = "PB", Means = "PUSHBUTTON" },
+        new() { Words = "PUSH BUTTON", Means = "PUSHBUTTON" }
+    ];
+}
+
+public sealed class EplanLearnedName
+{
+    public string SchematicName { get; set; } = "";
+    public string DbName { get; set; } = "";
 }
 
 public sealed class EplanCpuAssignment
