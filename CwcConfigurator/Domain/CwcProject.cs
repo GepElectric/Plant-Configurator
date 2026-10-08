@@ -38,6 +38,7 @@ public sealed class CwcProject
     public DescriptionTextListConfig DescriptionTextLists { get; set; } = new();
     public DescriptionTemplateCatalog DescriptionTemplates { get; set; } = new();
     public AlmParExportConfig AlmParExport { get; set; } = new();
+    public EplanImportConfig EplanImport { get; set; } = new();
 
     public static CwcProject CreateEmpty()
     {
@@ -48,6 +49,22 @@ public sealed class CwcProject
         database.ApplyTo(project);
         return project;
     }
+}
+
+/// <summary>Remembered EPLAN import: which CPU fills which PLC database and which distributed stations belong to it.</summary>
+public sealed class EplanImportConfig
+{
+    public string LastEpjPath { get; set; } = "";
+    public List<EplanCpuAssignment> Assignments { get; set; } = [];
+}
+
+public sealed class EplanCpuAssignment
+{
+    /// <summary>Higher-level function of the CPU station in EPLAN, e.g. "1CJA01".</summary>
+    public string CpuFunction { get; set; } = "";
+    public string PlcDatabaseId { get; set; } = "";
+    /// <summary>Distributed I/O stations (EPLAN functions) of this CPU, in module numbering order.</summary>
+    public List<string> DistributedFunctions { get; set; } = [];
 }
 
 public sealed class DescriptionTextListConfig
@@ -810,6 +827,10 @@ public sealed class DigitalSignalConfig : ObservableModel, IValidationState
     private int _calcId;
     private string _structName = "";
     private string _signalName = "";
+    private string _eplanSignalName = "";
+    private string _eplanConnectedTo = "";
+    private int? _eplanPdfPage;
+    private string _eplanSchematicPage = "";
     private bool _hasValidationError;
 
     public int ModuleNumber { get => _moduleNumber; set => SetField(ref _moduleNumber, value); }
@@ -823,6 +844,13 @@ public sealed class DigitalSignalConfig : ObservableModel, IValidationState
     public int CalcId { get => _calcId; set => SetField(ref _calcId, value); }
     public string StructName { get => _structName; set => SetField(ref _structName, value); }
     public string SignalName { get => _signalName; set => SetField(ref _signalName, value); }
+    // Read from the EPLAN schematics (.epj) – documentation only, not sent to TIA Portal
+    public string EplanSignalName { get => _eplanSignalName; set => SetField(ref _eplanSignalName, value ?? ""); }
+    public string EplanConnectedTo { get => _eplanConnectedTo; set => SetField(ref _eplanConnectedTo, value ?? ""); }
+    /// <summary>Page in the PDF of all schematics (1-based), used by SCADA to open the PDF at this page.</summary>
+    public int? EplanPdfPage { get => _eplanPdfPage; set => SetField(ref _eplanPdfPage, value); }
+    /// <summary>Page.column inside the cabinet's schematic, e.g. "=2CJA01/22.2".</summary>
+    public string EplanSchematicPage { get => _eplanSchematicPage; set => SetField(ref _eplanSchematicPage, value ?? ""); }
     public bool HasValidationError { get => _hasValidationError; set => SetField(ref _hasValidationError, value); }
 }
 
@@ -844,6 +872,10 @@ public sealed class AnalogSignalConfig : ObservableModel, IValidationState
     private int _calcMeasurement;
     private string _signalName = "";
     private string _unit = "";
+    private string _eplanSignalName = "";
+    private string _eplanConnectedTo = "";
+    private int? _eplanPdfPage;
+    private string _eplanSchematicPage = "";
     private bool _hasValidationError;
 
     public int ModuleNumber { get => _moduleNumber; set => SetField(ref _moduleNumber, value); }
@@ -862,6 +894,13 @@ public sealed class AnalogSignalConfig : ObservableModel, IValidationState
     public int CalcMeasurement { get => _calcMeasurement; set => SetField(ref _calcMeasurement, value); }
     public string SignalName { get => _signalName; set => SetField(ref _signalName, value); }
     public string Unit { get => _unit; set => SetField(ref _unit, value); }
+    // Read from the EPLAN schematics (.epj) – documentation only, not sent to TIA Portal
+    public string EplanSignalName { get => _eplanSignalName; set => SetField(ref _eplanSignalName, value ?? ""); }
+    public string EplanConnectedTo { get => _eplanConnectedTo; set => SetField(ref _eplanConnectedTo, value ?? ""); }
+    /// <summary>Page in the PDF of all schematics (1-based), used by SCADA to open the PDF at this page.</summary>
+    public int? EplanPdfPage { get => _eplanPdfPage; set => SetField(ref _eplanPdfPage, value); }
+    /// <summary>Page.column inside the cabinet's schematic, e.g. "=2CJA01/22.2".</summary>
+    public string EplanSchematicPage { get => _eplanSchematicPage; set => SetField(ref _eplanSchematicPage, value ?? ""); }
     public bool HasValidationError { get => _hasValidationError; set => SetField(ref _hasValidationError, value); }
 }
 
@@ -878,6 +917,10 @@ public sealed class CounterConfig : ObservableModel, IValidationState
     private int _calcMeasurement;
     private string _signalName = "";
     private string _unit = "";
+    private string _eplanSignalName = "";
+    private string _eplanConnectedTo = "";
+    private int? _eplanPdfPage;
+    private string _eplanSchematicPage = "";
     private bool _hasValidationError;
 
     public int ModuleNumber { get => _moduleNumber; set => SetField(ref _moduleNumber, value); }
@@ -891,6 +934,13 @@ public sealed class CounterConfig : ObservableModel, IValidationState
     public int CalcMeasurement { get => _calcMeasurement; set => SetField(ref _calcMeasurement, value); }
     public string SignalName { get => _signalName; set => SetField(ref _signalName, value); }
     public string Unit { get => _unit; set => SetField(ref _unit, value); }
+    // Read from the EPLAN schematics (.epj) – documentation only, not sent to TIA Portal
+    public string EplanSignalName { get => _eplanSignalName; set => SetField(ref _eplanSignalName, value ?? ""); }
+    public string EplanConnectedTo { get => _eplanConnectedTo; set => SetField(ref _eplanConnectedTo, value ?? ""); }
+    /// <summary>Page in the PDF of all schematics (1-based), used by SCADA to open the PDF at this page.</summary>
+    public int? EplanPdfPage { get => _eplanPdfPage; set => SetField(ref _eplanPdfPage, value); }
+    /// <summary>Page.column inside the cabinet's schematic, e.g. "=2CJA01/22.2".</summary>
+    public string EplanSchematicPage { get => _eplanSchematicPage; set => SetField(ref _eplanSchematicPage, value ?? ""); }
     public bool HasValidationError { get => _hasValidationError; set => SetField(ref _hasValidationError, value); }
 }
 
@@ -903,6 +953,10 @@ public sealed class AnalogOutputConfig : ObservableModel, IValidationState
     private int _id;
     private string _systemName = "";
     private string _signalName = "";
+    private string _eplanSignalName = "";
+    private string _eplanConnectedTo = "";
+    private int? _eplanPdfPage;
+    private string _eplanSchematicPage = "";
     private bool _hasValidationError;
 
     public int ModuleNumber { get => _moduleNumber; set => SetField(ref _moduleNumber, value); }
@@ -912,6 +966,13 @@ public sealed class AnalogOutputConfig : ObservableModel, IValidationState
     public int Id { get => _id; set => SetField(ref _id, value); }
     public string SystemName { get => _systemName; set => SetField(ref _systemName, value); }
     public string SignalName { get => _signalName; set => SetField(ref _signalName, value); }
+    // Read from the EPLAN schematics (.epj) – documentation only, not sent to TIA Portal
+    public string EplanSignalName { get => _eplanSignalName; set => SetField(ref _eplanSignalName, value ?? ""); }
+    public string EplanConnectedTo { get => _eplanConnectedTo; set => SetField(ref _eplanConnectedTo, value ?? ""); }
+    /// <summary>Page in the PDF of all schematics (1-based), used by SCADA to open the PDF at this page.</summary>
+    public int? EplanPdfPage { get => _eplanPdfPage; set => SetField(ref _eplanPdfPage, value); }
+    /// <summary>Page.column inside the cabinet's schematic, e.g. "=2CJA01/22.2".</summary>
+    public string EplanSchematicPage { get => _eplanSchematicPage; set => SetField(ref _eplanSchematicPage, value ?? ""); }
     public bool HasValidationError { get => _hasValidationError; set => SetField(ref _hasValidationError, value); }
 }
 

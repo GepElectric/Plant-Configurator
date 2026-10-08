@@ -822,6 +822,10 @@
                                 <DataGridTextColumn Width="*" Header="STATUS NAME DEFINITION" Binding="{Binding StatusNameDefinition}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTextColumn Width="*" Header="STRUCT NAME" Binding="{Binding StructName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTextColumn Width="*" Header="SIGNAL NAME" Binding="{Binding SignalName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="*" Header="EPLAN SIGNAL" Binding="{Binding EplanSignalName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="110" Header="CONNECTED TO" Binding="{Binding EplanConnectedTo}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="70" Header="PDF PAGE" Binding="{Binding EplanPdfPage}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="120" Header="SCHEMATIC PAGE" Binding="{Binding EplanSchematicPage}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
@@ -878,6 +882,10 @@
                                 <DataGridTextColumn Width="*" Header="STATUS NAME DEFINITION" Binding="{Binding StatusNameDefinition}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTextColumn Width="*" Header="STRUCT NAME" Binding="{Binding StructName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTextColumn Width="*" Header="SIGNAL NAME" Binding="{Binding SignalName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="*" Header="EPLAN SIGNAL" Binding="{Binding EplanSignalName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="110" Header="CONNECTED TO" Binding="{Binding EplanConnectedTo}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="70" Header="PDF PAGE" Binding="{Binding EplanPdfPage}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="120" Header="SCHEMATIC PAGE" Binding="{Binding EplanSchematicPage}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
@@ -924,6 +932,10 @@
                                 <DataGridTextColumn Width="*" Header="HIGH LIMIT" Binding="{Binding HighLimit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
                                 <DataGridTextColumn Width="*" Header="SIGNAL NAME" Binding="{Binding SignalName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTextColumn Width="*" Header="UNIT" Binding="{Binding Unit}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="*" Header="EPLAN SIGNAL" Binding="{Binding EplanSignalName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="110" Header="CONNECTED TO" Binding="{Binding EplanConnectedTo}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="70" Header="PDF PAGE" Binding="{Binding EplanPdfPage}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="120" Header="SCHEMATIC PAGE" Binding="{Binding EplanSchematicPage}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
@@ -970,6 +982,10 @@
                                 <DataGridTextColumn Width="*" Header="HIGH LIMIT" Binding="{Binding HighLimit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
                                 <DataGridTextColumn Width="*" Header="SIGNAL NAME" Binding="{Binding SignalName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTextColumn Width="*" Header="UNIT" Binding="{Binding Unit}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="*" Header="EPLAN SIGNAL" Binding="{Binding EplanSignalName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="110" Header="CONNECTED TO" Binding="{Binding EplanConnectedTo}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="70" Header="PDF PAGE" Binding="{Binding EplanPdfPage}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="120" Header="SCHEMATIC PAGE" Binding="{Binding EplanSchematicPage}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
@@ -1012,6 +1028,10 @@
                                 <DataGridTextColumn Width="*" Header="FILTER TIME" Binding="{Binding FilterTime, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:0.0###}}" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
                                 <DataGridTextColumn Width="*" Header="SIGNAL NAME" Binding="{Binding SignalName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTextColumn Width="*" Header="UNIT" Binding="{Binding Unit}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="*" Header="EPLAN SIGNAL" Binding="{Binding EplanSignalName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="110" Header="CONNECTED TO" Binding="{Binding EplanConnectedTo}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="70" Header="PDF PAGE" Binding="{Binding EplanPdfPage}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="120" Header="SCHEMATIC PAGE" Binding="{Binding EplanSchematicPage}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
@@ -1046,6 +1066,10 @@
                                 <DataGridTextColumn Width="60" Header="ID" Binding="{Binding Id, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
                                 <DataGridTextColumn Width="*" Header="SYSTEM NAME" Binding="{Binding SystemName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTextColumn Width="*" Header="SIGNAL NAME" Binding="{Binding SignalName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="*" Header="EPLAN SIGNAL" Binding="{Binding EplanSignalName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="110" Header="CONNECTED TO" Binding="{Binding EplanConnectedTo}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="70" Header="PDF PAGE" Binding="{Binding EplanPdfPage}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn Width="120" Header="SCHEMATIC PAGE" Binding="{Binding EplanSchematicPage}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
