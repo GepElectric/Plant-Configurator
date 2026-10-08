@@ -867,7 +867,19 @@ public enum SignalConfigState
     Inverted = 2
 }
 
-public sealed class DigitalSignalConfig : ObservableModel, IValidationState
+/// <summary>Hardware row that carries documentation read from the EPLAN schematics.</summary>
+public interface IEplanDocumented
+{
+    int Id { get; set; }
+    SignalConfigState Config { get; }
+    string EplanSignalName { get; set; }
+    string EplanConnectedTo { get; set; }
+    int? EplanPdfPage { get; set; }
+    string EplanSchematicPage { get; set; }
+    string EplanTerminalRef { get; set; }
+}
+
+public sealed class DigitalSignalConfig : ObservableModel, IValidationState, IEplanDocumented
 {
     private int _moduleNumber;
     private string _moduleName = "";
@@ -884,6 +896,7 @@ public sealed class DigitalSignalConfig : ObservableModel, IValidationState
     private string _eplanConnectedTo = "";
     private int? _eplanPdfPage;
     private string _eplanSchematicPage = "";
+    private string _eplanTerminalRef = "";
     private bool _hasValidationError;
 
     public int ModuleNumber { get => _moduleNumber; set => SetField(ref _moduleNumber, value); }
@@ -904,10 +917,12 @@ public sealed class DigitalSignalConfig : ObservableModel, IValidationState
     public int? EplanPdfPage { get => _eplanPdfPage; set => SetField(ref _eplanPdfPage, value); }
     /// <summary>Page.column inside the cabinet's schematic, e.g. "=2CJA01/22.2".</summary>
     public string EplanSchematicPage { get => _eplanSchematicPage; set => SetField(ref _eplanSchematicPage, value ?? ""); }
+    /// <summary>EPLAN PLC terminal this row was filled from ("1CJA01|A115|2"); used to write the ID back into the schematic.</summary>
+    public string EplanTerminalRef { get => _eplanTerminalRef; set => SetField(ref _eplanTerminalRef, value ?? ""); }
     public bool HasValidationError { get => _hasValidationError; set => SetField(ref _hasValidationError, value); }
 }
 
-public sealed class AnalogSignalConfig : ObservableModel, IValidationState
+public sealed class AnalogSignalConfig : ObservableModel, IValidationState, IEplanDocumented
 {
     private int _moduleNumber;
     private string _moduleName = "";
@@ -929,6 +944,7 @@ public sealed class AnalogSignalConfig : ObservableModel, IValidationState
     private string _eplanConnectedTo = "";
     private int? _eplanPdfPage;
     private string _eplanSchematicPage = "";
+    private string _eplanTerminalRef = "";
     private bool _hasValidationError;
 
     public int ModuleNumber { get => _moduleNumber; set => SetField(ref _moduleNumber, value); }
@@ -954,10 +970,12 @@ public sealed class AnalogSignalConfig : ObservableModel, IValidationState
     public int? EplanPdfPage { get => _eplanPdfPage; set => SetField(ref _eplanPdfPage, value); }
     /// <summary>Page.column inside the cabinet's schematic, e.g. "=2CJA01/22.2".</summary>
     public string EplanSchematicPage { get => _eplanSchematicPage; set => SetField(ref _eplanSchematicPage, value ?? ""); }
+    /// <summary>EPLAN PLC terminal this row was filled from ("1CJA01|A115|2"); used to write the ID back into the schematic.</summary>
+    public string EplanTerminalRef { get => _eplanTerminalRef; set => SetField(ref _eplanTerminalRef, value ?? ""); }
     public bool HasValidationError { get => _hasValidationError; set => SetField(ref _hasValidationError, value); }
 }
 
-public sealed class CounterConfig : ObservableModel, IValidationState
+public sealed class CounterConfig : ObservableModel, IValidationState, IEplanDocumented
 {
     private int _moduleNumber;
     private string _moduleName = "";
@@ -974,6 +992,7 @@ public sealed class CounterConfig : ObservableModel, IValidationState
     private string _eplanConnectedTo = "";
     private int? _eplanPdfPage;
     private string _eplanSchematicPage = "";
+    private string _eplanTerminalRef = "";
     private bool _hasValidationError;
 
     public int ModuleNumber { get => _moduleNumber; set => SetField(ref _moduleNumber, value); }
@@ -994,10 +1013,12 @@ public sealed class CounterConfig : ObservableModel, IValidationState
     public int? EplanPdfPage { get => _eplanPdfPage; set => SetField(ref _eplanPdfPage, value); }
     /// <summary>Page.column inside the cabinet's schematic, e.g. "=2CJA01/22.2".</summary>
     public string EplanSchematicPage { get => _eplanSchematicPage; set => SetField(ref _eplanSchematicPage, value ?? ""); }
+    /// <summary>EPLAN PLC terminal this row was filled from ("1CJA01|A115|2"); used to write the ID back into the schematic.</summary>
+    public string EplanTerminalRef { get => _eplanTerminalRef; set => SetField(ref _eplanTerminalRef, value ?? ""); }
     public bool HasValidationError { get => _hasValidationError; set => SetField(ref _hasValidationError, value); }
 }
 
-public sealed class AnalogOutputConfig : ObservableModel, IValidationState
+public sealed class AnalogOutputConfig : ObservableModel, IValidationState, IEplanDocumented
 {
     private int _moduleNumber;
     private string _moduleName = "";
@@ -1010,6 +1031,7 @@ public sealed class AnalogOutputConfig : ObservableModel, IValidationState
     private string _eplanConnectedTo = "";
     private int? _eplanPdfPage;
     private string _eplanSchematicPage = "";
+    private string _eplanTerminalRef = "";
     private bool _hasValidationError;
 
     public int ModuleNumber { get => _moduleNumber; set => SetField(ref _moduleNumber, value); }
@@ -1026,6 +1048,8 @@ public sealed class AnalogOutputConfig : ObservableModel, IValidationState
     public int? EplanPdfPage { get => _eplanPdfPage; set => SetField(ref _eplanPdfPage, value); }
     /// <summary>Page.column inside the cabinet's schematic, e.g. "=2CJA01/22.2".</summary>
     public string EplanSchematicPage { get => _eplanSchematicPage; set => SetField(ref _eplanSchematicPage, value ?? ""); }
+    /// <summary>EPLAN PLC terminal this row was filled from ("1CJA01|A115|2"); used to write the ID back into the schematic.</summary>
+    public string EplanTerminalRef { get => _eplanTerminalRef; set => SetField(ref _eplanTerminalRef, value ?? ""); }
     public bool HasValidationError { get => _hasValidationError; set => SetField(ref _hasValidationError, value); }
 }
 

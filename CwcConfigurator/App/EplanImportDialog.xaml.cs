@@ -148,7 +148,7 @@ public partial class EplanImportDialog : Window
             var cpus = Project.Stations.Count(s => s.IsCpu);
             StatusText.Text = $"{Project.ProjectName}: {Project.Pages.Count} pages, {cpus} CPU, {Project.Stations.Count - cpus} distributed stations. " +
                               (_remembered.Count == 0 ? "Nothing assigned yet – give every database its CPU and every CPU its stations." : "Remembered assignments loaded.");
-            SaveButton.IsEnabled = ImportButton.IsEnabled = true;
+            SaveButton.IsEnabled = ImportButton.IsEnabled = WriteIdsButton.IsEnabled = true;
         }
         catch (Exception ex)
         {
@@ -438,6 +438,63 @@ public partial class EplanImportDialog : Window
         }
 
         WarningList.ItemsSource = warnings;
+    }
+
+    private async void WriteIds_Click(object sender, RoutedEventArgs e)
+    {
+        if (Project is null)
+        {
+            return;
+        }
+
+        var ids = EplanIdWriter.CollectIds(_databases);
+        if (ids.Count == 0)
+        {
+            MessageBox.Show(this,
+                "No hardware row has both an ID and an EPLAN terminal.\n\nImport the databases from this EPLAN project first (rows imported before this version have to be imported once more), then give the rows their IDs (Automap IDs).",
+                "Write IDs to EPLAN", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var source = Project.SourcePath;
+        var dialog = new SaveFileDialog
+        {
+            Filter = "EPLAN PXF export (*.epj)|*.epj",
+            InitialDirectory = Path.GetDirectoryName(source),
+            FileName = Path.GetFileNameWithoutExtension(source) + " - IDs.epj"
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        StatusText.Text = $"Writing {ids.Count} IDs into {Path.GetFileName(dialog.FileName)}...";
+        Cursor = Cursors.Wait;
+        IsEnabled = false;
+        try
+        {
+            var result = await Task.Run(() => EplanIdWriter.Write(source, dialog.FileName, ids));
+            StatusText.Text = $"{result.TerminalsWritten} PLC addresses on {result.PagesChanged} pages now show the ID.";
+            var text = $"{result.TerminalsWritten} PLC addresses on {result.PagesChanged} pages now show the ID (I0.0 - ID 123).\n\n" +
+                       $"File: {dialog.FileName}\nImport it into EPLAN (File → Import → PXF) to see the IDs in the schematics.";
+            if (result.NotFound.Count > 0)
+            {
+                text += $"\n\n{result.NotFound.Count} rows with an ID were not found in this .epj (another EPLAN project?):\n  " +
+                        string.Join("\n  ", result.NotFound.Take(15)) + (result.NotFound.Count > 15 ? "\n  ..." : "");
+            }
+
+            MessageBox.Show(this, text, "Write IDs to EPLAN", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "";
+            MessageBox.Show(this, ex.Message, "Write IDs to EPLAN", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            IsEnabled = true;
+            Cursor = null;
+        }
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)

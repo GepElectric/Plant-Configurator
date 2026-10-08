@@ -10,7 +10,12 @@ public sealed class EplanPlannedChannel
     public string ModuleName { get; init; } = "";
     public int? Port { get; init; }
     public string StationFunction { get; init; } = "";
+    /// <summary>Device tag of the EPLAN module without '-', e.g. "A115".</summary>
+    public string ModuleTag { get; init; } = "";
     public EplanChannel Channel { get; init; } = new();
+
+    /// <summary>Key of the EPLAN PLC terminal; a counter is one row for the whole module ("*").</summary>
+    public string TerminalRef => EplanHardwareMapper.TerminalRef(StationFunction, ModuleTag, Kind == EplanModuleKind.Counter ? "*" : Channel.Terminal);
 }
 
 public sealed class EplanPlannedModule
@@ -132,6 +137,7 @@ public static class EplanHardwareMapper
                         ModuleName = name,
                         Port = kind == EplanModuleKind.Counter ? null : channel.Port,
                         StationFunction = station.Function,
+                        ModuleTag = module.DeviceTag,
                         Channel = channel
                     });
                 }
@@ -148,6 +154,8 @@ public static class EplanHardwareMapper
             Warnings = warnings
         };
     }
+
+    public static string TerminalRef(string function, string deviceTag, string terminal) => $"{function}|{deviceTag}|{terminal}";
 
     public static string KindName(EplanModuleKind kind) => kind switch
     {
@@ -198,7 +206,7 @@ public static class EplanHardwareMapper
         foreach (var c in plan.Channels)
         {
             var target = FindOrCreateRow(database, c);
-            Set(target, c.Channel);
+            Set(target, c);
             written++;
         }
 
@@ -275,49 +283,32 @@ public static class EplanHardwareMapper
         }
     }
 
-    private static void Set(object row, EplanChannel channel)
+    private static void Set(object row, EplanPlannedChannel planned)
     {
-        var signal = channel.SignalName;
-        var connected = channel.ConnectedTo;
-        int? pdf = channel.Schematic?.GlobalPage is > 0 ? channel.Schematic.GlobalPage : null;
-        var page = channel.Schematic?.Display ?? "";
-        switch (row)
+        if (row is not IEplanDocumented target)
         {
-            case DigitalSignalConfig d:
-                d.EplanSignalName = signal; d.EplanConnectedTo = connected; d.EplanPdfPage = pdf; d.EplanSchematicPage = page;
-                break;
-            case AnalogSignalConfig a:
-                a.EplanSignalName = signal; a.EplanConnectedTo = connected; a.EplanPdfPage = pdf; a.EplanSchematicPage = page;
-                break;
-            case CounterConfig k:
-                k.EplanSignalName = signal; k.EplanConnectedTo = connected; k.EplanPdfPage = pdf; k.EplanSchematicPage = page;
-                break;
-            case AnalogOutputConfig o:
-                o.EplanSignalName = signal; o.EplanConnectedTo = connected; o.EplanPdfPage = pdf; o.EplanSchematicPage = page;
-                break;
+            return;
         }
+
+        var channel = planned.Channel;
+        target.EplanSignalName = channel.SignalName;
+        target.EplanConnectedTo = channel.ConnectedTo;
+        target.EplanPdfPage = channel.Schematic?.GlobalPage is > 0 ? channel.Schematic.GlobalPage : null;
+        target.EplanSchematicPage = channel.Schematic?.Display ?? "";
+        target.EplanTerminalRef = planned.TerminalRef;
     }
 
-    private static int ClearAll<T>(IEnumerable<T> rows)
+    private static int ClearAll(IEnumerable<IEplanDocumented> rows)
     {
         var count = 0;
-        foreach (var row in rows)
+        foreach (var row in rows.Where(r => HasEplan(r.EplanSignalName, r.EplanConnectedTo, r.EplanPdfPage, r.EplanSchematicPage) || r.EplanTerminalRef.Length > 0))
         {
-            switch (row)
-            {
-                case DigitalSignalConfig d when HasEplan(d.EplanSignalName, d.EplanConnectedTo, d.EplanPdfPage, d.EplanSchematicPage):
-                    d.EplanSignalName = ""; d.EplanConnectedTo = ""; d.EplanPdfPage = null; d.EplanSchematicPage = ""; count++;
-                    break;
-                case AnalogSignalConfig a when HasEplan(a.EplanSignalName, a.EplanConnectedTo, a.EplanPdfPage, a.EplanSchematicPage):
-                    a.EplanSignalName = ""; a.EplanConnectedTo = ""; a.EplanPdfPage = null; a.EplanSchematicPage = ""; count++;
-                    break;
-                case CounterConfig k when HasEplan(k.EplanSignalName, k.EplanConnectedTo, k.EplanPdfPage, k.EplanSchematicPage):
-                    k.EplanSignalName = ""; k.EplanConnectedTo = ""; k.EplanPdfPage = null; k.EplanSchematicPage = ""; count++;
-                    break;
-                case AnalogOutputConfig o when HasEplan(o.EplanSignalName, o.EplanConnectedTo, o.EplanPdfPage, o.EplanSchematicPage):
-                    o.EplanSignalName = ""; o.EplanConnectedTo = ""; o.EplanPdfPage = null; o.EplanSchematicPage = ""; count++;
-                    break;
-            }
+            row.EplanSignalName = "";
+            row.EplanConnectedTo = "";
+            row.EplanPdfPage = null;
+            row.EplanSchematicPage = "";
+            row.EplanTerminalRef = "";
+            count++;
         }
 
         return count;

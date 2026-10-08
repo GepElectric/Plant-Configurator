@@ -8,7 +8,7 @@ namespace CwcConfigurator.Tests;
 public class EplanProjectReaderTests
 {
     // Minimal PXF export: title page, PLC CONFIGURATION (CPU + DI card + RTD card), one DI schematic page, one PLC overview page.
-    private const string SampleEpj = """
+    internal const string SampleEpj = """
         <?xml version="1.0" encoding="utf-8" ?>
         <EplanPxfRoot Name="Sample" Type="Project">
          <O14>
