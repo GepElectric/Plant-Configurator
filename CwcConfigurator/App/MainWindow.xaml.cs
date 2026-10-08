@@ -14,6 +14,7 @@ using System.Diagnostics;
 using Microsoft.Win32;
 using CwcConfigurator.Domain;
 using CwcConfigurator.Services;
+using CwcConfigurator.Services.AlarmTesting;
 using CwcConfigurator.Services.TiaSync;
 
 namespace CwcConfigurator.App;
@@ -4521,6 +4522,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        UpdateDbMeasFilterItems();
         DbMeasGrid.Items.Refresh();
         MarkActiveTabTiaStatusDirty();
         ShowMessage($"DB MEAS row updated: ID {row.Id}.");
@@ -4551,6 +4553,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        UpdateDbAoFilterItems();
         _dbAoRowsView?.Refresh();
         DbAoGrid.Items.Refresh();
         MarkActiveTabTiaStatusDirty();
@@ -4574,6 +4577,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        UpdateDbAoFilterItems();
         _dbAoRowsView?.Refresh();
         DbAoGrid.Items.Refresh();
         MarkActiveTabTiaStatusDirty();
@@ -4611,6 +4615,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        UpdateDbAlmFilterItems();
         DbAlmGrid.Items.Refresh();
         MarkActiveTabTiaStatusDirty();
         ShowMessage($"DB ALM row updated: ID {row.Id}.");
@@ -4649,6 +4654,7 @@ public partial class MainWindow : Window
         }
 
         NormalizeDbParRealValue(row);
+        UpdateDbParFilterItems();
         DbParGrid.Items.Refresh();
         MarkActiveTabTiaStatusDirty();
         ShowMessage($"DB PAR row updated: ID {row.Id}.");
@@ -4768,6 +4774,13 @@ public partial class MainWindow : Window
         if (!ShowDbStringRowDialog($"{dbName} PLC name", row, fields, DbTextLengthSettings.CreateParameterDefaults(), dbName))
         {
             return;
+        }
+
+        switch (dbName)
+        {
+            case "DB MEAS": UpdateDbMeasFilterItems(); break;
+            case "DB ALM": UpdateDbAlmFilterItems(); break;
+            case "DB PAR": UpdateDbParFilterItems(); break;
         }
 
         grid.Items.Refresh();
@@ -9274,6 +9287,51 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             ShowError("Could not open WinCC Tag Browser: " + ex.Message);
+        }
+    }
+
+    private void AlarmTester_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_projectOpen)
+        {
+            ShowMessage("No project is open.");
+            return;
+        }
+
+        try
+        {
+            SaveActivePlcDatabase();
+
+            // Build one plan per PLC database so signals from different PLCs never
+            // mix; the tester lets the operator pick which PLC is under test.
+            var builder = new AlarmTestPlanBuilder();
+            var options = new List<AlarmTestPlcOption>();
+            foreach (var database in _project.PlcDatabases)
+            {
+                var scoped = new CwcProject();
+                database.ApplyTo(scoped);
+                options.Add(new AlarmTestPlcOption
+                {
+                    Id = database.Id,
+                    Name = database.Name,
+                    Plan = builder.Build(scoped)
+                });
+            }
+
+            if (options.Count == 0)
+            {
+                options.Add(new AlarmTestPlcOption { Id = "", Name = "PLC", Plan = builder.Build(_project) });
+            }
+
+            var dialog = new AlarmTesterDialog(options, _project.ActivePlcDatabaseId)
+            {
+                Owner = EditorOwner
+            };
+            dialog.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            ShowError("Could not open Alarm Tester: " + ex.Message);
         }
     }
 

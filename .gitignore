@@ -30,3 +30,6 @@ Vba*.bas
 # Local analysis files
 *_analysis.txt
 *_schema.txt
+
+# Build requires this template (CopyToOutputDirectory)
+!CwcConfigurator/Templates/Configuration_Unit_List_Template.xlsm

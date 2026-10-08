@@ -10,10 +10,11 @@
     <ApplicationIcon>PlantConfigurator.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
-    <Resource Include="PlantConfigurator.ico"/>
+    <Resource Include="PlantConfigurator.ico" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.2" />
+    <PackageReference Include="S7netplus" Version="0.20.0" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
     <PackageReference Include="YamlDotNet" Version="16.2.1" />
   </ItemGroup>
