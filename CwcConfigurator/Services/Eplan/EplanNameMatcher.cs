@@ -133,12 +133,47 @@ public sealed class EplanNameMatcher
             score -= 0.15;                       // a number on one side only
         }
 
-        var device = Plain(schematicConnectedTo.Split(':')[0]);
         var schematicPlain = Plain(schematicName);
-        var tagHit = BracketTags.Matches(dbName).SelectMany(m => m.Groups[1].Value.Split(',')).Select(Plain)
-            .Where(t => t.Length > 0).Any(t => t == device || schematicPlain.Contains(t, StringComparison.Ordinal));
+        var tagHit = DeviceTagHit(schematicConnectedTo, dbName)
+                     || BracketTags.Matches(dbName).SelectMany(m => m.Groups[1].Value.Split(',')).Select(Plain)
+                         .Any(t => t.Length > 1 && schematicPlain.Contains(t, StringComparison.Ordinal));
         return Math.Clamp(score + (tagHit ? 0.25 : 0), 0, 0.99);
     }
+
+    /// <summary>
+    /// True when the device the PLC terminal is wired to in the schematic (relay, lamp, push button: "-2K26:A1")
+    /// is named in brackets in the DB name ("Generator Heater ON (-2K26)"). The wiring is the strongest evidence
+    /// that schematic and program mean the same signal, even when the texts differ.
+    /// </summary>
+    public static bool DeviceTagHit(string schematicConnectedTo, string dbName)
+    {
+        var device = DeviceKey(schematicConnectedTo.Split(':')[0]);
+        return device.Length > 1 && BracketTags.Matches(dbName)
+            .SelectMany(m => m.Groups[1].Value.Split(',', ';'))
+            .Select(t => DeviceKey(t.Trim().Split(' ').Last()))
+            .Any(t => t == device);
+    }
+
+    /// <summary>
+    /// Hard contradiction between the names: different numbers / single letters (PUMP 1 – PUMP 2, VALVE A – VALVE B)
+    /// or different KKS systems. Then not even the same wired device makes them one signal.
+    /// </summary>
+    public bool Contradicts(string schematicName, string dbName)
+    {
+        var a = Canonical(schematicName).Where(IsIdentifier).ToHashSet();
+        var b = Canonical(dbName).Where(IsIdentifier).ToHashSet();
+        if (a.Count > 0 && b.Count > 0 && !a.SetEquals(b))
+        {
+            return true;
+        }
+
+        var kksA = KksCodes(schematicName);
+        var kksB = KksCodes(dbName);
+        return kksA.Count > 0 && kksB.Count > 0 && !kksA.Overlaps(kksB);
+    }
+
+    /// <summary>"-2K26", " -2K26 ", "2K26" → "2K26"; a function/location prefix ("+1CJA01 -1K32") is dropped by the caller.</summary>
+    private static string DeviceKey(string tag) => NonWord.Replace(StripDiacritics(tag).ToUpperInvariant(), "");
 
     /// <summary>Weighted Dice: a pair counts with the smaller weight of its two spellings on both sides.</summary>
     private double WeightedDice(List<(string A, string B)> pairs, List<string> restA, List<string> restB)

@@ -72,9 +72,18 @@ public static class EplanIdAutomap
                     continue;
                 }
 
+                // the device the terminal is wired to (-2K26, -H101) outranks the wording: a DB signal that names
+                // the same device wins over one with a nicer name but no device
                 var best = candidates
-                    .Select(c => (Candidate: c, Score: tableMatcher.Similarity(p.EplanSignal, p.EplanConnectedTo, c.Name)))
-                    .OrderByDescending(x => x.Score)
+                    .Select(c =>
+                    {
+                        var score = tableMatcher.Similarity(p.EplanSignal, p.EplanConnectedTo, c.Name);
+                        // same relay/lamp even when the PLC name is a leftover of a template ("Nozzle 4 close (-2K42)")
+                        var wired = EplanNameMatcher.DeviceTagHit(p.EplanConnectedTo, c.Name) && !tableMatcher.Contradicts(p.EplanSignal, c.Name);
+                        return (Candidate: c, Score: wired ? Math.Max(score, LikelyThreshold) : score, Wired: wired, Raw: score);
+                    })
+                    .OrderByDescending(x => x.Score + (x.Wired ? 0.5 : 0))
+                    .ThenByDescending(x => x.Raw)       // two signals on the same device: the closer name first
                     .Take(2)
                     .ToList();
                 if (best.Count == 0 || best[0].Score < LikelyThreshold)
@@ -82,10 +91,21 @@ public static class EplanIdAutomap
                     continue;
                 }
 
-                p.Proposed = best[0].Candidate;
-                p.Score = best[0].Score;
-                p.Match = best[0].Score >= 1.0 ? AutomapMatch.Exact : AutomapMatch.Likely;
-                if (best.Count > 1 && best[1].Score >= best[0].Score - 1e-9 && p.Match == AutomapMatch.Exact)
+                var top = best[0];
+                p.Proposed = top.Candidate;
+                p.Score = top.Score + (top.Wired ? 0.5 : 0);
+                p.Match = top.Score >= 1.0 || (top.Wired && top.Score >= 0.85) ? AutomapMatch.Exact : AutomapMatch.Likely;
+                if (top.Wired && top.Score < 0.85)
+                {
+                    p.Note = $"same device {p.EplanConnectedTo.Split(':')[0]}, names differ";
+                }
+
+                if (top.Wired && best.Count > 1 && best[1].Wired)
+                {
+                    p.Match = AutomapMatch.Likely;      // two PLC signals name the same device: a person decides
+                    p.Note = $"device {p.EplanConnectedTo.Split(':')[0]} also on ID {best[1].Candidate.Id} '{best[1].Candidate.Name}'";
+                }
+                else if (best.Count > 1 && best[1].Score + (best[1].Wired ? 0.5 : 0) >= p.Score - 1e-9 && p.Match == AutomapMatch.Exact)
                 {
                     p.Match = AutomapMatch.Likely;
                     p.Note = $"same name also on ID {best[1].Candidate.Id}";

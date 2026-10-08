@@ -54,7 +54,7 @@ public class EplanIdAutomapTests
         Assert.Equal(3, cb.Proposed!.Id);
         var local = proposals.Single(p => p.Port == 2);
         Assert.Equal(1, local.Proposed!.Id);
-        Assert.Equal(AutomapMatch.Likely, local.Match);
+        Assert.Equal(AutomapMatch.Exact, local.Match);       // wired to -S103 which the DB name carries
     }
 
     [Theory]
@@ -63,6 +63,40 @@ public class EplanIdAutomapTests
     public void Similarity_BracketsAndNumbers(string eplan, string db, double expected)
     {
         Assert.Equal(expected, EplanIdAutomap.Similarity(eplan, "", db), 3);
+    }
+
+    [Fact]
+    public void Propose_WiredDeviceBeatsTheNicerName()
+    {
+        var db = PlcDatabase.CreateDefault("Unit 3");
+        db.DbCatalog.DoRows =
+        [
+            new DbStringRow { Id = 132, NameEnglish = "Generator heater ON" },
+            new DbStringRow { Id = 224, NameEnglish = "Generator Heater ON (-2K26)" },
+            new DbStringRow { Id = 82, NameEnglish = "Nozzle 4 close (-2K42)" },
+            new DbStringRow { Id = 15, NameEnglish = "Synchronization start" },
+            new DbStringRow { Id = 162, NameEnglish = "Signalization warning (-H101)" },
+            new DbStringRow { Id = 228, NameEnglish = "Warning (-H101)" }
+        ];
+        void Do(int port, string signal, string connected)
+        {
+            var row = db.DigitalOutputs.Single(r => r.ModuleNumber == 0 && r.Port == port);
+            row.EplanSignalName = signal;
+            row.EplanConnectedTo = connected;
+        }
+
+        Do(0, "GENERATOR HEATER ON", "-2K26:A1");
+        Do(1, "SYNCHRONIZATION START", "-2K42:A1");
+        Do(2, "SIGNALIZATION WARNING", "-H101:X1");
+        var proposals = EplanIdAutomap.Propose(db).ToDictionary(p => p.Port!.Value);
+
+        Assert.Equal(224, proposals[0].Proposed!.Id);                 // same name twice: the wired one
+        Assert.Equal(AutomapMatch.Exact, proposals[0].Match);
+        Assert.Equal(82, proposals[1].Proposed!.Id);                  // PLC name left from a template, same relay
+        Assert.Equal(AutomapMatch.Likely, proposals[1].Match);
+        Assert.Contains("names differ", proposals[1].Note);
+        Assert.Equal(AutomapMatch.Likely, proposals[2].Match);        // two PLC signals carry -H101
+        Assert.Contains("also on ID", proposals[2].Note);
     }
 
     [Fact]
