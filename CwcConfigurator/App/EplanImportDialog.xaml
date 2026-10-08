@@ -46,8 +46,6 @@
 
         <!-- buttons -->
         <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
-            <Button x:Name="AutoMapButton" DockPanel.Dock="Left" Content="Automap" Width="100" IsEnabled="False" Click="AutoMap_Click"
-                    ToolTip="Fills only what is still empty: a database gets the CPU whose unit number is in its name, a free distributed station goes to the CPU with the same unit number (=0BFA01 → =0CJA01). Existing assignments are kept."/>
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                 <Button x:Name="SaveButton" Content="Save assignments" Padding="10,0" IsEnabled="False" Click="Save_Click"
                         ToolTip="Remember database ↔ CPU and CPU ↔ distributed stations in the project without importing."/>

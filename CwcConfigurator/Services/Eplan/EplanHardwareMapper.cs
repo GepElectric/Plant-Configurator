@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using CwcConfigurator.Domain;
 
 namespace CwcConfigurator.Services.Eplan;
@@ -58,69 +57,6 @@ public static class EplanHardwareMapper
         EplanModuleKind.AnalogOutput => (2, 4),
         _ => (0, 0)
     };
-
-    private static readonly Regex Digits = new(@"\d+", RegexOptions.Compiled);
-
-    // ---------------------------------------------------------------- automap
-
-    /// <summary>
-    /// First proposal, to be checked by a person: keeps every previous decision that still fits the project,
-    /// assigns each new distributed station to the CPU whose function starts with the same unit digit
-    /// (KKS: =0BFA01 → =0CJA01, =1MKV10 → =1CJA01) and each CPU to the PLC database whose name carries that unit number.
-    /// </summary>
-    public static List<EplanCpuAssignment> AutoMap(EplanProject project, IReadOnlyList<PlcDatabase> databases,
-        IReadOnlyList<EplanCpuAssignment>? previous = null)
-    {
-        var cpus = project.Stations.Where(s => s.IsCpu).ToList();
-        var distributed = project.Stations.Where(s => s.IsDistributed).Select(s => s.Function).ToList();
-        var result = new List<EplanCpuAssignment>();
-
-        foreach (var cpu in cpus)
-        {
-            var old = previous?.FirstOrDefault(a => a.CpuFunction == cpu.Function);
-            result.Add(new EplanCpuAssignment
-            {
-                CpuFunction = cpu.Function,
-                PlcDatabaseId = old is not null && databases.Any(d => d.Id == old.PlcDatabaseId)
-                    ? old.PlcDatabaseId
-                    : SuggestDatabase(cpu.Function, databases, result, previous)?.Id ?? "",
-                DistributedFunctions = old?.DistributedFunctions.Where(distributed.Contains).ToList() ?? []
-            });
-        }
-
-        var taken = result.SelectMany(a => a.DistributedFunctions).ToHashSet();
-        foreach (var station in distributed.Where(f => !taken.Contains(f)))
-        {
-            var unit = UnitOf(station);
-            var candidates = result.Where(a => unit is not null && UnitOf(a.CpuFunction) == unit).ToList();
-            if (candidates.Count == 1)
-            {
-                candidates[0].DistributedFunctions.Add(station);
-            }
-        }
-
-        return result;
-    }
-
-    private static PlcDatabase? SuggestDatabase(string cpuFunction, IReadOnlyList<PlcDatabase> databases,
-        List<EplanCpuAssignment> decided, IReadOnlyList<EplanCpuAssignment>? previous)
-    {
-        var unit = UnitOf(cpuFunction);
-        if (unit is null)
-        {
-            return null;
-        }
-
-        // a database already linked to another CPU (now or remembered) is never proposed again
-        var taken = decided.Concat(previous ?? []).Select(a => a.PlcDatabaseId).Where(id => id.Length > 0).ToHashSet();
-        var free = databases.Where(d => !taken.Contains(d.Id)).ToList();
-        var byNumber = free.Where(d => Digits.Matches(d.Name).Any(m => int.Parse(m.Value) == unit)).ToList();
-        return byNumber.Count == 1 ? byNumber[0] : null;
-    }
-
-    /// <summary>Unit number = first digit of the KKS function (=1CJA01 → 1, =0BFA01 → 0).</summary>
-    public static int? UnitOf(string function) =>
-        function.Length > 0 && char.IsDigit(function[0]) ? function[0] - '0' : null;
 
     // ---------------------------------------------------------------- plan
 

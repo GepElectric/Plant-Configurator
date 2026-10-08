@@ -147,8 +147,8 @@ public partial class EplanImportDialog : Window
             Fill(_remembered);
             var cpus = Project.Stations.Count(s => s.IsCpu);
             StatusText.Text = $"{Project.ProjectName}: {Project.Pages.Count} pages, {cpus} CPU, {Project.Stations.Count - cpus} distributed stations. " +
-                              (_remembered.Count == 0 ? "Nothing assigned yet – press Automap for a first proposal." : "Remembered assignments loaded.");
-            AutoMapButton.IsEnabled = SaveButton.IsEnabled = ImportButton.IsEnabled = true;
+                              (_remembered.Count == 0 ? "Nothing assigned yet – give every database its CPU and every CPU its stations." : "Remembered assignments loaded.");
+            SaveButton.IsEnabled = ImportButton.IsEnabled = true;
         }
         catch (Exception ex)
         {
@@ -160,18 +160,6 @@ public partial class EplanImportDialog : Window
             Cursor = null;
             ReadButton.IsEnabled = true;
         }
-    }
-
-    private void AutoMap_Click(object sender, RoutedEventArgs e)
-    {
-        if (Project is null)
-        {
-            return;
-        }
-
-        // keeps every decision on screen, fills only empty database ↔ CPU links and free stations
-        Fill(EplanHardwareMapper.AutoMap(Project, _databases, Assignments()));
-        StatusText.Text = "Automap filled the empty assignments – check them before Save / Import.";
     }
 
     private void Fill(IReadOnlyList<EplanCpuAssignment> assignments)

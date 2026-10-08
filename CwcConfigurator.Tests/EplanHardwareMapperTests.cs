@@ -48,46 +48,6 @@ public class EplanHardwareMapperTests
     };
 
     [Fact]
-    public void AutoMap_AssignsDistributedStationsAndDatabasesByUnitNumber()
-    {
-        var unit0 = PlcDatabase.CreateDefault("Central");
-        var unit1 = PlcDatabase.CreateDefault("Unit 1");
-        var map = EplanHardwareMapper.AutoMap(Sample(), [unit0, unit1]);
-
-        var cpu0 = map.Single(a => a.CpuFunction == "0CJA01");
-        var cpu1 = map.Single(a => a.CpuFunction == "1CJA01");
-        Assert.Equal(["0BFA01"], cpu0.DistributedFunctions);
-        Assert.Equal(["1MKV10"], cpu1.DistributedFunctions);
-        Assert.Equal(unit1.Id, cpu1.PlcDatabaseId);
-        Assert.Equal("", cpu0.PlcDatabaseId);       // no database name carries unit 0 -> left for the user
-    }
-
-    [Fact]
-    public void AutoMap_KeepsPreviousManualDecisions()
-    {
-        var unit1 = PlcDatabase.CreateDefault("Unit 1");
-        var previous = new[] { new EplanCpuAssignment { CpuFunction = "0CJA01", DistributedFunctions = ["1MKV10"] } };
-
-        var map = EplanHardwareMapper.AutoMap(Sample(), [unit1], previous);
-
-        Assert.Equal(["1MKV10", "0BFA01"], map.Single(a => a.CpuFunction == "0CJA01").DistributedFunctions);
-        Assert.Empty(map.Single(a => a.CpuFunction == "1CJA01").DistributedFunctions);
-    }
-
-    [Fact]
-    public void AutoMap_NeverProposesDatabaseRememberedForAnotherCpu()
-    {
-        var unit1 = PlcDatabase.CreateDefault("Unit 1");
-        // the user linked "Unit 1" to the central CPU on purpose; automap must not steal it for =1CJA01
-        var previous = new[] { new EplanCpuAssignment { CpuFunction = "0CJA01", PlcDatabaseId = unit1.Id } };
-
-        var map = EplanHardwareMapper.AutoMap(Sample(), [unit1], previous);
-
-        Assert.Equal(unit1.Id, map.Single(a => a.CpuFunction == "0CJA01").PlcDatabaseId);
-        Assert.Equal("", map.Single(a => a.CpuFunction == "1CJA01").PlcDatabaseId);
-    }
-
-    [Fact]
     public void BuildPlan_NumbersModulesPerKindCpuFirstThenStationsInOrder()
     {
         var plan = EplanHardwareMapper.BuildPlan(Sample(), new EplanCpuAssignment { CpuFunction = "1CJA01", DistributedFunctions = ["1MKV10"] });
