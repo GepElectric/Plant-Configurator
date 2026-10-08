@@ -10,7 +10,7 @@ public enum AutomapMatch
 }
 
 /// <summary>A signal of a DB table that a hardware row can point to with its ID.</summary>
-public sealed record AutomapCandidate(int Id, string Name);
+public sealed record AutomapCandidate(int Id, string Name, string PlcStructure = "", string PlcName = "");
 
 /// <summary>One hardware row with EPLAN data and the DB signal proposed for it.</summary>
 public sealed class AutomapProposal
@@ -46,10 +46,10 @@ public static class EplanIdAutomap
         var catalog = database.DbCatalog;
         IEnumerable<AutomapCandidate> list = kind switch
         {
-            EplanModuleKind.DigitalInput => catalog.DiRows.Select(r => new AutomapCandidate(r.Id, r.NameEnglish)),
-            EplanModuleKind.DigitalOutput => catalog.DoRows.Select(r => new AutomapCandidate(r.Id, r.NameEnglish)),
-            EplanModuleKind.AnalogOutput => catalog.AoRows.Select(r => new AutomapCandidate(r.AoNumber, r.NameEnglish)),
-            _ => catalog.MeasRows.Select(r => new AutomapCandidate(r.Id, r.NameEnglish))
+            EplanModuleKind.DigitalInput => catalog.DiRows.Select(r => new AutomapCandidate(r.Id, r.NameEnglish, r.PlcStructure, r.PlcName)),
+            EplanModuleKind.DigitalOutput => catalog.DoRows.Select(r => new AutomapCandidate(r.Id, r.NameEnglish, r.PlcStructure, r.PlcName)),
+            EplanModuleKind.AnalogOutput => catalog.AoRows.Select(r => new AutomapCandidate(r.AoNumber, r.NameEnglish, r.AoSystemName, r.AoPlcName)),
+            _ => catalog.MeasRows.Select(r => new AutomapCandidate(r.Id, r.NameEnglish, r.PlcStructure, r.PlcName))
         };
         return list.Where(c => c.Id > 0 && !string.IsNullOrWhiteSpace(c.Name)).ToList();
     }

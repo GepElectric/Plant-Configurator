@@ -19,6 +19,8 @@ public partial class EplanAutomapDialog : Window
         private bool _use;
         private string _idText;
         private string _dbSignal;
+        private string _dbStructure;
+        private string _dbPlcName;
         private string _matchText;
         private string _note;
 
@@ -28,6 +30,8 @@ public partial class EplanAutomapDialog : Window
             _candidates = candidates;
             _idText = proposal.Proposed?.Id.ToString(CultureInfo.InvariantCulture) ?? "";
             _dbSignal = proposal.Proposed?.Name ?? "";
+            _dbStructure = proposal.Proposed?.PlcStructure ?? "";
+            _dbPlcName = proposal.Proposed?.PlcName ?? "";
             _matchText = proposal.Match == AutomapMatch.None ? "" : proposal.Match.ToString();
             _note = proposal.Note;
             if (proposal.Proposed is not null && proposal.Proposed.Id == proposal.CurrentId)
@@ -48,6 +52,8 @@ public partial class EplanAutomapDialog : Window
 
         public bool Use { get => _use; set => Set(ref _use, value); }
         public string DbSignal { get => _dbSignal; private set => Set(ref _dbSignal, value); }
+        public string DbStructure { get => _dbStructure; private set => Set(ref _dbStructure, value); }
+        public string DbPlcName { get => _dbPlcName; private set => Set(ref _dbPlcName, value); }
         public string MatchText { get => _matchText; private set => Set(ref _matchText, value); }
         public string Note { get => _note; private set => Set(ref _note, value); }
 
@@ -68,6 +74,8 @@ public partial class EplanAutomapDialog : Window
                     Proposal.Proposed = null;
                     Set(ref _idText, "");
                     DbSignal = "";
+                    DbStructure = "";
+                    DbPlcName = "";
                     MatchText = "";
                     Use = false;
                     return;
@@ -85,6 +93,8 @@ public partial class EplanAutomapDialog : Window
                 Proposal.Match = AutomapMatch.Likely;
                 Set(ref _idText, text);
                 DbSignal = candidate.Name;
+                DbStructure = candidate.PlcStructure;
+                DbPlcName = candidate.PlcName;
                 MatchText = "Manual";
                 Note = "";
                 Use = candidate.Id != Proposal.CurrentId;
