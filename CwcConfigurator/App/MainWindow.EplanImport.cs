@@ -5,7 +5,7 @@ using CwcConfigurator.Services.Eplan;
 namespace CwcConfigurator.App;
 
 /// <summary>
-/// File → Import hardware from EPLAN: fills the EPLAN columns of the hardware tabs and MODULE NAMES
+/// Tools → Import hardware from EPLAN: fills the EPLAN columns of the hardware tabs and MODULE NAMES
 /// of the chosen PLC databases from an EPLAN PXF export (.epj).
 /// </summary>
 public partial class MainWindow

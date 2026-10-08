@@ -331,8 +331,6 @@
                 <MenuItem Header="_Open project..." InputGestureText="Ctrl+O" Click="OpenProject_Click"/>
                 <MenuItem Header="_Close Project" Click="CloseProject_Click"/>
                 <MenuItem Header="Import database from _Excel..." Click="ImportExcel_Click"/>
-                <MenuItem Header="Import hardware from EP_LAN (.epj)..." Click="ImportEplan_Click"
-                          ToolTip="Reads an EPLAN PXF export: assigns distributed stations to CPUs, fills MODULE NAMES and the EPLAN columns (signal, connected to, PDF page, schematic page) of the hardware tabs."/>
                 <Separator/>
                 <MenuItem Header="_Save" InputGestureText="Ctrl+S" Click="SaveProject_Click"/>
                 <MenuItem Header="Save _As..." InputGestureText="Ctrl+Shift+S" Click="SaveProjectAs_Click"/>
@@ -341,6 +339,9 @@
                 <MenuItem Header="_Validate" InputGestureText="F5" Click="ValidateProject_Click"
                           ToolTip="Checks project data before generation: ID ranges, duplicate IDs, invalid validation-list values, text lengths and database consistency."/>
                 <MenuItem Header="_Generate DB source files" InputGestureText="F6" Click="GenerateFiles_Click"/>
+                <Separator/>
+                <MenuItem Header="Import hardware from EP_LAN (.epj)..." Click="ImportEplan_Click"
+                          ToolTip="Reads an EPLAN PXF export: assigns distributed stations to CPUs, fills MODULE NAMES and the EPLAN columns (signal, connected to, PDF page, schematic page) of the hardware tabs."/>
                 <Separator/>
                 <MenuItem Header="Export _Project Summary" Click="ExportSummary_Click"/>
                 <MenuItem Header="ALM/PAR List PDF Exporter..." Click="AlmParExport_Click"/>
