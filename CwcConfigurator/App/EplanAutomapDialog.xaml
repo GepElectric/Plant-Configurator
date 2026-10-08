@@ -26,7 +26,7 @@
 
         <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                <Button Content="Tick exact" Padding="10,0" Click="TickExact_Click" ToolTip="Tick every green row that changes the ID"/>
+                <Button Content="Tick exact" Padding="10,0" Click="TickExact_Click" ToolTip="Tick every green row of this tab that changes the ID"/>
                 <Button Content="Tick all proposals" Padding="10,0" Margin="6,0,0,0" Click="TickAll_Click"/>
                 <Button Content="Untick all" Padding="10,0" Margin="6,0,0,0" Click="UntickAll_Click"/>
                 <Button Content="Dictionary..." Padding="10,0" Margin="18,0,0,0" Click="Dictionary_Click"
@@ -38,6 +38,17 @@
             </StackPanel>
             <TextBlock/>
         </DockPanel>
+
+        <!-- one tab per hardware tab of the application; the grid below shows the selected one -->
+        <TabControl x:Name="KindTabs" DockPanel.Dock="Top" BorderThickness="0,0,0,1" Padding="0" Height="26"
+                    SelectionChanged="KindTabs_SelectionChanged">
+            <TabItem Header="DI" Tag="DigitalInput"/>
+            <TabItem Header="DO" Tag="DigitalOutput"/>
+            <TabItem Header="AI" Tag="AnalogInput"/>
+            <TabItem Header="RTD" Tag="RtdInput"/>
+            <TabItem Header="COUNTER" Tag="Counter"/>
+            <TabItem Header="AO" Tag="AnalogOutput"/>
+        </TabControl>
 
         <DataGrid x:Name="ProposalGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                   HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionUnit="FullRow">
@@ -58,7 +69,6 @@
             </DataGrid.RowStyle>
             <DataGrid.Columns>
                 <DataGridCheckBoxColumn Header="USE" Binding="{Binding Use, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="42"/>
-                <DataGridTextColumn Header="TAB" Binding="{Binding Tab}" IsReadOnly="True" Width="62"/>
                 <DataGridTextColumn Header="MODULE NUM" Binding="{Binding ModuleNumber}" IsReadOnly="True" Width="80"/>
                 <DataGridTextColumn Header="MODULE NAME" Binding="{Binding ModuleName}" IsReadOnly="True" Width="100"/>
                 <DataGridTextColumn Header="PORT" Binding="{Binding Port}" IsReadOnly="True" Width="45"/>

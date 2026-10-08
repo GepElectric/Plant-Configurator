@@ -153,6 +153,22 @@ public partial class EplanAutomapDialog : Window
 
     private void Filter_Changed(object sender, RoutedEventArgs e) => RefreshView();
 
+    private void KindTabs_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (ReferenceEquals(e.OriginalSource, KindTabs))
+        {
+            RefreshView();
+        }
+    }
+
+    private EplanModuleKind SelectedKind =>
+        KindTabs.SelectedItem is System.Windows.Controls.TabItem { Tag: string tag } && Enum.TryParse<EplanModuleKind>(tag, out var kind)
+            ? kind
+            : EplanModuleKind.DigitalInput;
+
+    /// <summary>Rows of the selected tab (the tick buttons work on these).</summary>
+    private IEnumerable<Item> TabItems => _items.Where(i => i.Proposal.Kind == SelectedKind);
+
     private void Dictionary_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new EplanDictionaryDialog(_config) { Owner = this };
@@ -174,7 +190,15 @@ public partial class EplanAutomapDialog : Window
             return;
         }
 
-        ProposalGrid.ItemsSource = OnlyProposalsCheck.IsChecked == true ? _items.Where(i => i.HasProposal).ToList() : _items;
+        foreach (var tab in KindTabs.Items.OfType<System.Windows.Controls.TabItem>())
+        {
+            var kind = Enum.Parse<EplanModuleKind>((string)tab.Tag);
+            var rows = _items.Count(i => i.Proposal.Kind == kind);
+            var withProposal = _items.Count(i => i.Proposal.Kind == kind && i.HasProposal);
+            tab.Header = rows == 0 ? EplanHardwareMapper.KindName(kind) : $"{EplanHardwareMapper.KindName(kind)}  ({withProposal}/{rows})";
+        }
+
+        ProposalGrid.ItemsSource = OnlyProposalsCheck.IsChecked == true ? TabItems.Where(i => i.HasProposal).ToList() : TabItems.ToList();
         var exact = _items.Count(i => i.Proposal.Match == AutomapMatch.Exact);
         var likely = _items.Count(i => i.Proposal.Match == AutomapMatch.Likely);
         CountText.Text = _items.Count == 0
@@ -185,7 +209,7 @@ public partial class EplanAutomapDialog : Window
 
     private void TickExact_Click(object sender, RoutedEventArgs e)
     {
-        foreach (var item in _items)
+        foreach (var item in TabItems)
         {
             item.Use = item.Proposal.Match == AutomapMatch.Exact && item.ChangesId;
         }
@@ -193,7 +217,7 @@ public partial class EplanAutomapDialog : Window
 
     private void TickAll_Click(object sender, RoutedEventArgs e)
     {
-        foreach (var item in _items)
+        foreach (var item in TabItems)
         {
             item.Use = item.ChangesId;
         }
@@ -201,7 +225,7 @@ public partial class EplanAutomapDialog : Window
 
     private void UntickAll_Click(object sender, RoutedEventArgs e)
     {
-        foreach (var item in _items)
+        foreach (var item in TabItems)
         {
             item.Use = false;
         }
