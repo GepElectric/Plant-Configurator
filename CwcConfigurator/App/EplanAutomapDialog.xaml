@@ -1,0 +1,72 @@
+<Window x:Class="CwcConfigurator.App.EplanAutomapDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Automap IDs (EPLAN signal ↔ DB signal)"
+        Width="1320"
+        Height="780"
+        MinWidth="960"
+        MinHeight="520"
+        WindowStartupLocation="CenterOwner">
+    <DockPanel Margin="12">
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="PLC database" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ComboBox x:Name="DatabaseCombo" Grid.Column="1" DisplayMemberPath="Name" SelectionChanged="DatabaseCombo_SelectionChanged"/>
+            <CheckBox x:Name="OnlyProposalsCheck" Grid.Column="2" Content="Only rows with a proposal" IsChecked="True" Margin="16,0,0,0"
+                      VerticalAlignment="Center" Checked="Filter_Changed" Unchecked="Filter_Changed"/>
+            <TextBlock x:Name="CountText" Grid.Column="3" Margin="16,0,0,0" VerticalAlignment="Center" Foreground="#57606A" TextTrimming="CharacterEllipsis"/>
+        </Grid>
+        <TextBlock DockPanel.Dock="Top" Foreground="#57606A" TextWrapping="Wrap" Margin="0,0,0,8"
+                   Text="The EPLAN signal name of every hardware row is compared with the English names in DB DI / DB DO / DB MEAS / DB AO. Only the hardware ID is written – DB tables are not changed. Green = same name, yellow = similar, check it. You can type another ID."/>
+
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                <Button Content="Tick exact" Padding="10,0" Click="TickExact_Click" ToolTip="Tick every green row that changes the ID"/>
+                <Button Content="Tick all proposals" Padding="10,0" Margin="6,0,0,0" Click="TickAll_Click"/>
+                <Button Content="Untick all" Padding="10,0" Margin="6,0,0,0" Click="UntickAll_Click"/>
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button x:Name="ApplyButton" Content="Apply" Width="90" Click="Apply_Click"/>
+                <Button Content="Close" Width="90" Margin="6,0,0,0" IsCancel="True"/>
+            </StackPanel>
+            <TextBlock/>
+        </DockPanel>
+
+        <DataGrid x:Name="ProposalGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                  HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionUnit="FullRow">
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MatchText}" Value="Exact">
+                            <Setter Property="Background" Value="#DAFBE1"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding MatchText}" Value="Likely">
+                            <Setter Property="Background" Value="#FFF8C5"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding MatchText}" Value="Manual">
+                            <Setter Property="Background" Value="#DDF4FF"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+            <DataGrid.Columns>
+                <DataGridCheckBoxColumn Header="USE" Binding="{Binding Use, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="42"/>
+                <DataGridTextColumn Header="TAB" Binding="{Binding Tab}" IsReadOnly="True" Width="62"/>
+                <DataGridTextColumn Header="MODULE NUM" Binding="{Binding ModuleNumber}" IsReadOnly="True" Width="80"/>
+                <DataGridTextColumn Header="MODULE NAME" Binding="{Binding ModuleName}" IsReadOnly="True" Width="100"/>
+                <DataGridTextColumn Header="PORT" Binding="{Binding Port}" IsReadOnly="True" Width="45"/>
+                <DataGridTextColumn Header="EPLAN SIGNAL" Binding="{Binding EplanSignal}" IsReadOnly="True" Width="*"/>
+                <DataGridTextColumn Header="CURRENT ID" Binding="{Binding CurrentId}" IsReadOnly="True" Width="75"/>
+                <DataGridTextColumn Header="NEW ID" Binding="{Binding IdText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="65"/>
+                <DataGridTextColumn Header="DB SIGNAL (ENG)" Binding="{Binding DbSignal}" IsReadOnly="True" Width="*"/>
+                <DataGridTextColumn Header="MATCH" Binding="{Binding MatchText}" IsReadOnly="True" Width="65"/>
+                <DataGridTextColumn Header="NOTE" Binding="{Binding Note}" IsReadOnly="True" Width="200"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>
