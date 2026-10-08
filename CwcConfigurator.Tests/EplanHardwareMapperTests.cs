@@ -75,6 +75,19 @@ public class EplanHardwareMapperTests
     }
 
     [Fact]
+    public void AutoMap_NeverProposesDatabaseRememberedForAnotherCpu()
+    {
+        var unit1 = PlcDatabase.CreateDefault("Unit 1");
+        // the user linked "Unit 1" to the central CPU on purpose; automap must not steal it for =1CJA01
+        var previous = new[] { new EplanCpuAssignment { CpuFunction = "0CJA01", PlcDatabaseId = unit1.Id } };
+
+        var map = EplanHardwareMapper.AutoMap(Sample(), [unit1], previous);
+
+        Assert.Equal(unit1.Id, map.Single(a => a.CpuFunction == "0CJA01").PlcDatabaseId);
+        Assert.Equal("", map.Single(a => a.CpuFunction == "1CJA01").PlcDatabaseId);
+    }
+
+    [Fact]
     public void BuildPlan_NumbersModulesPerKindCpuFirstThenStationsInOrder()
     {
         var plan = EplanHardwareMapper.BuildPlan(Sample(), new EplanCpuAssignment { CpuFunction = "1CJA01", DistributedFunctions = ["1MKV10"] });

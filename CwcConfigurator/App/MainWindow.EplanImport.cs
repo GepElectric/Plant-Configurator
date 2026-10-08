@@ -5,8 +5,8 @@ using CwcConfigurator.Services.Eplan;
 namespace CwcConfigurator.App;
 
 /// <summary>
-/// Tools → Import hardware from EPLAN: fills the EPLAN columns of the hardware tabs and MODULE NAMES
-/// of the chosen PLC databases from an EPLAN PXF export (.epj).
+/// Tools → Import hardware from EPLAN: remembers database ↔ CPU and CPU ↔ distributed stations, and fills
+/// MODULE NAMES and the EPLAN columns of the hardware tabs of one PLC database from an EPLAN PXF export (.epj).
 /// </summary>
 public partial class MainWindow
 {
@@ -19,38 +19,47 @@ public partial class MainWindow
         }
 
         SaveActivePlcDatabase();
-        var dialog = new EplanImportDialog(_project.PlcDatabases, _project.EplanImport) { Owner = EditorOwner };
+        var dialog = new EplanImportDialog(_project.PlcDatabases, _project.EplanImport, _project.ActivePlcDatabaseId) { Owner = EditorOwner };
         if (dialog.ShowDialog() != true || dialog.Project is null)
         {
             return;
         }
 
         RecordUndoSnapshot();
-        var report = new List<string>();
-        var warnings = new List<string>();
-        foreach (var assignment in dialog.Assignments.Where(a => a.PlcDatabaseId.Length > 0))
+        var assignments = dialog.Assignments();
+        _project.EplanImport = new EplanImportConfig { LastEpjPath = dialog.Project.SourcePath, Assignments = assignments };
+
+        var database = _project.PlcDatabases.FirstOrDefault(d => d.Id == dialog.ImportDatabaseId);
+        var assignment = assignments.FirstOrDefault(a => database is not null && a.PlcDatabaseId == database.Id);
+        if (database is null || assignment is null)
         {
-            var database = _project.PlcDatabases.First(d => d.Id == assignment.PlcDatabaseId);
-            var plan = EplanHardwareMapper.BuildPlan(dialog.Project, assignment);
-            var result = EplanHardwareMapper.Apply(plan, database);
-            report.Add($"={assignment.CpuFunction} → {database.Name}: {result.ChannelsWritten} rows, " +
-                       $"{result.ModuleNameChanges.Count} module names changed" +
-                       (assignment.DistributedFunctions.Count > 0 ? $" (stations ={string.Join(", =", assignment.DistributedFunctions)})" : ""));
-            warnings.AddRange(plan.Warnings.Select(w => $"={assignment.CpuFunction}: {w}"));
-            warnings.AddRange(result.ModuleNameChanges.Select(c => $"{database.Name}: MODULE NAME {c}"));
+            ShowMessage("EPLAN assignments saved.");
+            return;
         }
 
-        _project.EplanImport = new EplanImportConfig
-        {
-            LastEpjPath = dialog.Project.SourcePath,
-            Assignments = dialog.Assignments.ToList()
-        };
-
+        var plan = EplanHardwareMapper.BuildPlan(dialog.Project, assignment);
+        var result = EplanHardwareMapper.Apply(plan, database);
         LoadActivePlcDatabase();
         BindProject();
 
-        var details = warnings.Count == 0 ? "" : "\n\n" + string.Join("\n", warnings.Take(40)) + (warnings.Count > 40 ? $"\n... and {warnings.Count - 40} more" : "");
-        MessageBox.Show(EditorOwner, string.Join("\n", report) + details, "EPLAN import", MessageBoxButton.OK, MessageBoxImage.Information);
-        ShowMessage($"EPLAN import from {System.IO.Path.GetFileName(dialog.Project.SourcePath)} done.");
+        var lines = new List<string>
+        {
+            $"{database.Name} ← ={assignment.CpuFunction}" +
+            (assignment.DistributedFunctions.Count > 0 ? " + =" + string.Join(", =", assignment.DistributedFunctions) : ""),
+            $"{result.ChannelsWritten} rows filled, {result.RowsCleared} old EPLAN rows cleared, {result.ModuleNameChanges.Count} module names changed."
+        };
+        var details = plan.Warnings.Concat(result.ModuleNameChanges.Select(c => "MODULE NAME " + c)).ToList();
+        if (details.Count > 0)
+        {
+            lines.Add("");
+            lines.AddRange(details.Take(40));
+            if (details.Count > 40)
+            {
+                lines.Add($"... and {details.Count - 40} more");
+            }
+        }
+
+        MessageBox.Show(EditorOwner, string.Join("\n", lines), "EPLAN import", MessageBoxButton.OK, MessageBoxImage.Information);
+        ShowMessage($"EPLAN import into {database.Name} done.");
     }
 }

@@ -83,7 +83,7 @@ public static class EplanHardwareMapper
                 CpuFunction = cpu.Function,
                 PlcDatabaseId = old is not null && databases.Any(d => d.Id == old.PlcDatabaseId)
                     ? old.PlcDatabaseId
-                    : SuggestDatabase(cpu.Function, databases, result)?.Id ?? "",
+                    : SuggestDatabase(cpu.Function, databases, result, previous)?.Id ?? "",
                 DistributedFunctions = old?.DistributedFunctions.Where(distributed.Contains).ToList() ?? []
             });
         }
@@ -102,7 +102,8 @@ public static class EplanHardwareMapper
         return result;
     }
 
-    private static PlcDatabase? SuggestDatabase(string cpuFunction, IReadOnlyList<PlcDatabase> databases, List<EplanCpuAssignment> used)
+    private static PlcDatabase? SuggestDatabase(string cpuFunction, IReadOnlyList<PlcDatabase> databases,
+        List<EplanCpuAssignment> decided, IReadOnlyList<EplanCpuAssignment>? previous)
     {
         var unit = UnitOf(cpuFunction);
         if (unit is null)
@@ -110,7 +111,9 @@ public static class EplanHardwareMapper
             return null;
         }
 
-        var free = databases.Where(d => used.All(a => a.PlcDatabaseId != d.Id)).ToList();
+        // a database already linked to another CPU (now or remembered) is never proposed again
+        var taken = decided.Concat(previous ?? []).Select(a => a.PlcDatabaseId).Where(id => id.Length > 0).ToHashSet();
+        var free = databases.Where(d => !taken.Contains(d.Id)).ToList();
         var byNumber = free.Where(d => Digits.Matches(d.Name).Any(m => int.Parse(m.Value) == unit)).ToList();
         return byNumber.Count == 1 ? byNumber[0] : null;
     }

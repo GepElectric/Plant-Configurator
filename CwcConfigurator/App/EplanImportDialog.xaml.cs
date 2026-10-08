@@ -13,12 +13,13 @@ using Microsoft.Win32;
 namespace CwcConfigurator.App;
 
 /// <summary>
-/// Reads an EPLAN .epj, lets the user assign distributed stations to CPUs (drag &amp; drop, order = module numbering)
-/// and CPUs to PLC databases, and previews what will be written. Applying is done by the caller.
+/// EPLAN hardware import in three steps: (1) every PLC database of the project gets one CPU from EPLAN,
+/// (2) every CPU gets its distributed stations in module numbering order (drag &amp; drop), (3) the selected
+/// database is previewed and imported. Both assignments are remembered in the project and can be changed any time.
 /// </summary>
 public partial class EplanImportDialog : Window
 {
-    public sealed record DatabaseChoice(string Id, string Name);
+    public sealed record CpuChoice(string Function, string Display);
 
     public sealed class StationItem
     {
@@ -26,62 +27,95 @@ public partial class EplanImportDialog : Window
         public string Display => $"={Station.Function}  -{Station.HeadDeviceTag}  ({Station.Modules.Count} modules)";
     }
 
-    public sealed class CpuCard : INotifyPropertyChanged
+    public sealed class CpuItem
     {
-        private string _plcDatabaseId = "";
-
         public required EplanStation Cpu { get; init; }
-        public required IReadOnlyList<DatabaseChoice> Databases { get; init; }
         public ObservableCollection<StationItem> Stations { get; } = [];
         public string Header => $"={Cpu.Function}  -{Cpu.HeadDeviceTag}  {Cpu.HeadType}";
-        public string Summary => string.Join("   ", Cpu.Modules.GroupBy(m => m.Kind).OrderBy(g => g.Key)
-            .Select(g => $"{EplanHardwareMapper.KindName(g.Key)} {g.Count()}"));
+    }
 
-        public string PlcDatabaseId
+    public sealed class DatabaseItem : INotifyPropertyChanged
+    {
+        private string _cpuFunction = "";
+
+        public required PlcDatabase Database { get; init; }
+        public required IReadOnlyList<CpuChoice> Choices { get; init; }
+        public string Name => Database.Name;
+
+        public string CpuFunction
         {
-            get => _plcDatabaseId;
+            get => _cpuFunction;
             set
             {
-                _plcDatabaseId = value ?? "";
-                OnPropertyChanged();
+                if (_cpuFunction == (value ?? ""))
+                {
+                    return;
+                }
+
+                _cpuFunction = value ?? "";
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CpuFunction)));
             }
         }
 
-        public EplanCpuAssignment ToAssignment() => new()
-        {
-            CpuFunction = Cpu.Function,
-            PlcDatabaseId = PlcDatabaseId,
-            DistributedFunctions = Stations.Select(s => s.Station.Function).ToList()
-        };
-
         public event PropertyChangedEventHandler? PropertyChanged;
-        private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 
     private sealed record PreviewRow(string Tab, int ModuleNumber, string ModuleName, int? Port, string Station,
         string Signal, string ConnectedTo, int? PdfPage, string SchematicPage);
 
     private readonly IReadOnlyList<PlcDatabase> _databases;
-    private readonly IReadOnlyList<EplanCpuAssignment> _previous;
+    private readonly IReadOnlyList<EplanCpuAssignment> _remembered;
+    private readonly string _initialDatabaseId;
+    private readonly ObservableCollection<DatabaseItem> _databaseItems = [];
     private readonly ObservableCollection<StationItem> _unassigned = [];
-    private readonly ObservableCollection<CpuCard> _cards = [];
-    private CpuCard? _selected;
+    private readonly List<CpuItem> _cpus = [];
+    private bool _updatingCpuChoice;
     private Point _dragStart;
     private ListBox? _dragSource;
 
     public EplanProject? Project { get; private set; }
-    public IReadOnlyList<EplanCpuAssignment> Assignments => _cards.Select(c => c.ToAssignment()).ToList();
 
-    public EplanImportDialog(IReadOnlyList<PlcDatabase> databases, EplanImportConfig remembered)
+    /// <summary>Database to fill after the dialog closes; null when only the assignments were saved.</summary>
+    public string? ImportDatabaseId { get; private set; }
+
+    public EplanImportDialog(IReadOnlyList<PlcDatabase> databases, EplanImportConfig remembered, string activeDatabaseId)
     {
         InitializeComponent();
         _databases = databases;
-        _previous = remembered.Assignments;
+        _remembered = remembered.Assignments;
+        _initialDatabaseId = activeDatabaseId;
+        DatabaseList.ItemsSource = _databaseItems;
         UnassignedList.ItemsSource = _unassigned;
-        CpuCards.ItemsSource = _cards;
         PathText.Text = remembered.LastEpjPath;
         ReadButton.IsEnabled = File.Exists(remembered.LastEpjPath);
-        StatusText.Text = "Choose the EPLAN PXF export (.epj) and press Read.";
+        StatusText.Text = ReadButton.IsEnabled
+            ? "Press Read to load the remembered EPLAN project, or Browse for another one."
+            : "Choose the EPLAN PXF export (.epj).";
+    }
+
+    /// <summary>
+    /// Assignments to remember: everything shown in the dialog plus remembered CPUs that are not in this .epj
+    /// (another EPLAN project of the same plant), so switching files never loses decisions.
+    /// </summary>
+    public List<EplanCpuAssignment> Assignments()
+    {
+        var current = _cpus.Select(cpu => new EplanCpuAssignment
+        {
+            CpuFunction = cpu.Cpu.Function,
+            PlcDatabaseId = _databaseItems.FirstOrDefault(d => d.CpuFunction == cpu.Cpu.Function)?.Database.Id ?? "",
+            DistributedFunctions = cpu.Stations.Select(s => s.Station.Function).ToList()
+        }).ToList();
+
+        var shownDatabases = current.Select(a => a.PlcDatabaseId).Where(id => id.Length > 0).ToHashSet();
+        var kept = _remembered
+            .Where(a => current.All(c => c.CpuFunction != a.CpuFunction))
+            .Select(a => new EplanCpuAssignment
+            {
+                CpuFunction = a.CpuFunction,
+                PlcDatabaseId = shownDatabases.Contains(a.PlcDatabaseId) ? "" : a.PlcDatabaseId,
+                DistributedFunctions = a.DistributedFunctions.ToList()
+            });
+        return current.Concat(kept).ToList();
     }
 
     // ---------------------------------------------------------------- read
@@ -110,13 +144,11 @@ public partial class EplanImportDialog : Window
         try
         {
             Project = await Task.Run(() => EplanProjectReader.Read(path));
-            Fill(EplanHardwareMapper.AutoMap(Project, _databases, _previous));
+            Fill(_remembered);
             var cpus = Project.Stations.Count(s => s.IsCpu);
-            StatusText.Text = $"{Project.ProjectName}: {Project.Pages.Count} pages, {cpus} CPU, " +
-                              $"{Project.Stations.Count - cpus} distributed stations, " +
-                              $"{Project.Stations.Sum(s => s.Modules.Sum(m => m.Channels.Count))} channels. Check the assignment, then Apply.";
-            AutoMapButton.IsEnabled = true;
-            ApplyButton.IsEnabled = true;
+            StatusText.Text = $"{Project.ProjectName}: {Project.Pages.Count} pages, {cpus} CPU, {Project.Stations.Count - cpus} distributed stations. " +
+                              (_remembered.Count == 0 ? "Nothing assigned yet – press Automap for a first proposal." : "Remembered assignments loaded.");
+            AutoMapButton.IsEnabled = SaveButton.IsEnabled = ImportButton.IsEnabled = true;
         }
         catch (Exception ex)
         {
@@ -137,9 +169,9 @@ public partial class EplanImportDialog : Window
             return;
         }
 
-        // automap from scratch (ignores what is on screen), the user then corrects it
-        Fill(EplanHardwareMapper.AutoMap(Project, _databases));
-        StatusText.Text = "Automap done – check every CPU before Apply.";
+        // keeps every decision on screen, fills only empty database ↔ CPU links and free stations
+        Fill(EplanHardwareMapper.AutoMap(Project, _databases, Assignments()));
+        StatusText.Text = "Automap filled the empty assignments – check them before Save / Import.";
     }
 
     private void Fill(IReadOnlyList<EplanCpuAssignment> assignments)
@@ -149,83 +181,151 @@ public partial class EplanImportDialog : Window
             return;
         }
 
-        var choices = new List<DatabaseChoice> { new("", "— do not import —") };
-        choices.AddRange(_databases.Select(d => new DatabaseChoice(d.Id, d.Name)));
-
-        _cards.Clear();
-        _unassigned.Clear();
+        var selectedDatabaseId = (DatabaseList.SelectedItem as DatabaseItem)?.Database.Id ?? _initialDatabaseId;
+        var selectedCpu = (CpuCombo.SelectedItem as CpuItem)?.Cpu.Function;
         var byFunction = Project.Stations.ToDictionary(s => s.Function);
+
+        _cpus.Clear();
         foreach (var cpu in Project.Stations.Where(s => s.IsCpu))
         {
+            var item = new CpuItem { Cpu = cpu };
             var assignment = assignments.FirstOrDefault(a => a.CpuFunction == cpu.Function);
-            var card = new CpuCard { Cpu = cpu, Databases = choices, PlcDatabaseId = assignment?.PlcDatabaseId ?? "" };
             foreach (var function in assignment?.DistributedFunctions ?? [])
             {
-                if (byFunction.TryGetValue(function, out var station))
+                if (byFunction.TryGetValue(function, out var station) && station.IsDistributed
+                    && _cpus.All(c => c.Stations.All(s => s.Station.Function != function)))
                 {
-                    card.Stations.Add(new StationItem { Station = station });
+                    item.Stations.Add(new StationItem { Station = station });
                 }
             }
 
-            _cards.Add(card);
+            _cpus.Add(item);
         }
 
-        var assigned = _cards.SelectMany(c => c.Stations).Select(s => s.Station.Function).ToHashSet();
+        _unassigned.Clear();
+        var assigned = _cpus.SelectMany(c => c.Stations).Select(s => s.Station.Function).ToHashSet();
         foreach (var station in Project.Stations.Where(s => s.IsDistributed && !assigned.Contains(s.Function)))
         {
             _unassigned.Add(new StationItem { Station = station });
         }
 
-        _selected = _cards.FirstOrDefault();
+        var choices = new List<CpuChoice> { new("", "— no CPU —") };
+        choices.AddRange(_cpus.Select(c => new CpuChoice(c.Cpu.Function, "=" + c.Cpu.Function)));
+        _databaseItems.Clear();
+        foreach (var database in _databases)
+        {
+            var cpu = assignments.FirstOrDefault(a => a.PlcDatabaseId == database.Id && _cpus.Any(c => c.Cpu.Function == a.CpuFunction));
+            _databaseItems.Add(new DatabaseItem { Database = database, Choices = choices, CpuFunction = cpu?.CpuFunction ?? "" });
+        }
+
+        CpuCombo.ItemsSource = null;
+        CpuCombo.ItemsSource = _cpus;
+        DatabaseList.SelectedItem = _databaseItems.FirstOrDefault(d => d.Database.Id == selectedDatabaseId) ?? _databaseItems.FirstOrDefault();
+        if (CpuCombo.SelectedItem is null)
+        {
+            CpuCombo.SelectedItem = _cpus.FirstOrDefault(c => c.Cpu.Function == selectedCpu) ?? _cpus.FirstOrDefault();
+        }
+
         RefreshPreview();
     }
 
-    // ---------------------------------------------------------------- preview
+    // ---------------------------------------------------------------- 1) database ↔ CPU
 
-    private void CpuCard_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void DatabaseList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: CpuCard card })
+        if (DatabaseList.SelectedItem is DatabaseItem { CpuFunction.Length: > 0 } item)
         {
-            _selected = card;
+            CpuCombo.SelectedItem = _cpus.FirstOrDefault(c => c.Cpu.Function == item.CpuFunction);
+        }
+
+        RefreshPreview();
+    }
+
+    private void DatabaseCpu_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_updatingCpuChoice || sender is not ComboBox { DataContext: DatabaseItem changed })
+        {
+            RefreshPreview();
+            return;
+        }
+
+        // do not rely on the binding having run before SelectionChanged
+        changed.CpuFunction = e.AddedItems.Count > 0 && e.AddedItems[0] is CpuChoice chosen ? chosen.Function : "";
+        if (changed.CpuFunction.Length == 0)
+        {
+            RefreshPreview();
+            return;
+        }
+
+        // a CPU belongs to one database only: take it away from the other one
+        _updatingCpuChoice = true;
+        foreach (var other in _databaseItems.Where(d => d != changed && d.CpuFunction == changed.CpuFunction))
+        {
+            other.CpuFunction = "";
+            StatusText.Text = $"={changed.CpuFunction} moved from {other.Name} to {changed.Name}.";
+        }
+
+        _updatingCpuChoice = false;
+        DatabaseList.SelectedItem = changed;
+        CpuCombo.SelectedItem = _cpus.FirstOrDefault(c => c.Cpu.Function == changed.CpuFunction);
+        RefreshPreview();
+    }
+
+    // ---------------------------------------------------------------- 2) CPU ↔ distributed stations
+
+    private void CpuCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var cpu = CpuCombo.SelectedItem as CpuItem;
+        AssignedList.ItemsSource = cpu?.Stations;
+        AssignedList.Tag = cpu;
+        CpuSummary.Text = cpu is null
+            ? ""
+            : "Own modules: " + string.Join("   ", cpu.Cpu.Modules.GroupBy(m => m.Kind).OrderBy(g => g.Key)
+                .Select(g => $"{EplanHardwareMapper.KindName(g.Key)} {g.Count()}"));
+        RefreshPreview();
+    }
+
+    private void MoveUp_Click(object sender, RoutedEventArgs e) => Move(-1);
+
+    private void MoveDown_Click(object sender, RoutedEventArgs e) => Move(+1);
+
+    private void Move(int step)
+    {
+        if (CpuCombo.SelectedItem is not CpuItem cpu || AssignedList.SelectedItem is not StationItem item)
+        {
+            return;
+        }
+
+        var index = cpu.Stations.IndexOf(item);
+        var next = index + step;
+        if (next >= 0 && next < cpu.Stations.Count)
+        {
+            cpu.Stations.Move(index, next);
             RefreshPreview();
         }
     }
 
-    private void CpuDatabase_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshPreview();
-
-    private void RefreshPreview()
+    private void Remove_Click(object sender, RoutedEventArgs e)
     {
-        if (Project is null || _selected is null)
+        if (CpuCombo.SelectedItem is CpuItem cpu && AssignedList.SelectedItem is StationItem item)
         {
-            PreviewGrid.ItemsSource = null;
-            WarningList.ItemsSource = null;
-            PreviewTitle.Text = "Preview";
-            return;
+            cpu.Stations.Remove(item);
+            _unassigned.Add(item);
+            RefreshPreview();
         }
-
-        var plan = EplanHardwareMapper.BuildPlan(Project, _selected.ToAssignment());
-        var target = _databases.FirstOrDefault(d => d.Id == _selected.PlcDatabaseId)?.Name ?? "not imported";
-        PreviewTitle.Text = $"Preview: ={_selected.Cpu.Function} → {target}  ({plan.Channels.Count} rows)";
-        PreviewGrid.ItemsSource = plan.Channels.Select(c => new PreviewRow(
-            EplanHardwareMapper.KindName(c.Kind), c.ModuleNumber, c.ModuleName, c.Port, c.StationFunction,
-            c.Channel.SignalName, c.Channel.ConnectedTo, c.Channel.Schematic?.GlobalPage, c.Channel.Schematic?.Display ?? "")).ToList();
-
-        var warnings = plan.Warnings.ToList();
-        if (_selected.PlcDatabaseId.Length == 0)
-        {
-            warnings.Insert(0, "No PLC database chosen – this CPU will not be imported.");
-        }
-
-        var conflict = _cards.Where(c => c != _selected && c.PlcDatabaseId.Length > 0 && c.PlcDatabaseId == _selected.PlcDatabaseId).ToList();
-        if (conflict.Count > 0)
-        {
-            warnings.Insert(0, $"The same PLC database is chosen for ={string.Join(", =", conflict.Select(c => c.Cpu.Function))}.");
-        }
-
-        WarningList.ItemsSource = warnings;
     }
 
-    // ---------------------------------------------------------------- drag & drop
+    private void UnassignedList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (CpuCombo.SelectedItem is CpuItem cpu && UnassignedList.SelectedItem is StationItem item)
+        {
+            _unassigned.Remove(item);
+            cpu.Stations.Add(item);
+            RefreshPreview();
+        }
+    }
+
+    // drag & drop between "stations of this CPU" and "not assigned", and reordering inside a list
 
     private void StationList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -256,7 +356,8 @@ public partial class EplanImportDialog : Window
 
     private void StationList_DragOver(object sender, DragEventArgs e)
     {
-        e.Effects = e.Data.GetDataPresent(typeof(StationItem)) ? DragDropEffects.Move : DragDropEffects.None;
+        var allowed = e.Data.GetDataPresent(typeof(StationItem)) && (sender != AssignedList || CpuCombo.SelectedItem is CpuItem);
+        e.Effects = allowed ? DragDropEffects.Move : DragDropEffects.None;
         e.Handled = true;
     }
 
@@ -267,15 +368,18 @@ public partial class EplanImportDialog : Window
             return;
         }
 
-        var targetList = CollectionOf(target);
-        var sourceList = _unassigned.Contains(item) ? _unassigned : _cards.Select(c => c.Stations).First(s => s.Contains(item));
+        ObservableCollection<StationItem>? targetList = target == UnassignedList ? _unassigned : (CpuCombo.SelectedItem as CpuItem)?.Stations;
+        var sourceList = _unassigned.Contains(item) ? _unassigned : _cpus.Select(c => c.Stations).FirstOrDefault(s => s.Contains(item));
+        if (targetList is null || sourceList is null)
+        {
+            return;
+        }
 
         var index = targetList.Count;
         if (ItemUnder(target, e.OriginalSource as DependencyObject) is { } over && !ReferenceEquals(over, item))
         {
             index = targetList.IndexOf(over);
-            var container = (ListBoxItem)target.ItemContainerGenerator.ContainerFromItem(over);
-            if (container is not null && e.GetPosition(container).Y > container.ActualHeight / 2)
+            if (target.ItemContainerGenerator.ContainerFromItem(over) is ListBoxItem container && e.GetPosition(container).Y > container.ActualHeight / 2)
             {
                 index++;
             }
@@ -294,9 +398,6 @@ public partial class EplanImportDialog : Window
         e.Handled = true;
     }
 
-    private ObservableCollection<StationItem> CollectionOf(ListBox list) =>
-        list.Tag is CpuCard card ? card.Stations : _unassigned;
-
     private static StationItem? ItemUnder(ListBox list, DependencyObject? source)
     {
         while (source is not null && source is not ListBoxItem && !ReferenceEquals(source, list))
@@ -307,112 +408,65 @@ public partial class EplanImportDialog : Window
         return (source as ListBoxItem)?.DataContext as StationItem;
     }
 
-    // ---------------------------------------------------------------- order buttons
+    // ---------------------------------------------------------------- 3) preview & result
 
-    private static ListBox? StationListOf(object sender) =>
-        sender is FrameworkElement element ? FindChild<ListBox>(FindAncestor<Border>(element)) : null;
-
-    private void MoveUp_Click(object sender, RoutedEventArgs e) => Move(sender, -1);
-
-    private void MoveDown_Click(object sender, RoutedEventArgs e) => Move(sender, +1);
-
-    private void Move(object sender, int step)
+    private void RefreshPreview()
     {
-        if ((sender as FrameworkElement)?.Tag is not CpuCard card || StationListOf(sender)?.SelectedItem is not StationItem item)
+        var database = DatabaseList.SelectedItem as DatabaseItem;
+        var warnings = new List<string>();
+        PreviewGrid.ItemsSource = null;
+        if (Project is null || database is null)
         {
+            PreviewTitle.Text = "3  Preview";
+            WarningList.ItemsSource = null;
             return;
         }
 
-        var index = card.Stations.IndexOf(item);
-        var next = index + step;
-        if (next < 0 || next >= card.Stations.Count)
+        var cpu = _cpus.FirstOrDefault(c => c.Cpu.Function == database.CpuFunction);
+        ImportButton.Content = $"Import into {database.Name}";
+        if (cpu is null)
         {
+            PreviewTitle.Text = $"3  Preview: {database.Name} – no CPU";
+            warnings.Add($"Choose a CPU for {database.Name} in step 1.");
+            WarningList.ItemsSource = warnings;
             return;
         }
 
-        card.Stations.Move(index, next);
-        _selected = card;
-        RefreshPreview();
+        var plan = EplanHardwareMapper.BuildPlan(Project, new EplanCpuAssignment
+        {
+            CpuFunction = cpu.Cpu.Function,
+            DistributedFunctions = cpu.Stations.Select(s => s.Station.Function).ToList()
+        });
+        var stations = cpu.Stations.Count == 0 ? "" : " + =" + string.Join(", =", cpu.Stations.Select(s => s.Station.Function));
+        PreviewTitle.Text = $"3  Preview: {database.Name} ← ={cpu.Cpu.Function}{stations}   ({plan.Channels.Count} rows)";
+        PreviewGrid.ItemsSource = plan.Channels.Select(c => new PreviewRow(
+            EplanHardwareMapper.KindName(c.Kind), c.ModuleNumber, c.ModuleName, c.Port, c.StationFunction,
+            c.Channel.SignalName, c.Channel.ConnectedTo, c.Channel.Schematic?.GlobalPage, c.Channel.Schematic?.Display ?? "")).ToList();
+
+        warnings.AddRange(plan.Warnings);
+        if (_unassigned.Count > 0)
+        {
+            warnings.Add($"Not assigned to any CPU: ={string.Join(", =", _unassigned.Select(s => s.Station.Function))}");
+        }
+
+        WarningList.ItemsSource = warnings;
     }
 
-    private void Remove_Click(object sender, RoutedEventArgs e)
+    private void Save_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.Tag is not CpuCard card || StationListOf(sender)?.SelectedItem is not StationItem item)
-        {
-            return;
-        }
-
-        card.Stations.Remove(item);
-        _unassigned.Add(item);
-        _selected = card;
-        RefreshPreview();
+        ImportDatabaseId = null;
+        DialogResult = true;
     }
 
-    private static T? FindAncestor<T>(DependencyObject? node) where T : DependencyObject
+    private void Import_Click(object sender, RoutedEventArgs e)
     {
-        while (node is not null && node is not T)
+        if (DatabaseList.SelectedItem is not DatabaseItem database || database.CpuFunction.Length == 0)
         {
-            node = VisualTreeHelper.GetParent(node);
-        }
-
-        return node as T;
-    }
-
-    private static T? FindChild<T>(DependencyObject? node) where T : DependencyObject
-    {
-        if (node is null)
-        {
-            return null;
-        }
-
-        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
-        {
-            var child = VisualTreeHelper.GetChild(node, i);
-            if (child is T found)
-            {
-                return found;
-            }
-
-            if (FindChild<T>(child) is { } deeper)
-            {
-                return deeper;
-            }
-        }
-
-        return null;
-    }
-
-    // ---------------------------------------------------------------- apply
-
-    private void Apply_Click(object sender, RoutedEventArgs e)
-    {
-        if (Project is null)
-        {
+            MessageBox.Show(this, "Select a database and choose its CPU in step 1.", "EPLAN import", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
-        var chosen = _cards.Where(c => c.PlcDatabaseId.Length > 0).ToList();
-        if (chosen.Count == 0)
-        {
-            MessageBox.Show(this, "Choose a PLC database for at least one CPU.", "EPLAN import", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        if (chosen.GroupBy(c => c.PlcDatabaseId).Any(g => g.Count() > 1))
-        {
-            MessageBox.Show(this, "Two CPUs are mapped to the same PLC database.", "EPLAN import", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-
-        if (_unassigned.Count > 0
-            && MessageBox.Show(this,
-                $"{_unassigned.Count} distributed station(s) are not assigned to any CPU and will not be imported:\n" +
-                string.Join("\n", _unassigned.Select(s => "  =" + s.Station.Function)) + "\n\nContinue?",
-                "EPLAN import", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
-        {
-            return;
-        }
-
+        ImportDatabaseId = database.Database.Id;
         DialogResult = true;
     }
 }
