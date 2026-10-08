@@ -1,0 +1,117 @@
+<Window x:Class="CwcConfigurator.App.EplanImportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Import hardware from EPLAN"
+        Width="1280"
+        Height="780"
+        MinWidth="960"
+        MinHeight="560"
+        WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <Style x:Key="StationList" TargetType="ListBox">
+            <Setter Property="AllowDrop" Value="True"/>
+            <Setter Property="MinHeight" Value="44"/>
+            <Setter Property="BorderBrush" Value="#D0D7DE"/>
+            <Setter Property="DisplayMemberPath" Value="Display"/>
+            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="StationList_PreviewMouseLeftButtonDown"/>
+            <EventSetter Event="PreviewMouseMove" Handler="StationList_PreviewMouseMove"/>
+            <EventSetter Event="DragOver" Handler="StationList_DragOver"/>
+            <EventSetter Event="Drop" Handler="StationList_Drop"/>
+        </Style>
+    </Window.Resources>
+    <DockPanel Margin="12">
+        <!-- source file -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="EPLAN project (.epj)" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox x:Name="PathText" Grid.Column="1" Height="26" VerticalContentAlignment="Center" IsReadOnly="True"/>
+            <Button Grid.Column="2" Content="Browse..." Width="90" Margin="6,0,0,0" Click="Browse_Click"/>
+            <Button x:Name="ReadButton" Grid.Column="3" Content="Read" Width="90" Margin="6,0,0,0" Click="Read_Click"/>
+        </Grid>
+
+        <!-- buttons -->
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <Button x:Name="AutoMapButton" DockPanel.Dock="Left" Content="Automap" Width="100" IsEnabled="False" Click="AutoMap_Click"
+                    ToolTip="First proposal: distributed stations go to the CPU with the same unit number (=0BFA01 → =0CJA01), CPUs to the PLC database whose name carries that number. Check it before Apply."/>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Cancel" Width="90" IsCancel="True"/>
+                <Button x:Name="ApplyButton" Content="Apply" Width="90" Margin="6,0,0,0" IsEnabled="False" Click="Apply_Click"/>
+            </StackPanel>
+            <TextBlock x:Name="StatusText" Margin="12,0" VerticalAlignment="Center" Foreground="#57606A" TextTrimming="CharacterEllipsis"/>
+        </DockPanel>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260"/>
+                <ColumnDefinition Width="380"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- unassigned distributed stations -->
+            <DockPanel Margin="0,0,10,0">
+                <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Text="Distributed stations – not assigned" Margin="0,0,0,4"/>
+                <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="#57606A" Margin="0,0,0,6"
+                           Text="Drag a station onto a CPU. The order under a CPU is the module numbering order."/>
+                <ListBox x:Name="UnassignedList" Style="{StaticResource StationList}"/>
+            </DockPanel>
+
+            <!-- CPUs -->
+            <DockPanel Grid.Column="1" Margin="0,0,10,0">
+                <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Text="CPUs → PLC database" Margin="0,0,0,4"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="CpuCards">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="#D0D7DE" BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,0,0,8"
+                                        MouseLeftButtonDown="CpuCard_MouseLeftButtonDown" Background="Transparent">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Header}" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding Summary}" Foreground="#57606A" Margin="0,2,0,6"/>
+                                        <DockPanel Margin="0,0,0,6">
+                                            <TextBlock Text="PLC database" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <ComboBox ItemsSource="{Binding Databases}" DisplayMemberPath="Name" SelectedValuePath="Id"
+                                                      SelectedValue="{Binding PlcDatabaseId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                      SelectionChanged="CpuDatabase_SelectionChanged"/>
+                                        </DockPanel>
+                                        <TextBlock Text="Distributed stations (in order)" Foreground="#57606A"/>
+                                        <ListBox ItemsSource="{Binding Stations}" Style="{StaticResource StationList}" Tag="{Binding}"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
+                                            <Button Content="▲" Width="28" ToolTip="Move selected station up" Click="MoveUp_Click" Tag="{Binding}"/>
+                                            <Button Content="▼" Width="28" Margin="4,0,0,0" ToolTip="Move selected station down" Click="MoveDown_Click" Tag="{Binding}"/>
+                                            <Button Content="Remove" Margin="4,0,0,0" Padding="8,0" ToolTip="Back to not assigned" Click="Remove_Click" Tag="{Binding}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+
+            <!-- preview -->
+            <DockPanel Grid.Column="2">
+                <TextBlock x:Name="PreviewTitle" DockPanel.Dock="Top" FontWeight="SemiBold" Text="Preview" Margin="0,0,0,4"/>
+                <ListBox x:Name="WarningList" DockPanel.Dock="Bottom" MaxHeight="110" Margin="0,6,0,0" Foreground="#9A6700" BorderBrush="#D4A72C"/>
+                <DataGrid x:Name="PreviewGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
+                          HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="TAB" Binding="{Binding Tab}" Width="62"/>
+                        <DataGridTextColumn Header="MODULE NUM" Binding="{Binding ModuleNumber}" Width="80"/>
+                        <DataGridTextColumn Header="MODULE NAME" Binding="{Binding ModuleName}" Width="110"/>
+                        <DataGridTextColumn Header="PORT" Binding="{Binding Port}" Width="45"/>
+                        <DataGridTextColumn Header="STATION" Binding="{Binding Station}" Width="70"/>
+                        <DataGridTextColumn Header="EPLAN SIGNAL" Binding="{Binding Signal}" Width="*"/>
+                        <DataGridTextColumn Header="CONNECTED TO" Binding="{Binding ConnectedTo}" Width="95"/>
+                        <DataGridTextColumn Header="PDF PAGE" Binding="{Binding PdfPage}" Width="65"/>
+                        <DataGridTextColumn Header="SCHEMATIC PAGE" Binding="{Binding SchematicPage}" Width="110"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </Grid>
+    </DockPanel>
+</Window>

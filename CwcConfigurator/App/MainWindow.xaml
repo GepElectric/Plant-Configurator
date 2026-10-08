@@ -331,6 +331,8 @@
                 <MenuItem Header="_Open project..." InputGestureText="Ctrl+O" Click="OpenProject_Click"/>
                 <MenuItem Header="_Close Project" Click="CloseProject_Click"/>
                 <MenuItem Header="Import database from _Excel..." Click="ImportExcel_Click"/>
+                <MenuItem Header="Import hardware from EP_LAN (.epj)..." Click="ImportEplan_Click"
+                          ToolTip="Reads an EPLAN PXF export: assigns distributed stations to CPUs, fills MODULE NAMES and the EPLAN columns (signal, connected to, PDF page, schematic page) of the hardware tabs."/>
                 <Separator/>
                 <MenuItem Header="_Save" InputGestureText="Ctrl+S" Click="SaveProject_Click"/>
                 <MenuItem Header="Save _As..." InputGestureText="Ctrl+Shift+S" Click="SaveProjectAs_Click"/>
