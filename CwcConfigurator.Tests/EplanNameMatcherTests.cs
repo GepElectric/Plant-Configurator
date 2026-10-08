@@ -1,3 +1,4 @@
+using System.Linq;
 using CwcConfigurator.Domain;
 using CwcConfigurator.Services.Eplan;
 using Xunit;
@@ -37,6 +38,33 @@ public class EplanNameMatcherTests
     public void Unrelated_ScoresBelowThreshold(string schematic, string db)
     {
         Assert.True(_matcher.Similarity(schematic, "", db) < EplanIdAutomap.LikelyThreshold);
+    }
+
+    // a DB table where CB / CLOSED / ON are everywhere and LOU / BYPASS / DEFLECTOR name single systems
+    private static EplanNameMatcher WithTable() => new EplanNameMatcher().WithCorpus(
+        Enumerable.Range(1, 40).Select(i => $"Feeder {i} CB closed")
+            .Concat(Enumerable.Range(1, 30).Select(i => $"Pump {i} ON"))
+            .Concat(["0AKA01 - Cicruit breaker closed (-Q1)", "Bypass MCB ON (-F40)", "Deflector ESD valve ON (-2K31)", "ESD valve B ON (-2K32)"])
+            .Concat(Enumerable.Range(1, 60).Select(i => $"Signal {i} alarm")));
+
+    [Fact]
+    public void SystemWord_MustNotBeLost()
+    {
+        var matcher = WithTable();
+
+        // LOU (lubrication) never goes to the medium-voltage circuit breaker only because both say "CB CLOSED"
+        Assert.True(matcher.Similarity("LOU UNIT CB CLOSED", "", "0AKA01 - Cicruit breaker closed (-Q1)") < EplanIdAutomap.LikelyThreshold);
+        // two different systems on the two sides
+        Assert.True(matcher.Similarity("HPU EMERGENCY SHUTDOWN VALVE B ON", "", "Deflector ESD valve ON (-2K31)") < EplanIdAutomap.LikelyThreshold);
+        // the right one wins
+        Assert.True(matcher.Similarity("BYPASS MCBs CLOSED", "", "Bypass MCB ON (-F40)")
+                    > matcher.Similarity("BYPASS MCBs CLOSED", "", "0AKA01 - Cicruit breaker closed (-Q1)"));
+    }
+
+    [Fact]
+    public void DifferentKksSystems_NeverMatch()
+    {
+        Assert.Equal(0, _matcher.Similarity("CIRCUIT BREAKER CLOSED (1MKV10)", "", "0AKA01 - Circuit breaker closed (-Q1)"));
     }
 
     [Fact]

@@ -61,6 +61,7 @@ public static class EplanIdAutomap
         foreach (var kind in Enum.GetValues<EplanModuleKind>())
         {
             var candidates = Candidates(database, kind);
+            var tableMatcher = matcher.WithCorpus(candidates.Select(c => c.Name));
             var rows = Rows(database, kind);
             var group = rows.Select(r => Proposal(kind, r)).Where(p => p.EplanSignal.Length > 0).ToList();
             foreach (var p in group)
@@ -72,7 +73,7 @@ public static class EplanIdAutomap
                 }
 
                 var best = candidates
-                    .Select(c => (Candidate: c, Score: matcher.Similarity(p.EplanSignal, p.EplanConnectedTo, c.Name)))
+                    .Select(c => (Candidate: c, Score: tableMatcher.Similarity(p.EplanSignal, p.EplanConnectedTo, c.Name)))
                     .OrderByDescending(x => x.Score)
                     .Take(2)
                     .ToList();

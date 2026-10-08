@@ -24,8 +24,15 @@ public sealed class EplanNameMatcher
     private static readonly Regex SingleLetters = new(@"\b(?:[A-Z] ){1,3}[A-Z]\b", RegexOptions.Compiled);
     private static readonly Regex BracketTags = new(@"\(([^)]*)\)", RegexOptions.Compiled);
 
+    /// <summary>A word in at least this share of the DB names is generic (CLOSED, ON, ALARM, CB …).</summary>
+    private const double GenericShare = 0.03;
+    /// <summary>A word in at most this share of the DB names names a system or device (LOU, HPU, BYPASS, DEFLECTOR …).</summary>
+    private const double DistinctiveShare = 0.01;
+
     private readonly List<(string[] From, string[] To)> _rules;
     private readonly HashSet<(string, string)> _learned;
+    private readonly Dictionary<string, int>? _documentFrequency;
+    private readonly int _corpusSize;
 
     public EplanNameMatcher(IEnumerable<EplanSynonym>? synonyms = null, IEnumerable<EplanLearnedName>? learned = null)
     {
@@ -37,6 +44,27 @@ public sealed class EplanNameMatcher
             .ToList();
         _learned = (learned ?? []).Select(l => (Key(l.SchematicName), Key(l.DbName))).ToHashSet();
     }
+
+    private EplanNameMatcher(EplanNameMatcher source, IEnumerable<string> corpus)
+    {
+        _rules = source._rules;
+        _learned = source._learned;
+        _documentFrequency = new Dictionary<string, int>();
+        foreach (var name in corpus)
+        {
+            _corpusSize++;
+            foreach (var word in Canonical(name).Where(w => !IsIdentifier(w)).Distinct())
+            {
+                _documentFrequency[word] = _documentFrequency.GetValueOrDefault(word) + 1;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Same matcher that knows the DB names of one table: words frequent there (CLOSED, ON, CB) weigh little,
+    /// rare words that name a system or device (LOU, HPU, BYPASS) weigh a lot and must not be missing.
+    /// </summary>
+    public EplanNameMatcher WithCorpus(IEnumerable<string> dbNames) => new(this, dbNames);
 
     /// <summary>Key used to remember a hand-made link: the plain upper-case text without punctuation.</summary>
     public static string Key(string name) => Plain(name);
@@ -64,20 +92,40 @@ public sealed class EplanNameMatcher
             return 0;       // HPU PUMP 1 is never HPU PUMP 2
         }
 
+        // different KKS systems are different equipment (=0AKA01 medium voltage is never =1MKV10 lubrication)
+        var kksA = KksCodes(schematicName);
+        var kksB = KksCodes(dbName);
+        if (kksA.Count > 0 && kksB.Count > 0 && !kksA.Overlaps(kksB))
+        {
+            return 0;
+        }
+
         var wordsA = a.Where(w => !IsIdentifier(w)).Distinct().ToList();
         var wordsB = b.Where(w => !IsIdentifier(w)).Distinct().ToList();
-        var (matched, typos) = Pair(wordsA, wordsB);
-        if (matched == wordsA.Count && matched == wordsB.Count && numbersA.SetEquals(numbersB) && matched > 0)
+        var (pairs, restA, restB, typos) = Pair(wordsA, wordsB);
+        if (restA.Count == 0 && restB.Count == 0 && numbersA.SetEquals(numbersB) && pairs.Count > 0)
         {
             return typos == 0 ? Exact : 0.95;   // same words; a typo still needs a look
         }
 
-        var total = wordsA.Count + wordsB.Count;
-        var score = total == 0 ? 0 : 2.0 * matched / total;
-        var shorter = Math.Min(wordsA.Count, wordsB.Count);
-        if (shorter >= 2 && matched == shorter)
+        // a system/device word on both sides that does not match: LOU UNIT CB CLOSED is not DEFLECTOR CB CLOSED
+        if (restA.Any(IsDistinctive) && restB.Any(IsDistinctive))
         {
-            score = Math.Max(score, 0.75);      // every word of the shorter name is in the longer one
+            return Math.Min(0.5, WeightedDice(pairs, restA, restB));
+        }
+
+        var score = WeightedDice(pairs, restA, restB);
+        var shorter = Math.Min(wordsA.Count, wordsB.Count);
+        var extra = wordsA.Count >= wordsB.Count ? restA : restB;
+        if (shorter >= 2 && pairs.Count == shorter && extra.All(IsGeneric))
+        {
+            score = Math.Max(score, 0.75);      // the longer name only adds generic words
+        }
+
+        if (_documentFrequency is not null)
+        {
+            // every unmatched word that is not generic (HEATER, BYPASS…) makes the link less sure
+            score -= 0.05 * restA.Concat(restB).Count(w => !IsGeneric(w));
         }
 
         if (numbersA.Count != numbersB.Count)
@@ -91,6 +139,37 @@ public sealed class EplanNameMatcher
             .Where(t => t.Length > 0).Any(t => t == device || schematicPlain.Contains(t, StringComparison.Ordinal));
         return Math.Clamp(score + (tagHit ? 0.25 : 0), 0, 0.99);
     }
+
+    /// <summary>Weighted Dice: a pair counts with the smaller weight of its two spellings on both sides.</summary>
+    private double WeightedDice(List<(string A, string B)> pairs, List<string> restA, List<string> restB)
+    {
+        var matched = pairs.Sum(p => 2 * Math.Min(Weight(p.A), Weight(p.B)));
+        var total = matched + restA.Sum(Weight) + restB.Sum(Weight);
+        return total <= 0 ? 0 : matched / total;
+    }
+
+    /// <summary>Rare words weigh more (inverse document frequency); without a corpus every word weighs 1.</summary>
+    private double Weight(string word)
+    {
+        if (_documentFrequency is null || _corpusSize == 0)
+        {
+            return 1;
+        }
+
+        var df = _documentFrequency.GetValueOrDefault(word);
+        return 0.2 + Math.Log((_corpusSize + 1.0) / (df + 1.0)) / Math.Log(_corpusSize + 1.0);
+    }
+
+    private double Share(string word) =>
+        _documentFrequency is null || _corpusSize == 0 ? double.NaN : (double)_documentFrequency.GetValueOrDefault(word) / _corpusSize;
+
+    /// <summary>Without a corpus nothing is known, so every word may be an add-on (old behaviour).</summary>
+    private bool IsGeneric(string word) => double.IsNaN(Share(word)) || Share(word) >= GenericShare;
+
+    private bool IsDistinctive(string word) => !double.IsNaN(Share(word)) && Share(word) <= DistinctiveShare;
+
+    private static HashSet<string> KksCodes(string name) =>
+        Kks.Matches(StripDiacritics(name).ToUpperInvariant()).Select(m => m.Value).ToHashSet();
 
     /// <summary>Canonical words of a name (see class remarks).</summary>
     public List<string> Canonical(string name)
@@ -122,17 +201,16 @@ public sealed class EplanNameMatcher
     }
 
     /// <summary>Greedy word pairing; equal words first, then words within a small edit distance (typos).</summary>
-    private static (int Matched, int Typos) Pair(List<string> a, List<string> b)
+    private static (List<(string A, string B)> Pairs, List<string> RestA, List<string> RestB, int Typos) Pair(List<string> a, List<string> b)
     {
         var free = b.ToList();
-        var matched = 0;
-        var typos = 0;
+        var matched = new List<(string A, string B)>();
         var rest = new List<string>();
         foreach (var word in a)
         {
             if (free.Remove(word))
             {
-                matched++;
+                matched.Add((word, word));
             }
             else
             {
@@ -140,18 +218,24 @@ public sealed class EplanNameMatcher
             }
         }
 
+        var typos = 0;
+        var restA = new List<string>();
         foreach (var word in rest)
         {
             var near = free.FirstOrDefault(other => IsTypo(word, other));
             if (near is not null)
             {
                 free.Remove(near);
-                matched++;
+                matched.Add((word, near));
                 typos++;
+            }
+            else
+            {
+                restA.Add(word);
             }
         }
 
-        return (matched, typos);
+        return (matched, restA, free, typos);
     }
 
     private static bool IsTypo(string a, string b)
