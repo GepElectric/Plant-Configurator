@@ -55,20 +55,20 @@ public class EplanIdWriterTests
     }
 
     [Fact]
-    public void CollectIds_SkipsRowsWithoutIdOrDisabled()
+    public void CollectIds_TakesEveryRowInUse_IdZeroIncluded()
     {
         var db = PlcDatabase.CreateDefault("Unit 1");
-        db.DigitalInputs[0].EplanTerminalRef = "1CJA01|A111|1";
-        db.DigitalInputs[0].Id = 10;
-        db.DigitalInputs[0].Config = SignalConfigState.Enabled;
+        db.DigitalInputs[0].EplanTerminalRef = "1CJA01|A111|1";      // I0.0 with the real signal ID 0
+        db.DigitalInputs[0].Id = 0;
+        db.DigitalInputs[0].Config = SignalConfigState.Inverted;
         db.DigitalInputs[1].EplanTerminalRef = "1CJA01|A111|2";
         db.DigitalInputs[1].Id = 11;
-        db.DigitalInputs[1].Config = SignalConfigState.Disabled;
-        db.DigitalInputs[2].EplanTerminalRef = "1CJA01|A111|3";
+        db.DigitalInputs[1].Config = SignalConfigState.Disabled;      // not in use
+        db.DigitalInputs[2].EplanTerminalRef = "1CJA01|A111|3";      // default row: disabled, ID 0
 
         var ids = EplanIdWriter.CollectIds([db]);
 
-        Assert.Equal(new Dictionary<string, int> { ["1CJA01|A111|1"] = 10 }, ids);
+        Assert.Equal(new Dictionary<string, int> { ["1CJA01|A111|1"] = 0 }, ids);
     }
 
     /// <summary>Real project (not in the repo): every mapped terminal gets its ID and the file still reads the same.</summary>
@@ -97,6 +97,11 @@ public class EplanIdWriterTests
             var result = EplanIdWriter.Write(source, target, EplanIdWriter.CollectIds([db]));
 
             Assert.Empty(result.NotFound);
+            // nothing but the addresses may change: line breaks / tabs of texts (&#10; &#9;) stay as EPLAN wrote them
+            var sourceText = File.ReadAllText(source);
+            var targetText = File.ReadAllText(target);
+            Assert.Equal(sourceText, System.Text.RegularExpressions.Regex.Replace(targetText, " - ID \\d+\"", "\""));
+
             var written = EplanProjectReader.Read(target);
             Assert.Equal(project.Pages.Count, written.Pages.Count);
             var a115 = written.Stations.Single(s => s.Function == "2CJA01").Modules.Single(m => m.DeviceTag == "A115");

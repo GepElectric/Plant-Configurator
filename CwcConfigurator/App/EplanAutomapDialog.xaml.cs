@@ -46,7 +46,7 @@ public partial class EplanAutomapDialog : Window
         public string ModuleName => Proposal.ModuleName;
         public int? Port => Proposal.Port;
         public string EplanSignal => Proposal.EplanSignal;
-        public int CurrentId => Proposal.CurrentId;
+        public int? CurrentId => Proposal.CurrentId;
         public bool HasProposal => Proposal.Proposed is not null;
         public bool ChangesId => Proposal.Proposed is not null && Proposal.Proposed.Id != Proposal.CurrentId;
 
@@ -146,7 +146,7 @@ public partial class EplanAutomapDialog : Window
         var candidates = Enum.GetValues<EplanModuleKind>().ToDictionary(k => k, k => EplanIdAutomap.Candidates(database, k));
         var matcher = new EplanNameMatcher(_config.Synonyms, _config.LearnedNames);
         _items = EplanIdAutomap.Propose(database, matcher)
-            .Select(p => new Item(p, candidates[p.Kind]) { Use = p.Match == AutomapMatch.Exact && p.Proposed!.Id != p.CurrentId })
+            .Select(p => new Item(p, candidates[p.Kind]) { Use = p.Match == AutomapMatch.Exact && p.Proposed!.Id != p.CurrentId })     // null CurrentId = disabled row
             .ToList();
         RefreshView();
     }

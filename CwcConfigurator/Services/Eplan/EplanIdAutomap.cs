@@ -22,7 +22,8 @@ public sealed class AutomapProposal
     public int? Port { get; init; }
     public string EplanSignal { get; init; } = "";
     public string EplanConnectedTo { get; init; } = "";
-    public int CurrentId { get; init; }
+    /// <summary>ID of the hardware row; null when the row is disabled (default rows are disabled with ID 0).</summary>
+    public int? CurrentId { get; init; }
     public AutomapCandidate? Proposed { get; set; }
     public AutomapMatch Match { get; set; }
     public double Score { get; set; }
@@ -51,7 +52,7 @@ public static class EplanIdAutomap
             EplanModuleKind.AnalogOutput => catalog.AoRows.Select(r => new AutomapCandidate(r.AoNumber, r.NameEnglish, r.AoSystemName, r.AoPlcName)),
             _ => catalog.MeasRows.Select(r => new AutomapCandidate(r.Id, r.NameEnglish, r.PlcStructure, r.PlcName))
         };
-        return list.Where(c => c.Id > 0 && !string.IsNullOrWhiteSpace(c.Name)).ToList();
+        return list.Where(c => c.Id >= 0 && !string.IsNullOrWhiteSpace(c.Name)).ToList();     // ID 0 is a real signal
     }
 
     public static List<AutomapProposal> Propose(PlcDatabase database, EplanNameMatcher? matcher = null)
@@ -136,7 +137,10 @@ public static class EplanIdAutomap
         return proposals;
     }
 
-    /// <summary>Writes the IDs of the chosen proposals into the hardware rows. Returns how many rows changed.</summary>
+    /// <summary>
+    /// Writes the IDs of the chosen proposals into the hardware rows. A disabled row that gets a signal is switched
+    /// to Enabled (an inverted row stays inverted). Returns how many rows changed.
+    /// </summary>
     public static int Apply(IEnumerable<AutomapProposal> chosen)
     {
         var changed = 0;
@@ -145,10 +149,26 @@ public static class EplanIdAutomap
             var id = p.Proposed!.Id;
             switch (p.Row)
             {
-                case DigitalSignalConfig d when d.Id != id: d.Id = id; changed++; break;
-                case AnalogSignalConfig a when a.Id != id: a.Id = id; changed++; break;
-                case CounterConfig k when k.Id != id: k.Id = id; changed++; break;
-                case AnalogOutputConfig o when o.Id != id: o.Id = id; changed++; break;
+                case DigitalSignalConfig d when d.Id != id || d.Config == SignalConfigState.Disabled:
+                    d.Id = id;
+                    d.Config = d.Config == SignalConfigState.Disabled ? SignalConfigState.Enabled : d.Config;
+                    changed++;
+                    break;
+                case AnalogSignalConfig a when a.Id != id || a.Config == SignalConfigState.Disabled:
+                    a.Id = id;
+                    a.Config = a.Config == SignalConfigState.Disabled ? SignalConfigState.Enabled : a.Config;
+                    changed++;
+                    break;
+                case CounterConfig k when k.Id != id || k.Config == SignalConfigState.Disabled:
+                    k.Id = id;
+                    k.Config = k.Config == SignalConfigState.Disabled ? SignalConfigState.Enabled : k.Config;
+                    changed++;
+                    break;
+                case AnalogOutputConfig o when o.Id != id || o.Config == SignalConfigState.Disabled:
+                    o.Id = id;
+                    o.Config = o.Config == SignalConfigState.Disabled ? SignalConfigState.Enabled : o.Config;
+                    changed++;
+                    break;
             }
         }
 
@@ -184,6 +204,8 @@ public static class EplanIdAutomap
 
     private static bool IsSpare(string signal) => Spare.Contains(EplanNameMatcher.Key(signal));
 
+    private static int? InUse(IEplanDocumented row) => row.Config == SignalConfigState.Disabled ? null : row.Id;
+
     private static IEnumerable<object> Rows(PlcDatabase db, EplanModuleKind kind) => kind switch
     {
         EplanModuleKind.DigitalInput => db.DigitalInputs,
@@ -196,10 +218,10 @@ public static class EplanIdAutomap
 
     private static AutomapProposal Proposal(EplanModuleKind kind, object row) => row switch
     {
-        DigitalSignalConfig d => new AutomapProposal { Kind = kind, Row = row, ModuleNumber = d.ModuleNumber, ModuleName = d.ModuleName, Port = d.Port, EplanSignal = d.EplanSignalName, EplanConnectedTo = d.EplanConnectedTo, CurrentId = d.Id },
-        AnalogSignalConfig a => new AutomapProposal { Kind = kind, Row = row, ModuleNumber = a.ModuleNumber, ModuleName = a.ModuleName, Port = a.Port, EplanSignal = a.EplanSignalName, EplanConnectedTo = a.EplanConnectedTo, CurrentId = a.Id },
-        CounterConfig k => new AutomapProposal { Kind = kind, Row = row, ModuleNumber = k.ModuleNumber, ModuleName = k.ModuleName, EplanSignal = k.EplanSignalName, EplanConnectedTo = k.EplanConnectedTo, CurrentId = k.Id },
-        AnalogOutputConfig o => new AutomapProposal { Kind = kind, Row = row, ModuleNumber = o.ModuleNumber, ModuleName = o.ModuleName, Port = o.Port, EplanSignal = o.EplanSignalName, EplanConnectedTo = o.EplanConnectedTo, CurrentId = o.Id },
+        DigitalSignalConfig d => new AutomapProposal { Kind = kind, Row = row, ModuleNumber = d.ModuleNumber, ModuleName = d.ModuleName, Port = d.Port, EplanSignal = d.EplanSignalName, EplanConnectedTo = d.EplanConnectedTo, CurrentId = InUse(d) },
+        AnalogSignalConfig a => new AutomapProposal { Kind = kind, Row = row, ModuleNumber = a.ModuleNumber, ModuleName = a.ModuleName, Port = a.Port, EplanSignal = a.EplanSignalName, EplanConnectedTo = a.EplanConnectedTo, CurrentId = InUse(a) },
+        CounterConfig k => new AutomapProposal { Kind = kind, Row = row, ModuleNumber = k.ModuleNumber, ModuleName = k.ModuleName, EplanSignal = k.EplanSignalName, EplanConnectedTo = k.EplanConnectedTo, CurrentId = InUse(k) },
+        AnalogOutputConfig o => new AutomapProposal { Kind = kind, Row = row, ModuleNumber = o.ModuleNumber, ModuleName = o.ModuleName, Port = o.Port, EplanSignal = o.EplanSignalName, EplanConnectedTo = o.EplanConnectedTo, CurrentId = InUse(o) },
         _ => throw new ArgumentException("Unknown hardware row type.", nameof(row))
     };
 }

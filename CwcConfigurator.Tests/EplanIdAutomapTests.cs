@@ -140,6 +140,22 @@ public class EplanIdAutomapTests
     }
 
     [Fact]
+    public void IdZero_IsARealSignal_AndApplyEnablesTheRow()
+    {
+        var db = Database();
+        db.DbCatalog.DiRows.Add(new DbStringRow { Id = 0, NameEnglish = "Maintenance switch active (-S100)" });
+        var row = Di(db, 0, 0, "MAINTENANCE SWITCH ACTIVE");          // default row: disabled, ID 0
+
+        var proposal = EplanIdAutomap.Propose(db).Single();
+        Assert.Equal(0, proposal.Proposed!.Id);
+        Assert.Null(proposal.CurrentId);                               // disabled = no ID yet
+
+        Assert.Equal(1, EplanIdAutomap.Apply([proposal]));
+        Assert.Equal(0, row.Id);
+        Assert.Equal(SignalConfigState.Enabled, row.Config);
+    }
+
+    [Fact]
     public void Apply_WritesOnlyHardwareIds()
     {
         var db = Database();
