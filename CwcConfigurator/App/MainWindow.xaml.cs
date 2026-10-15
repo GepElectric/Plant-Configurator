@@ -4336,7 +4336,7 @@ public partial class MainWindow : Window
         DbMeasGrid.Items.Refresh();
         _dbAoRowsView?.Refresh();
         DbAoGrid.Items.Refresh();
-        ShowMessage("DB DI, DB DO, DB MEAS and DB AO configuration columns updated.");
+        ShowMessage("DB DI, DB DO, DB MEAS and DB AO configuration columns updated (module, port, EPLAN signal, connected to).");
     }
 
     private void ConfigureDbDiRow_Click(object sender, RoutedEventArgs e)
@@ -10560,6 +10560,8 @@ public partial class MainWindow : Window
             new(DbDiTrueFilter, "All used", row => row.TrueText),
             new(DbDiModuleNameFilter, "All modules", row => DisplayModuleName("DI", row.ModuleName)),
             new(DbDiModulePortFilter, "All ports", row => row.ModulePort?.ToString() ?? string.Empty, SortAsNumber: true),
+            new(DbDiEplanSignalFilter, "All EPLAN signals", row => row.EplanSignal),
+            new(DbDiEplanConnectedToFilter, "All connected to", row => row.EplanConnectedTo),
             new(DbDiColor0Filter, "All color 0", row => DisplayValidation(DbValidationDefaults.DbDiColorValues, row.ColorValue0)),
             new(DbDiColor1Filter, "All color 1", row => DisplayValidation(DbValidationDefaults.DbDiColorValues, row.ColorValue1)),
             new(DbDiAlarmConfigFilter, "All alarm config", row => DisplayValidation(DbValidationDefaults.DbDiAlarmBoolean, row.AlarmConfig)),
@@ -10586,6 +10588,8 @@ public partial class MainWindow : Window
             new(DbDoTrueFilter, "All used", row => row.TrueText),
             new(DbDoModuleNameFilter, "All modules", row => DisplayModuleName("DO", row.ModuleName)),
             new(DbDoModulePortFilter, "All ports", row => row.ModulePort?.ToString() ?? string.Empty, SortAsNumber: true),
+            new(DbDoEplanSignalFilter, "All EPLAN signals", row => row.EplanSignal),
+            new(DbDoEplanConnectedToFilter, "All connected to", row => row.EplanConnectedTo),
             new(DbDoXrefIdFilter, "All XREF ID", row => row.CrossReferenceIdCount?.ToString(CultureInfo.InvariantCulture) ?? "", SortAsNumber: true),
             new(DbDoXrefValFilter, "All XREF VAL", row => row.CrossReferenceValCount?.ToString(CultureInfo.InvariantCulture) ?? "", SortAsNumber: true)
         ];
@@ -10607,6 +10611,8 @@ public partial class MainWindow : Window
             new(DbMeasTypeFilter, "All types", row => row.Type),
             new(DbMeasModuleNameFilter, "All modules", row => FormatMeasModuleName(row)),
             new(DbMeasModulePortFilter, "All ports", row => row.ModulePort?.ToString() ?? string.Empty, SortAsNumber: true),
+            new(DbMeasEplanSignalFilter, "All EPLAN signals", row => row.EplanSignal),
+            new(DbMeasEplanConnectedToFilter, "All connected to", row => row.EplanConnectedTo),
             new(DbMeasXrefMeasIdFilter, "All XREF MEAS_ID", row => row.CrossReferenceMeasIdCount?.ToString(CultureInfo.InvariantCulture) ?? "", SortAsNumber: true),
             new(DbMeasXrefValFilter, "All XREF VAL", row => row.CrossReferenceValCount?.ToString(CultureInfo.InvariantCulture) ?? "", SortAsNumber: true)
         ];
@@ -10658,6 +10664,8 @@ public partial class MainWindow : Window
             new(DbAoUnitFilter, "All units", row => DisplayValidation(DbValidationDefaults.DbMeasUnit, row.Unit)),
             new(DbAoModuleNameFilter, "All modules", row => row.ModuleName),
             new(DbAoModulePortFilter, "All ports", row => row.ModulePort?.ToString() ?? string.Empty, SortAsNumber: true),
+            new(DbAoEplanSignalFilter, "All EPLAN signals", row => row.EplanSignal),
+            new(DbAoEplanConnectedToFilter, "All connected to", row => row.EplanConnectedTo),
             new(DbAoParValLowIdFilter, "All low IDs", row => row.ParValLowId, SortAsNumber: true),
             new(DbAoParValLowStructFilter, "All low structs", row => DisplayParameterReference(row.ParValLowId, "PlcStructure")),
             new(DbAoParValLowNameFilter, "All low names", row => DisplayParameterReference(row.ParValLowId, "PlcName")),
@@ -10787,12 +10795,14 @@ public partial class MainWindow : Window
 
         SetColumnsVisibility(showOtherLanguage, DbDiStatusSystemOtherColumn, DbDiStatusNameOtherColumn);
         SetColumnsVisibility(showMapping, DbDiModuleNameColumn, DbDiModulePortColumn);
+        SetColumnsVisibility(showMapping, DbDiEplanSignalColumn, DbDiEplanConnectedToColumn);
         SetColumnsVisibility(showColoring, DbDiColor0Column, DbDiColor1Column);
         SetColumnsVisibility(showAlarmMapping, DbDiAlarmConfigColumn, DbDiAlarmInvertColumn, DbDiAlarmIdColumn, DbDiExtra1Column, DbDiExtra2Column);
         SetColumnsVisibility(showXref, DbDiXrefIdColumn, DbDiXrefValColumn);
         SetColumnsVisibility(showRepair, DbDiRepairColumn);
         SetControlsVisibility(showOtherLanguage, DbDiSystemOtherFilter, DbDiNameOtherFilter);
         SetControlsVisibility(showMapping, DbDiModuleNameFilter, DbDiModulePortFilter);
+        SetControlsVisibility(showMapping, DbDiEplanSignalFilter, DbDiEplanConnectedToFilter);
         SetControlsVisibility(showColoring, DbDiColor0Filter, DbDiColor1Filter);
         SetControlsVisibility(showAlarmMapping, DbDiAlarmConfigFilter, DbDiAlarmInvertFilter, DbDiAlarmIdFilter, DbDiExtra1Filter, DbDiExtra2Filter);
         SetControlsVisibility(showXref, DbDiXrefIdFilter, DbDiXrefValFilter);
@@ -10822,10 +10832,12 @@ public partial class MainWindow : Window
 
         SetColumnsVisibility(showOtherLanguage, DbDoStatusSystemOtherColumn, DbDoStatusNameOtherColumn);
         SetColumnsVisibility(showMapping, DbDoModuleNameColumn, DbDoModulePortColumn);
+        SetColumnsVisibility(showMapping, DbDoEplanSignalColumn, DbDoEplanConnectedToColumn);
         SetColumnsVisibility(showXref, DbDoXrefIdColumn, DbDoXrefValColumn);
         SetColumnsVisibility(showRepair, DbDoRepairColumn);
         SetControlsVisibility(showOtherLanguage, DbDoSystemOtherFilter, DbDoNameOtherFilter);
         SetControlsVisibility(showMapping, DbDoModuleNameFilter, DbDoModulePortFilter);
+        SetControlsVisibility(showMapping, DbDoEplanSignalFilter, DbDoEplanConnectedToFilter);
         SetControlsVisibility(showXref, DbDoXrefIdFilter, DbDoXrefValFilter);
         _dbDoView?.Refresh();
         Dispatcher.BeginInvoke(ResizeDbDoColumnsToViewport, DispatcherPriority.Background);
@@ -10853,6 +10865,7 @@ public partial class MainWindow : Window
 
         SetColumnsVisibility(showOtherLanguage, DbMeasNameOtherColumn);
         SetColumnsVisibility(showSettings, DbMeasUnitColumn, DbMeasLoggingEnableColumn, DbMeasLoggingTimeColumn, DbMeasTypeColumn, DbMeasModuleNameColumn, DbMeasModulePortColumn);
+        SetColumnsVisibility(showSettings, DbMeasEplanSignalColumn, DbMeasEplanConnectedToColumn);
         SetColumnsVisibility(showLimitConfiguration, DbMeasLimitLlEnabledColumn, DbMeasLimitLoEnabledColumn, DbMeasLimitHiEnabledColumn, DbMeasLimitHhEnabledColumn);
         SetColumnsVisibility(showParameterScaling,
             DbMeasParVal1IdColumn, DbMeasParVal1StructColumn, DbMeasParVal1NameColumn, DbMeasParVal1ValueColumn,
@@ -10874,6 +10887,7 @@ public partial class MainWindow : Window
         SetColumnsVisibility(showRepair, DbMeasRepairColumn);
         SetControlsVisibility(showOtherLanguage, DbMeasNameOtherFilter);
         SetControlsVisibility(showSettings, DbMeasUnitFilter, DbMeasLoggingEnableFilter, DbMeasLoggingTimeFilter, DbMeasTypeFilter, DbMeasModuleNameFilter, DbMeasModulePortFilter);
+        SetControlsVisibility(showSettings, DbMeasEplanSignalFilter, DbMeasEplanConnectedToFilter);
         SetControlsVisibility(showXref, DbMeasXrefMeasIdFilter, DbMeasXrefValFilter);
         _dbMeasView?.Refresh();
         Dispatcher.BeginInvoke(ResizeDbMeasColumnsToViewport, DispatcherPriority.Background);
@@ -10896,6 +10910,7 @@ public partial class MainWindow : Window
 
         SetColumnsVisibility(showOtherLanguage, DbAoNameOtherColumn);
         SetColumnsVisibility(showMapping, DbAoModuleNameColumn, DbAoModulePortColumn);
+        SetColumnsVisibility(showMapping, DbAoEplanSignalColumn, DbAoEplanConnectedToColumn);
         SetColumnsVisibility(showConfiguration,
             DbAoParValLowIdColumn, DbAoParValLowStructColumn, DbAoParValLowNameColumn, DbAoParValLowValueColumn,
             DbAoParValHighIdColumn, DbAoParValHighStructColumn, DbAoParValHighNameColumn, DbAoParValHighValueColumn,
@@ -10905,6 +10920,7 @@ public partial class MainWindow : Window
         SetColumnsVisibility(showRepair, DbAoRepairColumn);
         SetControlsVisibility(showOtherLanguage, DbAoNameOtherFilter);
         SetControlsVisibility(showMapping, DbAoModuleNameFilter, DbAoModulePortFilter);
+        SetControlsVisibility(showMapping, DbAoEplanSignalFilter, DbAoEplanConnectedToFilter);
         SetControlsVisibility(showConfiguration,
             DbAoParValLowIdFilter, DbAoParValLowStructFilter, DbAoParValLowNameFilter, DbAoParValLowValueFilter,
             DbAoParValHighIdFilter, DbAoParValHighStructFilter, DbAoParValHighNameFilter, DbAoParValHighValueFilter,
@@ -11182,6 +11198,8 @@ public partial class MainWindow : Window
             new(DbDiStatusNameOtherColumn, DbDiNameOtherFilter, 160, true),
             new(DbDiModuleNameColumn, DbDiModuleNameFilter, 110, true),
             new(DbDiModulePortColumn, DbDiModulePortFilter, 80, false),
+            new(DbDiEplanSignalColumn, DbDiEplanSignalFilter, 180, true),
+            new(DbDiEplanConnectedToColumn, DbDiEplanConnectedToFilter, 110, true),
             new(DbDiColor0Column, DbDiColor0Filter, 90, false),
             new(DbDiColor1Column, DbDiColor1Filter, 90, false),
             new(DbDiAlarmConfigColumn, DbDiAlarmConfigFilter, 90, false),
@@ -11211,6 +11229,8 @@ public partial class MainWindow : Window
             new(DbDoStatusNameOtherColumn, DbDoNameOtherFilter, 160, true),
             new(DbDoModuleNameColumn, DbDoModuleNameFilter, 110, true),
             new(DbDoModulePortColumn, DbDoModulePortFilter, 80, false),
+            new(DbDoEplanSignalColumn, DbDoEplanSignalFilter, 180, true),
+            new(DbDoEplanConnectedToColumn, DbDoEplanConnectedToFilter, 110, true),
             new(DbDoXrefIdColumn, DbDoXrefIdFilter, 80, false),
             new(DbDoXrefValColumn, DbDoXrefValFilter, 80, false)
         ];
@@ -11235,6 +11255,8 @@ public partial class MainWindow : Window
             new(DbMeasTypeColumn, DbMeasTypeFilter, 80, false),
             new(DbMeasModuleNameColumn, DbMeasModuleNameFilter, 110, true),
             new(DbMeasModulePortColumn, DbMeasModulePortFilter, 90, false),
+            new(DbMeasEplanSignalColumn, DbMeasEplanSignalFilter, 180, true),
+            new(DbMeasEplanConnectedToColumn, DbMeasEplanConnectedToFilter, 110, true),
             new(DbMeasXrefMeasIdColumn, DbMeasXrefMeasIdFilter, 95, false),
             new(DbMeasXrefValColumn, DbMeasXrefValFilter, 80, false)
         ];
@@ -11256,6 +11278,8 @@ public partial class MainWindow : Window
             new(DbAoUnitColumn, DbAoUnitFilter, 90, false),
             new(DbAoModuleNameColumn, DbAoModuleNameFilter, 120, true),
             new(DbAoModulePortColumn, DbAoModulePortFilter, 90, false),
+            new(DbAoEplanSignalColumn, DbAoEplanSignalFilter, 180, true),
+            new(DbAoEplanConnectedToColumn, DbAoEplanConnectedToFilter, 110, true),
             new(DbAoParValLowIdColumn, DbAoParValLowIdFilter, 110, false),
             new(DbAoParValLowStructColumn, DbAoParValLowStructFilter, 170, true),
             new(DbAoParValLowNameColumn, DbAoParValLowNameFilter, 170, true),
@@ -12090,6 +12114,8 @@ public partial class MainWindow : Window
             dbRow.TrueText = "";
             dbRow.ModuleName = "";
             dbRow.ModulePort = null;
+            dbRow.EplanSignal = "";
+            dbRow.EplanConnectedTo = "";
         }
 
         foreach (var configRow in configRows)
@@ -12109,6 +12135,8 @@ public partial class MainWindow : Window
             dbRow.TrueText = "TRUE";
             dbRow.ModuleName = configRow.ModuleNumber.ToString(CultureInfo.InvariantCulture);
             dbRow.ModulePort = configRow.Port;
+            dbRow.EplanSignal = configRow.EplanSignalName;
+            dbRow.EplanConnectedTo = configRow.EplanConnectedTo;
         }
     }
 
@@ -12120,6 +12148,8 @@ public partial class MainWindow : Window
             dbRow.Type = "";
             dbRow.ModuleName = "";
             dbRow.ModulePort = null;
+            dbRow.EplanSignal = "";
+            dbRow.EplanConnectedTo = "";
         }
 
         FillMeasRows(_project.AnalogInputs, "AI");
@@ -12158,6 +12188,8 @@ public partial class MainWindow : Window
             dbRow.Type = type;
             dbRow.ModuleName = configRow.ModuleName;
             dbRow.ModulePort = configRow.Port;
+            dbRow.EplanSignal = configRow.EplanSignalName;
+            dbRow.EplanConnectedTo = configRow.EplanConnectedTo;
         }
     }
 
@@ -12175,6 +12207,8 @@ public partial class MainWindow : Window
             dbRow.Type = type;
             dbRow.ModuleName = configRow.ModuleName;
             dbRow.ModulePort = 0;
+            dbRow.EplanSignal = configRow.EplanSignalName;
+            dbRow.EplanConnectedTo = configRow.EplanConnectedTo;
         }
     }
 
@@ -12195,6 +12229,8 @@ public partial class MainWindow : Window
             dbRow.TrueText = "";
             dbRow.ModuleName = "";
             dbRow.ModulePort = null;
+            dbRow.EplanSignal = "";
+            dbRow.EplanConnectedTo = "";
         }
 
         foreach (var configRow in _project.AnalogOutputs.Where(row => row.Config == SignalConfigState.Enabled))
@@ -12208,6 +12244,8 @@ public partial class MainWindow : Window
             dbRow.TrueText = "TRUE";
             dbRow.ModuleName = configRow.ModuleName;
             dbRow.ModulePort = configRow.Port;
+            dbRow.EplanSignal = configRow.EplanSignalName;
+            dbRow.EplanConnectedTo = configRow.EplanConnectedTo;
             if (!string.IsNullOrWhiteSpace(configRow.SystemName))
             {
                 dbRow.AoSystemName = configRow.SystemName;

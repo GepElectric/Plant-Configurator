@@ -1946,6 +1946,10 @@ public sealed class DbStringRow : IValidationState
     public string TrueText { get; set; } = "";
     public string ModuleName { get; set; } = "";
     public int? ModulePort { get; set; }
+    /// <summary>EPLAN signal of the hardware channel mapped to this ID (Refresh DB from hardware).</summary>
+    public string EplanSignal { get; set; } = "";
+    /// <summary>EPLAN "connected to" of that hardware channel (Refresh DB from hardware).</summary>
+    public string EplanConnectedTo { get; set; } = "";
     public string ColorValue0 { get; set; } = "";
     public string ColorValue1 { get; set; } = "";
     public string AlarmConfig { get; set; } = "";
@@ -2146,6 +2150,10 @@ public sealed class DbAoRow
     public string TrueText { get; set; } = "";
     public string ModuleName { get; set; } = "";
     public int? ModulePort { get; set; }
+    /// <summary>EPLAN signal of the hardware channel mapped to this ID (Refresh DB from hardware).</summary>
+    public string EplanSignal { get; set; } = "";
+    /// <summary>EPLAN "connected to" of that hardware channel (Refresh DB from hardware).</summary>
+    public string EplanConnectedTo { get; set; } = "";
     public double Low { get; set; }
     public double High { get; set; }
     public double Offset { get; set; }

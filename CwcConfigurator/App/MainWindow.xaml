@@ -1196,6 +1196,8 @@
                                 <ComboBox x:Name="DbDiNameOtherFilter" Width="160" SelectionChanged="DbDiFilter_SelectionChanged"/>
                                 <ComboBox x:Name="DbDiModuleNameFilter" Width="110" SelectionChanged="DbDiFilter_SelectionChanged"/>
                                 <ComboBox x:Name="DbDiModulePortFilter" Width="80" SelectionChanged="DbDiFilter_SelectionChanged"/>
+                                <ComboBox x:Name="DbDiEplanSignalFilter" Width="180" SelectionChanged="DbDiFilter_SelectionChanged"/>
+                                <ComboBox x:Name="DbDiEplanConnectedToFilter" Width="110" SelectionChanged="DbDiFilter_SelectionChanged"/>
                                 <ComboBox x:Name="DbDiColor0Filter" Width="90" SelectionChanged="DbDiFilter_SelectionChanged"/>
                                 <ComboBox x:Name="DbDiColor1Filter" Width="90" SelectionChanged="DbDiFilter_SelectionChanged"/>
                                 <ComboBox x:Name="DbDiAlarmConfigFilter" Width="90" SelectionChanged="DbDiFilter_SelectionChanged"/>
@@ -1282,6 +1284,8 @@
                                     </DataGridTemplateColumn.CellEditingTemplate>
                                 </DataGridTemplateColumn>
                                 <DataGridTextColumn x:Name="DbDiModulePortColumn" Width="80" Header="MODULE PORT" Binding="{Binding ModulePort}" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn x:Name="DbDiEplanSignalColumn" Width="180" Header="EPLAN SIGNAL" Binding="{Binding EplanSignal}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn x:Name="DbDiEplanConnectedToColumn" Width="110" Header="CONNECTED TO" Binding="{Binding EplanConnectedTo}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTemplateColumn x:Name="DbDiColor0Column" Width="90" Header="COLOR VAL 0">
                                     <DataGridTemplateColumn.CellStyle>
                                         <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
@@ -1465,6 +1469,8 @@
                                     <ComboBox x:Name="DbDoNameOtherFilter" Width="160" SelectionChanged="DbDoFilter_SelectionChanged"/>
                                     <ComboBox x:Name="DbDoModuleNameFilter" Width="110" SelectionChanged="DbDoFilter_SelectionChanged"/>
                                     <ComboBox x:Name="DbDoModulePortFilter" Width="80" SelectionChanged="DbDoFilter_SelectionChanged"/>
+                                    <ComboBox x:Name="DbDoEplanSignalFilter" Width="180" SelectionChanged="DbDoFilter_SelectionChanged"/>
+                                    <ComboBox x:Name="DbDoEplanConnectedToFilter" Width="110" SelectionChanged="DbDoFilter_SelectionChanged"/>
                                     <ComboBox x:Name="DbDoXrefIdFilter" Width="80" SelectionChanged="DbDoFilter_SelectionChanged"/>
                                     <ComboBox x:Name="DbDoXrefValFilter" Width="80" SelectionChanged="DbDoFilter_SelectionChanged"/>
                                 </StackPanel>
@@ -1555,6 +1561,8 @@
                                     </DataGridTemplateColumn.CellEditingTemplate>
                                 </DataGridTemplateColumn>
                                 <DataGridTextColumn x:Name="DbDoModulePortColumn" Width="80" Header="MODULE PORT" Binding="{Binding ModulePort}" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn x:Name="DbDoEplanSignalColumn" Width="180" Header="EPLAN SIGNAL" Binding="{Binding EplanSignal}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn x:Name="DbDoEplanConnectedToColumn" Width="110" Header="CONNECTED TO" Binding="{Binding EplanConnectedTo}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTextColumn x:Name="DbDoXrefIdColumn" Width="80" Header="XREF ID" Binding="{Binding CrossReferenceIdCount}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTextColumn x:Name="DbDoXrefValColumn" Width="100" Header="XREF VAL W/R" Binding="{Binding CrossReferenceValDisplay}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTextColumn x:Name="DbDoRepairColumn" Width="200" Header="REPAIR" Binding="{Binding DoRepairSummary}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
@@ -1607,6 +1615,8 @@
                                     <ComboBox x:Name="DbMeasTypeFilter" Width="80" SelectionChanged="DbMeasFilter_SelectionChanged"/>
                                     <ComboBox x:Name="DbMeasModuleNameFilter" Width="110" SelectionChanged="DbMeasFilter_SelectionChanged"/>
                                     <ComboBox x:Name="DbMeasModulePortFilter" Width="90" SelectionChanged="DbMeasFilter_SelectionChanged"/>
+                                    <ComboBox x:Name="DbMeasEplanSignalFilter" Width="180" SelectionChanged="DbMeasFilter_SelectionChanged"/>
+                                    <ComboBox x:Name="DbMeasEplanConnectedToFilter" Width="110" SelectionChanged="DbMeasFilter_SelectionChanged"/>
                                     <ComboBox x:Name="DbMeasXrefMeasIdFilter" Width="95" SelectionChanged="DbMeasFilter_SelectionChanged"/>
                                     <ComboBox x:Name="DbMeasXrefValFilter" Width="80" SelectionChanged="DbMeasFilter_SelectionChanged"/>
                                 </StackPanel>
@@ -1656,6 +1666,8 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
                             <DataGridTextColumn x:Name="DbMeasModulePortColumn" Width="90" Header="MODULE PORT" Binding="{Binding ModulePort}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                            <DataGridTextColumn x:Name="DbMeasEplanSignalColumn" Width="180" Header="EPLAN SIGNAL" Binding="{Binding EplanSignal}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                            <DataGridTextColumn x:Name="DbMeasEplanConnectedToColumn" Width="110" Header="CONNECTED TO" Binding="{Binding EplanConnectedTo}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                             <DataGridCheckBoxColumn x:Name="DbMeasLimitLlEnabledColumn" Width="80" Header="ENB LL" Binding="{Binding LimitLlEnabled}" IsReadOnly="True"/>
                             <DataGridCheckBoxColumn x:Name="DbMeasLimitLoEnabledColumn" Width="80" Header="ENB LO" Binding="{Binding LimitLoEnabled}" IsReadOnly="True"/>
                             <DataGridCheckBoxColumn x:Name="DbMeasLimitHiEnabledColumn" Width="80" Header="ENB HI" Binding="{Binding LimitHiEnabled}" IsReadOnly="True"/>
@@ -1753,6 +1765,8 @@
                                 <ComboBox x:Name="DbAoUnitFilter" Width="90" SelectionChanged="DbAoFilter_SelectionChanged"/>
                                 <ComboBox x:Name="DbAoModuleNameFilter" Width="120" SelectionChanged="DbAoFilter_SelectionChanged"/>
                                 <ComboBox x:Name="DbAoModulePortFilter" Width="90" SelectionChanged="DbAoFilter_SelectionChanged"/>
+                                <ComboBox x:Name="DbAoEplanSignalFilter" Width="180" SelectionChanged="DbAoFilter_SelectionChanged"/>
+                                <ComboBox x:Name="DbAoEplanConnectedToFilter" Width="110" SelectionChanged="DbAoFilter_SelectionChanged"/>
                                 <ComboBox x:Name="DbAoParValLowIdFilter" Width="110" SelectionChanged="DbAoFilter_SelectionChanged"/>
                                 <ComboBox x:Name="DbAoParValLowStructFilter" Width="170" SelectionChanged="DbAoFilter_SelectionChanged"/>
                                 <ComboBox x:Name="DbAoParValLowNameFilter" Width="170" SelectionChanged="DbAoFilter_SelectionChanged"/>
@@ -1817,6 +1831,8 @@
                                 </DataGridTemplateColumn>
                                 <DataGridTextColumn x:Name="DbAoModuleNameColumn" Width="120" Header="MODULE NAME" Binding="{Binding ModuleName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTextColumn x:Name="DbAoModulePortColumn" Width="90" Header="MODULE PORT" Binding="{Binding ModulePort}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn x:Name="DbAoEplanSignalColumn" Width="180" Header="EPLAN SIGNAL" Binding="{Binding EplanSignal}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
+                                <DataGridTextColumn x:Name="DbAoEplanConnectedToColumn" Width="110" Header="CONNECTED TO" Binding="{Binding EplanConnectedTo}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTextColumn x:Name="DbAoParValLowIdColumn" Width="110" Header="PAR_VAL_LOW_ID" Binding="{Binding ParValLowId, Converter={StaticResource ParameterReferenceDisplayConverter}, ConverterParameter=Id}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTextColumn x:Name="DbAoParValLowStructColumn" Width="170" Header="PAR_VAL_LOW_STRUCT NAME" Binding="{Binding ParValLowId, Converter={StaticResource ParameterReferenceDisplayConverter}, ConverterParameter=PlcStructure}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
                                 <DataGridTextColumn x:Name="DbAoParValLowNameColumn" Width="170" Header="PAR_VAL_LOW_NAME" Binding="{Binding ParValLowId, Converter={StaticResource ParameterReferenceDisplayConverter}, ConverterParameter=PlcName}" IsReadOnly="True" ElementStyle="{StaticResource CenteredCellText}"/>
