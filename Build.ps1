@@ -73,6 +73,11 @@ if ($Publish) {
     Invoke-Step "Publish -> $PublishDir" @('publish', $app, '-c', $Configuration, '-o', $PublishDir, '-v', 'minimal', '--nologo')
 }
 
+# Korak 4: TIA Trace Studio (Tools -> TIA Trace Studio...) u Tools\TiaTraceStudio pokraj PlantConfigurator.exe
+$traceStudioPublish = ''
+if ($Publish) { $traceStudioPublish = $PublishDir }
+& (Join-Path $PSScriptRoot 'Build-TraceStudio.ps1') -Configuration $Configuration -PublishDir $traceStudioPublish
+
 Write-Host ''
 Write-Host 'Gotovo.' -ForegroundColor Green
 Write-Host "  App:        CwcConfigurator\bin\$Configuration\net8.0-windows\PlantConfigurator.exe"
