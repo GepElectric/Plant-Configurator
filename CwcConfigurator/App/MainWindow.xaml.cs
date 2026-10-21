@@ -10299,9 +10299,11 @@ public partial class MainWindow : Window
     {
         loadingFlag = true;
         var rowList = rows.ToList();
+        // Capture every selection before any ItemsSource is replaced, so one filter cannot reset the others.
+        var selections = specs.ToDictionary(spec => spec.Filter, spec => spec.Filter.SelectedItem as string);
         foreach (var spec in specs)
         {
-            var currentValue = spec.Filter.SelectedItem as string;
+            var currentValue = selections[spec.Filter];
             var availableRows = rowList.Where(row => specs.Where(other => !ReferenceEquals(other.Filter, spec.Filter)).All(other => MatchesDbFilter(other.Filter, other.ValueSelector(row))));
             SetDbFilterItems(spec.Filter, BuildDbFilterItems(availableRows.Select(spec.ValueSelector), spec.AllText, spec.SortAsNumber), currentValue);
         }
@@ -10372,10 +10374,20 @@ public partial class MainWindow : Window
 
     private static void SetDbFilterItems(ComboBox filter, List<string> items, string? preferredValue)
     {
+        string? selected = null;
+        if (!string.IsNullOrEmpty(preferredValue) && items.Count > 0)
+        {
+            selected = items.FirstOrDefault(item => string.Equals(item, preferredValue, StringComparison.OrdinalIgnoreCase));
+            if (selected is null)
+            {
+                // The active filter value has no rows right now (e.g. after an edit); keep it instead of falling back to "All".
+                items.Insert(1, preferredValue);
+                selected = preferredValue;
+            }
+        }
+
         filter.ItemsSource = items;
-        filter.SelectedItem = preferredValue is not null && items.Contains(preferredValue, StringComparer.OrdinalIgnoreCase)
-            ? preferredValue
-            : items.FirstOrDefault();
+        filter.SelectedItem = selected ?? items.FirstOrDefault();
     }
 
     private string DisplayValidation(string key, string value)
