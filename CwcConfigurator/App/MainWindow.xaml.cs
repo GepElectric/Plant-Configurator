@@ -9642,32 +9642,32 @@ public partial class MainWindow : Window
             case "DB DI":
                 _dbDiView?.Refresh();
                 DbDiGrid.Items.Refresh();
-                LoadDbDiFilterItems();
+                UpdateDbDiFilterItems();
                 break;
             case "DB DO":
                 _dbDoView?.Refresh();
                 DbDoGrid.Items.Refresh();
-                LoadDbDoFilterItems();
+                UpdateDbDoFilterItems();
                 break;
             case "DB MEAS":
                 _dbMeasView?.Refresh();
                 DbMeasGrid.Items.Refresh();
-                LoadDbMeasFilterItems();
+                UpdateDbMeasFilterItems();
                 break;
             case "DB AO":
                 _dbAoRowsView?.Refresh();
                 DbAoGrid.Items.Refresh();
-                LoadDbAoFilterItems();
+                UpdateDbAoFilterItems();
                 break;
             case "DB ALM":
                 _dbAlmView?.Refresh();
                 DbAlmGrid.Items.Refresh();
-                LoadDbAlmFilterItems();
+                UpdateDbAlmFilterItems();
                 break;
             case "DB PAR":
                 _dbParView?.Refresh();
                 DbParGrid.Items.Refresh();
-                LoadDbParFilterItems();
+                UpdateDbParFilterItems();
                 break;
             case "DB SEQUENCE":
                 UpdateSequenceReferenceOptions();
@@ -9675,8 +9675,8 @@ public partial class MainWindow : Window
                 _sequenceCommandView?.Refresh();
                 SequenceControlStatusGrid.Items.Refresh();
                 SequenceCommandGrid.Items.Refresh();
-                LoadSequenceControlStatusFilterItems();
-                LoadSequenceCommandFilterItems();
+                UpdateSequenceControlStatusFilterItems();
+                UpdateSequenceCommandFilterItems();
                 break;
         }
     }
@@ -12044,8 +12044,8 @@ public partial class MainWindow : Window
         _dbParView?.Refresh();
         DbAlmGrid.Items.Refresh();
         DbParGrid.Items.Refresh();
-        LoadDbAlmFilterItems();
-        LoadDbParFilterItems();
+        UpdateDbAlmFilterItems();
+        UpdateDbParFilterItems();
         return changed;
     }
 
