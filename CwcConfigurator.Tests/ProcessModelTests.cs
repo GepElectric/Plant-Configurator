@@ -298,7 +298,7 @@ public class ProcessModelTests
                 [
                     Obj("Aux", "AuxSupply"),
                     Obj("F1", "Mcb", new() { ["Supply"] = "@Aux.Live", ["On"] = "DI:20", ["Load"] = "@M1.Current" }, new() { ["Rating"] = 16 }, new() { ["LoadInput"] = "Yes" }),
-                    Obj("K1", "Contactor", new() { ["Coil"] = "DO:10", ["Supply"] = "@F1.Live", ["Closed"] = "DI:21" }),
+                    Obj("K1", "Contactor", new() { ["Command"] = "DO:10", ["Supply"] = "@F1.Live", ["State"] = "DI:21" }),
                     Obj("M1", "Motor", new() { ["Supply"] = "@K1.Live", ["Running"] = "DI:22" }, new() { ["RatedCurrent"] = 5 })
                 ]
             }

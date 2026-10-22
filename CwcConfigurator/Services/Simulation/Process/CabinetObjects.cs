@@ -1,10 +1,10 @@
-using static CwcConfigurator.Services.Simulation.Process.Def;
+﻿using static CwcConfigurator.Services.Simulation.Process.Def;
 
 namespace CwcConfigurator.Services.Simulation.Process;
 
 // Cabinet / AC distribution objects. Every object has a Supply input (voltage present upstream; not connected = live)
 // and a Live output (voltage passed on downstream), so a small single-line diagram can be built by linking them:
-// AuxSupply.Live → MCB.Supply, MCB.Live → Contactor.Supply, Contactor.Live → Motor.Supply.
+// AuxSupply.Live â†’ MCB.Supply, MCB.Live â†’ Contactor.Supply, Contactor.Live â†’ Motor.Supply.
 
 /// <summary>
 /// Miniature circuit breaker / motor protection switch: switched by hand on the SCADA (Position), optionally by a
@@ -24,15 +24,15 @@ public sealed class McbObject : SimObject
         "Circuit breaker of a feeder: ON/OFF by hand (Position on the SCADA), optional motor drive and shunt trip from the PLC. " +
         "Trips on overload (thermal) or short circuit when Load is connected. After a trip set Position to Off and On again.",
         [
-            Option("Position", "Handle position set by the operator (on the SCADA). Off → On also resets a trip.", "On", "Off"),
+            Option("Position", "Handle position set by the operator (on the SCADA). Off â†’ On also resets a trip.", "On", "Off"),
             Has("MotorDrive", "Motor-operated breaker: OnCmd / OffCmd from the PLC."),
             Has("ShuntTrip", "Shunt trip coil: TripCmd from the PLC opens the breaker as tripped."),
             Has("LoadInput", "Load current connected (e.g. @Pump1.Current): overload and short-circuit trips.")
         ],
         [
             Param("Rating", 16, "A", "Rated current.").When("LoadInput", "Yes"),
-            Param("OverloadTime", 10, "s", "Trip time at 1.5 × rating (shorter for a higher overload).").When("LoadInput", "Yes"),
-            Param("ShortCircuitFactor", 10, "× In", "Instant trip above this multiple of the rating.").When("LoadInput", "Yes")
+            Param("OverloadTime", 10, "s", "Trip time at 1.5 Ã— rating (shorter for a higher overload).").When("LoadInput", "Yes"),
+            Param("ShortCircuitFactor", 10, "Ã— In", "Instant trip above this multiple of the rating.").When("LoadInput", "Yes")
         ],
         [
             BoolIn("Supply", "Voltage upstream (link, e.g. @AuxSupply.Live). Not connected = live.", true),
@@ -122,127 +122,37 @@ public sealed class McbObject : SimObject
 }
 
 /// <summary>
-/// Contactor: the PLC switches the coil (maintained output, or ON/OFF pulses with self-hold); the main contacts
-/// follow after a short delay and the auxiliary contact reports back to the PLC. Optional thermal overload relay.
+/// Contactor: the PLC command switches it, the state goes back to the PLC. Live passes the supply on to a motor.
 /// </summary>
 public sealed class ContactorObject : SimObject
 {
-    private bool _closed;
-    private bool _held;
-    private bool _overloadTripped;
-    private double _timer;
-    private double _overload;
-
     public static ObjectTypeInfo TypeInfo { get; } = new(
         "Contactor", "Contactor", "Electrical",
-        "Contactor of a pump, fan or heater: coil from the PLC, main contacts pass the supply on (Live), auxiliary " +
-        "contact back to the PLC. Optional control supply (e.g. from a control MCB) and thermal overload relay.",
+        "Contactor of a pump, fan or heater: Command from the PLC (DO), State back to the PLC (DI). " +
+        "Live = closed and supplied, for the motor (Supply = @K1.Live).",
+        [],
+        [],
         [
-            Option("Command", "Coil: the DO holds the coil. Pulses: OnCmd / OffCmd pulses with self-hold.", "Coil", "Pulses"),
-            Has("ControlSupply", "The coil is supplied through a separate control circuit (ControlSupply input, e.g. @F2.Live)."),
-            Has("OverloadRelay", "Thermal overload relay on the load current (Load input).")
-        ],
-        [
-            Param("CloseDelay", 0.05, "s", "Time from the command to the closed main contacts."),
-            Param("OpenDelay", 0.03, "s", "Time from the coil off to the open main contacts."),
-            Param("Rating", 10, "A", "Overload relay setting.").When("OverloadRelay", "Yes"),
-            Param("OverloadTime", 8, "s", "Trip time at 1.5 × setting.").When("OverloadRelay", "Yes")
-        ],
-        [
-            BoolIn("Coil", "Coil command (DO), e.g. ..._CONT_ON.").When("Command", "Coil"),
-            BoolIn("OnCmd", "ON pulse (DO).").When("Command", "Pulses"),
-            BoolIn("OffCmd", "OFF pulse (DO).").When("Command", "Pulses"),
-            BoolIn("Supply", "Main circuit voltage (link, e.g. @F1.Live). Not connected = live.", true),
-            BoolIn("ControlSupply", "Coil voltage (link, e.g. @F2.Live).", true).When("ControlSupply", "Yes"),
-            AnalogIn("Load", "A", "Load current (e.g. @Pump1.Current).").When("OverloadRelay", "Yes"),
-            BoolIn("OverloadReset", "Reset of the overload relay (DO or =1 for automatic reset).").When("OverloadRelay", "Yes"),
-            BoolOut("Closed", "Auxiliary NO contact: contactor closed (to a DI, e.g. ..._CONT_ON)."),
-            BoolOut("Open", "Auxiliary NC contact."),
-            BoolOut("Live", "Voltage after the main contacts (link to the motor / pump)."),
-            BoolOut("Overload", "Overload relay tripped (to a DI).")
+            BoolIn("Command", "Command from the PLC (DO), e.g. ..._CONT_ON."),
+            BoolIn("Supply", "Voltage before the contactor (link, e.g. @F1.Live). Not connected = live.", true),
+            BoolOut("State", "Contactor closed, back to the PLC (DI)."),
+            BoolOut("Live", "Voltage after the contactor (link to the motor / pump).")
         ],
         [],
         [],
         () => new ContactorObject());
 
-    public override void Reset()
-    {
-        _closed = false;
-        _held = false;
-        _overloadTripped = false;
-        _timer = 0;
-        _overload = 0;
-        Publish();
-    }
-
     public override void Step(double dt)
     {
-        if (InB("OverloadReset"))
-        {
-            _overloadTripped = false;
-        }
-
-        var coilVoltage = InB("ControlSupply") && !_overloadTripped;
-        bool energised;
-        if (OptIs("Command", "Pulses"))
-        {
-            // Self-hold through the own auxiliary contact: ON sets, OFF or loss of the coil voltage releases.
-            if (InB("OffCmd") || !coilVoltage)
-            {
-                _held = false;
-            }
-            else if (InB("OnCmd"))
-            {
-                _held = true;
-            }
-
-            energised = _held;
-        }
-        else
-        {
-            energised = InB("Coil") && coilVoltage;
-        }
-
-        if (energised != _closed)
-        {
-            _timer += dt;
-            if (_timer >= (energised ? P("CloseDelay") : P("OpenDelay")))
-            {
-                _closed = energised;
-                _timer = 0;
-            }
-        }
-        else
-        {
-            _timer = 0;
-        }
-
-        if (Connected("Load") && _closed)
-        {
-            var multiple = Math.Abs(In("Load")) / Math.Max(0.1, P("Rating"));
-            _overload = SimMath.Thermal(_overload, multiple, P("OverloadTime"), dt);
-            if (_overload >= 1)
-            {
-                _overloadTripped = true;
-                _overload = 0;
-            }
-        }
-
-        Publish();
-    }
-
-    private void Publish()
-    {
-        Out("Closed", _closed);
-        Out("Open", !_closed);
-        Out("Live", _closed && InB("Supply"));
-        Out("Overload", _overloadTripped);
+        var closed = InB("Command");
+        Out("State", closed);
+        Out("Live", closed && InB("Supply"));
     }
 }
 
 /// <summary>
 /// Motor driving a pump, fan or compressor: runs up while supplied (e.g. from a contactor), starting current,
-/// load current ∝ speed³ for a pump/fan, flow ∝ speed, pressure ∝ speed².
+/// load current âˆ speedÂ³ for a pump/fan, flow âˆ speed, pressure âˆ speedÂ².
 /// </summary>
 public sealed class MotorObject : SimObject
 {
@@ -253,11 +163,11 @@ public sealed class MotorObject : SimObject
         "Motor of a pump, fan or compressor, supplied by a contactor (Supply = @K1.Live): run-up, starting current, " +
         "current, flow and pressure. Running goes to a DI or to the reservoir / HPU as a link.",
         [
-            Option("Load", "Pump / fan: torque ∝ speed² (current falls at low speed). Constant: constant torque (compressor, conveyor).", "Pump", "Constant")
+            Option("Load", "Pump / fan: torque âˆ speedÂ² (current falls at low speed). Constant: constant torque (compressor, conveyor).", "Pump", "Constant")
         ],
         [
             Param("RatedCurrent", 11, "A", "Current at rated load."),
-            Param("StartCurrent", 6, "× In", "Starting current (direct on line)."),
+            Param("StartCurrent", 6, "Ã— In", "Starting current (direct on line)."),
             Param("StartTime", 2, "s", "Run-up time to rated speed."),
             Param("StopTime", 5, "s", "Run-down time."),
             Param("RatedFlow", 100, "l/min", "Flow at rated speed."),
@@ -269,7 +179,7 @@ public sealed class MotorObject : SimObject
             BoolIn("PressureRelease", "Discharge open / valve open: TRUE = full flow, FALSE = no flow (pressure only). Not connected = open.", true),
             BoolOut("Running", "Motor running (speed above RunningAt)."),
             AnalogOut("Speed", "%", "Speed."),
-            AnalogOut("Current", "A", "Motor current (link to the MCB / contactor Load or to an AI)."),
+            AnalogOut("Current", "A", "Motor current (link to the MCB Load or to an AI)."),
             AnalogOut("Flow", "l/min", "Flow."),
             AnalogOut("Pressure", "bar", "Discharge pressure.")
         ],
