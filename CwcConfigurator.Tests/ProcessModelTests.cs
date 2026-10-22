@@ -296,8 +296,9 @@ public class ProcessModelTests
             {
                 Objects =
                 [
-                    Obj("Aux", "AuxSupply"),
-                    Obj("F1", "Mcb", new() { ["Supply"] = "@Aux.Live", ["On"] = "DI:20", ["Load"] = "@M1.Current" }, new() { ["Rating"] = 16 }, new() { ["LoadInput"] = "Yes" }),
+                    Obj("Bus", "Busbar"),
+                    Obj("Aux", "AuxSupply", new() { ["Supply"] = "@F1.Live" }),
+                    Obj("F1", "Mcb", new() { ["Supply"] = "@Bus.Feeder1", ["On"] = "DI:20", ["Load"] = "@M1.Current" }, new() { ["Rating"] = 16 }, new() { ["LoadInput"] = "Yes" }),
                     Obj("K1", "Contactor", new() { ["Command"] = "DO:10", ["Supply"] = "@F1.Live", ["State"] = "DI:21" }),
                     Obj("M1", "Motor", new() { ["Supply"] = "@K1.Live", ["Running"] = "DI:22" }, new() { ["RatedCurrent"] = 5 })
                 ]
@@ -313,6 +314,7 @@ public class ProcessModelTests
         Assert.Equal(1, io.Values[(SimulatorSignalKind.DI, 21)]);
         Assert.Equal(1, io.Values[(SimulatorSignalKind.DI, 22)]);
         Assert.InRange(engine.Find("Unit", "M1")!.Value("Current"), 4.5, 5.5);
+        Assert.InRange(engine.Find("Unit", "Aux")!.Value("U"), 395, 405);   // the meter measures the voltage of its point
 
         engine.Find("Unit", "F1")!.Config.Options["Position"] = "Off";   // operator switches the MCB off
         for (var i = 0; i < 80; i++)
@@ -323,6 +325,8 @@ public class ProcessModelTests
         Assert.Equal(0, io.Values[(SimulatorSignalKind.DI, 20)]);
         Assert.Equal(1, io.Values[(SimulatorSignalKind.DI, 21)]);   // the contactor stays closed, but without voltage
         Assert.Equal(0, io.Values[(SimulatorSignalKind.DI, 22)]);
+        Assert.Equal(0, engine.Find("Unit", "Aux")!.Value("U"));
+        Assert.Equal(0, engine.Find("Unit", "Aux")!.Value("P"));
     }
 
     [Fact]

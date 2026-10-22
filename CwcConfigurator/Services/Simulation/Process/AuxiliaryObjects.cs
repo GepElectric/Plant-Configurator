@@ -111,29 +111,27 @@ public sealed class AuxSupplyObject : SimObject
     private double _wander;
 
     public static ObjectTypeInfo TypeInfo { get; } = new(
-        "AuxSupply", "Auxiliary supply", "Electrical",
-        "Station service measurement: U, I, P, Q, S, PF, f and energy while supplied.",
+        "AuxSupply", "Power meter (AUX Sentron)", "Electrical",
+        "Measuring device connected to a point of the network (busbar feeder, MCB output …): measures U at that point and " +
+        "I, P, Q, S, PF, f and energy of the load behind it. Without voltage everything is 0.",
         [],
         [
-            Param("Voltage", 400, "V", "Rated voltage (line-to-line)."),
-            Param("Load", 50, "kVA", "Average apparent load."),
+            Param("Load", 50, "kVA", "Average apparent load measured by the device."),
             Param("PowerFactor", 0.85, "", "Average power factor."),
             Param("Frequency", 50, "Hz", "Frequency."),
-            Param("LoadVariation", 10, "%", "Slow random load variation."),
-            Param("NoiseVoltage", 1, "V", "Voltage noise.")
+            Param("LoadVariation", 10, "%", "Slow random load variation.")
         ],
         [
-            BoolIn("Supplied", "Supply breaker closed (link or DO). Not connected = supplied.", true),
+            PowerIn("Supply", "Measuring point (link, e.g. @Busbar.Feeder3 or @F5.Live). Not connected = 400 V.", 400),
             AnalogIn("ExtraLoad", "kVA", "Additional load (e.g. HPU pump running)."),
-            AnalogOut("U", "V", "Voltage."),
+            AnalogOut("U", "V", "Voltage at the measuring point."),
             AnalogOut("I", "A", "Current."),
             AnalogOut("P", "kW", "Active power."),
             AnalogOut("Q", "kvar", "Reactive power."),
             AnalogOut("S", "kVA", "Apparent power."),
             AnalogOut("PF", "", "Power factor."),
             AnalogOut("F", "Hz", "Frequency."),
-            AnalogOut("Energy", "kWh", "Active energy."),
-            PowerOut("Live", "Busbar voltage (link to the MCBs of the distribution: @AuxSupply.Live).")
+            AnalogOut("Energy", "kWh", "Active energy.")
         ],
         [],
         ["U", "P"],
@@ -141,22 +139,23 @@ public sealed class AuxSupplyObject : SimObject
 
     public override void Step(double dt)
     {
-        var supplied = !Connected("Supplied") || InB("Supplied");
+        var u = Math.Max(0, In("Supply"));
+        var supplied = u >= 1;
         _wander = SimMath.Lag(_wander, Noise(1), 20, dt);
         var s = supplied ? Math.Max(0, P("Load") * (1 + P("LoadVariation") / 100 * _wander * 2) + In("ExtraLoad")) : 0;
         var pf = SimMath.Clamp(P("PowerFactor"), 0, 1);
         var p = s * pf;
-        var u = supplied ? P("Voltage") + Noise(P("NoiseVoltage")) : 0;
+        // Small measuring noise on the voltage of the point.
+        u = supplied ? u * (1 + Noise(0.0025)) : 0;
         _energy += p * dt / 3600;
         Out("U", u);
-        Out("I", u > 1 ? s * 1000 / (Math.Sqrt(3) * u) : 0);
+        Out("I", supplied ? s * 1000 / (Math.Sqrt(3) * u) : 0);
         Out("P", p);
         Out("Q", s * Math.Sqrt(1 - pf * pf));
         Out("S", s);
         Out("PF", supplied ? pf : 0);
         Out("F", supplied ? P("Frequency") : 0);
         Out("Energy", _energy);
-        Out("Live", supplied ? P("Voltage") : 0);
     }
 }
 

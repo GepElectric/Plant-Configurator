@@ -32,7 +32,7 @@ public partial class ScadaView
 
         public SldSymbol(ObjectConfig config, ObjectTypeInfo info) : base(config, info)
         {
-            _bus = info.Type is "Busbar" or "AuxSupply";
+            _bus = info.Type == "Busbar";
             var feeders = info.Ports.Count(port => port.Power && port.Direction == PortDirection.Output && info.IsActive(port.ShownWhen, config));
             _busWidth = Math.Max(MinBusWidth, feeders * 90);
 
@@ -86,7 +86,7 @@ public partial class ScadaView
         public override Point Anchor(string port, Point? towards)
         {
             var point = base.Anchor(port, towards);
-            // A single output (AuxSupply.Live, or an older link to Busbar.Live) leaves the bar straight above the feeder.
+            // An output without its own pin (an older link to Busbar.Live) leaves the bar straight above the feeder.
             var pinned = PinElements.ContainsKey(port) && PinElements.Count(pair => Info.Port(pair.Key)?.Direction == PortDirection.Output) > 1;
             if (_bus && !pinned && towards is { } other && Info.Port(port) is { Direction: PortDirection.Output })
             {
@@ -116,12 +116,11 @@ public partial class ScadaView
             switch (Info.Type)
             {
                 case "Busbar":
-                case "AuxSupply":
                 {
                     var live = On("Live");
                     _body.Children.Add(Shape(new Rectangle { Width = _busWidth, Height = 8, Fill = instance is null ? DeadBrush : live ? LiveBrush : DeadBrush }, 0, 26));
                     _state.Text = "";
-                    _name.Text = $"{Config.Name}   {(instance is null ? "" : !live ? "dead" : $"{Value(instance, Info.Type == "AuxSupply" ? "Live" : "Feeder1")} V")}";
+                    _name.Text = $"{Config.Name}   {(instance is null ? "" : !live ? "dead" : $"{Value(instance, "Feeder1")} V")}";
                     return;
                 }
 
@@ -187,6 +186,16 @@ public partial class ScadaView
                     _body.Children.Add(Shape(new Ellipse { Width = 30, Height = 30, StrokeThickness = 2.5, Stroke = Wire("Primary") }, Center - 15, 22));
                     _body.Children.Add(Shape(new Ellipse { Width = 30, Height = 30, StrokeThickness = 2.5, Stroke = Wire("Secondary") }, Center - 15, 40));
                     _state.Text = instance is null ? "" : $"{Value(instance, "Primary")} / {Value(instance, "Secondary")} V";
+                    return;
+                }
+
+                case "AuxSupply":
+                {
+                    // Measuring instrument on the line: circle with W.
+                    _body.Children.Add(Segment(Center, 2, Center, 40, Wire("Supply")));
+                    _body.Children.Add(Shape(new Ellipse { Width = 34, Height = 34, StrokeThickness = 2, Stroke = Brushes.Black, Fill = Brushes.White }, Center - 17, 40));
+                    _body.Children.Add(Shape(new TextBlock { Text = "W", FontWeight = FontWeights.Bold, FontSize = 13 }, Center - 6, 48));
+                    _state.Text = instance is null ? "" : $"{Value(instance, "U")} V  {Value(instance, "P")} kW";
                     return;
                 }
 
