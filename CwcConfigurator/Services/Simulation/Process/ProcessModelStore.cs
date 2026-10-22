@@ -47,7 +47,7 @@ public static class ProcessModelStore
             .Build();
         var file = new ModelFile
         {
-            Plcs = models.Where(pair => pair.Value.Objects.Count > 0).ToDictionary(pair => pair.Key, pair => pair.Value)
+            Plcs = models.Where(pair => pair.Value.Objects.Count > 0 || pair.Value.Forces.Count > 0).ToDictionary(pair => pair.Key, pair => pair.Value)
         };
         var text = Header + serializer.Serialize(file);
         var temp = path + ".tmp";
@@ -57,6 +57,8 @@ public static class ProcessModelStore
 
     private static ProcessModel Normalize(ProcessModel model)
     {
+        model.Objects ??= [];
+        model.Forces ??= [];
         foreach (var item in model.Objects)
         {
             item.Name ??= "";

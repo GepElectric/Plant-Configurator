@@ -32,6 +32,11 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
     private int? _rawValue;
     private double? _realValue;
     private string _setText = "";
+    private bool _forceTrue;
+    private bool _forceFalse;
+    private bool _forceValueOn;
+    private double _forceValue;
+    private bool _wireBreak;
 
     public required SimulatorSignalKind Kind { get; init; }
     public required int Module { get; init; }
@@ -59,8 +64,61 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
     public bool IsWritable => Kind is SimulatorSignalKind.DI or SimulatorSignalKind.AI or SimulatorSignalKind.RTD or SimulatorSignalKind.COUNTER
         or SimulatorSignalKind.DEV or SimulatorSignalKind.DEVBIT;
 
-    public bool CanSetBool => IsWritable && IsDigital;
-    public bool CanSetAnalog => IsWritable && !IsDigital;
+    public bool CanSetBool => IsDigital;
+    public bool CanSetAnalog => !IsDigital;
+    public bool CanWireBreak => IsWritable && !IsDigital;
+
+    /// <summary>SET TRUE pressed: the signal is TRUE whatever the PLC or the model says (wins over SET FALSE).</summary>
+    public bool ForceTrue
+    {
+        get => _forceTrue;
+        set => SetForce(ref _forceTrue, value);
+    }
+
+    /// <summary>SET FALSE pressed: the signal is FALSE whatever the PLC or the model says.</summary>
+    public bool ForceFalse
+    {
+        get => _forceFalse;
+        set => SetForce(ref _forceFalse, value);
+    }
+
+    /// <summary>SET pressed on an analog signal: <see cref="ForceValue"/> (engineering units) is held.</summary>
+    public bool ForceValueOn
+    {
+        get => _forceValueOn;
+        set => SetForce(ref _forceValueOn, value);
+    }
+
+    public double ForceValue
+    {
+        get => _forceValue;
+        set => SetForce(ref _forceValue, value);
+    }
+
+    /// <summary>WIRE BREAK pressed: AI/RTD get 32767, Real values NaN. Wins over SET.</summary>
+    public bool WireBreak
+    {
+        get => _wireBreak;
+        set => SetForce(ref _wireBreak, value);
+    }
+
+    public bool IsForced => IsDigital ? _forceTrue || _forceFalse : _wireBreak || _forceValueOn;
+
+    /// <summary>The forced value (DO/DI/bits 0/1, analog in engineering units, NaN for wire break), or null.</summary>
+    public double? ForcedValue => IsDigital
+        ? _forceTrue ? 1 : _forceFalse ? 0 : null
+        : _wireBreak ? double.NaN : _forceValueOn ? _forceValue : null;
+
+    public void ClearForces()
+    {
+        ForceTrue = false;
+        ForceFalse = false;
+        ForceValueOn = false;
+        WireBreak = false;
+    }
+
+    /// <summary>Key used to save forces: kind, ID and address (IDs of disabled channels can repeat).</summary>
+    public string ForceKey => $"{Kind}:{Id}:{Address}";
     public bool HasScaling => Scaling?.IsValid == true;
 
     public string KindText => Kind.ToString();
@@ -195,6 +253,14 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
         if (Set(ref _realValue, value, nameof(ValueText)))
         {
             OnPropertyChanged(nameof(RawText));
+        }
+    }
+
+    private void SetForce<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    {
+        if (Set(ref field, value, propertyName))
+        {
+            OnPropertyChanged(nameof(IsForced));
         }
     }
 

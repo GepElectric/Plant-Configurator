@@ -71,6 +71,7 @@ public partial class SimulatorWindow : Window
             PlcSelector.Items.Add(session);
         }
 
+        RestoreForces();
         PlcSelector.SelectedItem = _sessions.FirstOrDefault(session => session.Name == activeName) ?? _sessions.FirstOrDefault();
         if (_controller.Engine.Problems.Count > 0)
         {
@@ -450,109 +451,175 @@ public partial class SimulatorWindow : Window
             : string.Join("   ", _sessions.Select(session => $"{(session.IsConnected ? "●" : "○")} {session.Name}"));
     }
 
-    private async void SetTrue_Click(object sender, RoutedEventArgs e) => await SetBoolAsync(sender, true);
-
-    private async void SetFalse_Click(object sender, RoutedEventArgs e) => await SetBoolAsync(sender, false);
-
-    private async Task SetBoolAsync(object sender, bool value)
+    /// <summary>SET on an analog signal: press = hold the typed value, press again = release.</summary>
+    private void SetAnalogToggle_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is not SimulatorSignal signal || !EnsureConnected())
+        if ((sender as FrameworkElement)?.DataContext is not SimulatorSignal signal)
         {
             return;
         }
 
-        await WriteAsync(signal, () => _session!.WriteBitAsync(signal, value),
-            $"{signal.Kind} {signal.Module}.{signal.Channel} {signal.Name} := {(value ? "TRUE" : "FALSE")}");
-    }
-
-    private async void SetAnalog_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.DataContext is SimulatorSignal signal)
+        if (signal.ForceValueOn)
         {
-            await SetAnalogAsync(signal);
+            signal.ForceValueOn = false;
+            StatusText.Text = $"Released {signal.Kind} {signal.Name}.";
+            return;
         }
+
+        HoldAnalog(signal);
     }
 
-    private async void AnalogBox_KeyDown(object sender, KeyEventArgs e)
+    private void AnalogBox_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter && (sender as FrameworkElement)?.DataContext is SimulatorSignal signal)
         {
             e.Handled = true;
-            await SetAnalogAsync(signal);
+            HoldAnalog(signal);
         }
     }
 
-    private async Task SetAnalogAsync(SimulatorSignal signal)
+    private void HoldAnalog(SimulatorSignal signal)
     {
-        if (!EnsureConnected())
-        {
-            return;
-        }
-
         var text = signal.SetText.Trim().Replace(',', '.');
         if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
         {
+            signal.ForceValueOn = false;
             StatusText.Text = $"'{signal.SetText}' is not a number.";
             return;
         }
 
-        if (signal.IsReal)
+        var value = number;
+        var description = $"{number.ToString("0.###", CultureInfo.InvariantCulture)} {signal.Unit}".Trim();
+        if (!signal.IsReal)
         {
-            var real = (float)number;
-            await WriteAsync(signal, () => _session!.WriteRealAsync(signal, real),
-                $"{signal.Kind} {signal.Module} {signal.Name} := {number.ToString("0.###", CultureInfo.InvariantCulture)} {signal.Unit}");
-            return;
+            var useRaw = RawEntryCheck.IsChecked == true || !signal.HasScaling;
+            var exactRaw = useRaw ? Math.Round(number) : signal.Scaling!.ToRawExact(number);
+            if (double.IsNaN(exactRaw) || exactRaw < short.MinValue || exactRaw > short.MaxValue)
+            {
+                signal.ForceValueOn = false;
+                StatusText.Text = $"{signal.SetText} cannot be held: the raw value would be {exactRaw:0}, outside −32768…32767. The measuring range is {signal.ScalingText}.";
+                return;
+            }
+
+            var raw = (short)Math.Round(exactRaw, MidpointRounding.AwayFromZero);
+            value = signal.HasScaling ? signal.Scaling!.ToEngineering(raw) : raw;
+            description = useRaw ? $"raw {raw}" : $"{description} (raw {raw})";
+            if (AnalogScaling.IsErrorRaw(raw) && signal.Kind is SimulatorSignalKind.AI or SimulatorSignalKind.RTD)
+            {
+                description += " – the PLC treats this raw value as a measurement error";
+            }
         }
 
-        var useRaw = RawEntryCheck.IsChecked == true || !signal.HasScaling;
-        var exactRaw = useRaw ? Math.Round(number) : signal.Scaling!.ToRawExact(number);
-        if (double.IsNaN(exactRaw) || exactRaw < short.MinValue || exactRaw > short.MaxValue)
-        {
-            var range = useRaw ? "" : $" The measuring range is {signal.ScalingText}.";
-            StatusText.Text = $"{signal.SetText} {(useRaw ? "" : signal.Unit)} cannot be written: the raw value would be {exactRaw:0}, outside −32768…32767.{range}";
-            return;
-        }
-
-        var raw = (short)Math.Round(exactRaw, MidpointRounding.AwayFromZero);
-        var description = useRaw
-            ? $"{signal.Kind} {signal.Module}.{signal.Channel} {signal.Name} := raw {raw}"
-            : $"{signal.Kind} {signal.Module}.{signal.Channel} {signal.Name} := {number.ToString("0.###", CultureInfo.InvariantCulture)} {signal.Unit} (raw {raw})";
-        if (AnalogScaling.IsErrorRaw(raw))
-        {
-            description += " – the PLC treats this raw value as a measurement error";
-        }
-        else if (!useRaw && signal.Scaling is { TenthsOfValue: false } scaling
-                 && (raw < Math.Min(scaling.RawLow, scaling.RawHigh) || raw > Math.Max(scaling.RawLow, scaling.RawHigh)))
-        {
-            description += $" – outside the measuring range {signal.ScalingText}";
-        }
-
-        await WriteAsync(signal, () => _session!.WriteIntAsync(signal, raw), description);
+        signal.ForceValue = value;
+        signal.ForceValueOn = true;
+        StatusText.Text = $"Holding {signal.Kind} {signal.Name} = {description}" +
+                          (signal.IsWritable ? "" : " (the simulator model sees this value instead of the PLC output)") +
+                          (_session?.IsConnected == true || !signal.IsWritable ? "." : ". Connect to send it to the PLC.");
     }
 
-    private async Task WriteAsync(SimulatorSignal signal, Func<Task> write, string description)
+    private void SaveForces_Click(object sender, RoutedEventArgs e)
     {
+        foreach (var session in _sessions)
+        {
+            if (!_controller.Models.TryGetValue(session.Name, out var model))
+            {
+                model = new ProcessModel();
+                _controller.Models[session.Name] = model;
+            }
+
+            model.Forces = session.Signals.Where(signal => signal.IsForced).SelectMany(DescribeForces).ToList();
+        }
+
         try
         {
-            await write();
-            StatusText.Text = "Set " + description + (_controller.Running ? " (the running model may overwrite it if it drives this signal)" : "");
+            _controller.Save();
+            var count = _sessions.Sum(session => session.Signals.Count(signal => signal.IsForced));
+            StatusText.Text = $"Saved {count} forced signal(s) in {_controller.ModelPath}.";
         }
         catch (Exception ex)
         {
-            CwcApplication.LogException("Simulator.Write", ex);
-            StatusText.Text = $"Writing {signal.Address} failed: {ex.Message}";
+            StatusText.Text = "Could not save the forces: " + ex.Message;
         }
     }
 
-    private bool EnsureConnected()
+    private void ClearForces_Click(object sender, RoutedEventArgs e)
     {
-        if (_session?.IsConnected == true)
+        if (_session is null)
         {
-            return true;
+            return;
         }
 
-        StatusText.Text = "Connect to the PLC first.";
-        return false;
+        foreach (var signal in _session.Signals)
+        {
+            signal.ClearForces();
+        }
+
+        StatusText.Text = $"{_session.Name}: all forces released (Save forces to remember that).";
+    }
+
+    private static IEnumerable<string> DescribeForces(SimulatorSignal signal)
+    {
+        if (signal.ForceTrue)
+        {
+            yield return signal.ForceKey + "|TRUE";
+        }
+
+        if (signal.ForceFalse)
+        {
+            yield return signal.ForceKey + "|FALSE";
+        }
+
+        if (signal.ForceValueOn)
+        {
+            yield return $"{signal.ForceKey}|SET {signal.ForceValue.ToString("R", CultureInfo.InvariantCulture)}|{signal.SetText}";
+        }
+
+        if (signal.WireBreak)
+        {
+            yield return signal.ForceKey + "|WIREBREAK";
+        }
+    }
+
+    /// <summary>Presses the saved force buttons again.</summary>
+    private void RestoreForces()
+    {
+        foreach (var session in _sessions)
+        {
+            if (!_controller.Models.TryGetValue(session.Name, out var model) || model.Forces.Count == 0)
+            {
+                continue;
+            }
+
+            var byKey = session.Signals.GroupBy(signal => signal.ForceKey).ToDictionary(group => group.Key, group => group.First());
+            foreach (var entry in model.Forces)
+            {
+                var parts = entry.Split('|');
+                if (parts.Length < 2 || !byKey.TryGetValue(parts[0], out var signal))
+                {
+                    continue;
+                }
+
+                if (parts[1] == "TRUE")
+                {
+                    signal.ForceTrue = true;
+                }
+                else if (parts[1] == "FALSE")
+                {
+                    signal.ForceFalse = true;
+                }
+                else if (parts[1] == "WIREBREAK")
+                {
+                    signal.WireBreak = true;
+                }
+                else if (parts[1].StartsWith("SET ", StringComparison.Ordinal)
+                         && double.TryParse(parts[1][4..], NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                {
+                    signal.ForceValue = value;
+                    signal.SetText = parts.Length > 2 ? parts[2] : value.ToString("0.###", CultureInfo.InvariantCulture);
+                    signal.ForceValueOn = true;
+                }
+            }
+        }
     }
 
     private void Filter_Changed(object sender, RoutedEventArgs e)

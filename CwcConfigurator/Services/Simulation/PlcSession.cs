@@ -196,6 +196,13 @@ public sealed class PlcSession : ISignalIo, IDisposable
     {
         value = 0;
         var signal = Find(kind, id).FirstOrDefault();
+        if (signal?.ForcedValue is { } forced)
+        {
+            // A force in the signal list wins over what the PLC sends (DO/AO) and over the model (DI/AI…).
+            value = double.IsNaN(forced) ? 0 : forced;
+            return true;
+        }
+
         var data = signal is null ? [] : signal.InDeviceDb ? _deviceOutput ?? _deviceData : _output ?? _data;
         if (signal is null || data.Length <= signal.ByteOffset)
         {
@@ -224,17 +231,38 @@ public sealed class PlcSession : ISignalIo, IDisposable
     {
         foreach (var signal in Find(kind, id))
         {
-            if (!signal.IsWritable)
+            if (!signal.IsWritable || signal.IsForced)
             {
                 continue;
             }
 
+            WriteImage(signal, value);
+        }
+    }
+
+    public bool HasForcedOutputs => Signals.Any(signal => signal.IsWritable && signal.IsForced);
+
+    /// <summary>Writes every forced simulator output (DI/AI/RTD/COUNTER/device) into the output images.</summary>
+    public void ApplyForces()
+    {
+        foreach (var signal in Signals)
+        {
+            if (signal.IsWritable && signal.ForcedValue is { } value)
+            {
+                WriteImage(signal, value);
+            }
+        }
+    }
+
+    private void WriteImage(SimulatorSignal signal, double value)
+    {
+        {
             byte[] target;
             if (signal.InDeviceDb)
             {
                 if (_deviceData.Length == 0)
                 {
-                    continue;
+                    return;
                 }
 
                 target = _deviceOutput ??= (byte[])_deviceData.Clone();
@@ -243,7 +271,7 @@ public sealed class PlcSession : ISignalIo, IDisposable
             {
                 if (_data.Length == 0 || signal.ByteOffset >= Layout.DoStart)
                 {
-                    continue;
+                    return;
                 }
 
                 target = _output ??= (byte[])_data.Clone();
@@ -264,8 +292,9 @@ public sealed class PlcSession : ISignalIo, IDisposable
             }
             else
             {
-                var raw = signal.HasScaling
-                    ? signal.Scaling!.ToRaw(value)
+                // Wire break (NaN): 32767 = overflow, which the PLC treats as a measurement error.
+                var raw = double.IsNaN(value) ? short.MaxValue
+                    : signal.HasScaling ? signal.Scaling!.ToRaw(value)
                     : (short)Math.Clamp(Math.Round(value), short.MinValue, short.MaxValue);
                 target[signal.ByteOffset] = (byte)((ushort)raw >> 8);
                 target[signal.ByteOffset + 1] = (byte)raw;

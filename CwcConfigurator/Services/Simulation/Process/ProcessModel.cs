@@ -8,6 +8,9 @@ public sealed class ProcessModel
 {
     public List<ObjectConfig> Objects { get; set; } = [];
 
+    /// <summary>Saved forces of the signal list: "KIND:ID:ADDRESS TRUE|FALSE|SET value|WIREBREAK".</summary>
+    public List<string> Forces { get; set; } = [];
+
     public ObjectConfig? Find(string name) =>
         Objects.FirstOrDefault(item => item.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 }

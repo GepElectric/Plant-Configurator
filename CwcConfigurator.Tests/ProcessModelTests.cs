@@ -354,6 +354,42 @@ public class ProcessModelTests
         Assert.Empty(engine.Problems);
     }
 
+    [Fact]
+    public void Forces_WinOverPlcAndModel()
+    {
+        var project = new CwcProject();
+        project.DigitalOutputs.Add(new DigitalSignalConfig { ModuleNumber = 0, Port = 0, Id = 66, Config = SignalConfigState.Enabled });
+        project.AnalogOutputs.Add(new AnalogOutputConfig { ModuleNumber = 0, Port = 0, Id = 1, Config = SignalConfigState.Enabled });
+        project.DigitalInputs.Add(new DigitalSignalConfig { ModuleNumber = 0, Port = 0, Id = 23, Config = SignalConfigState.Enabled });
+        var session = new PlcSession("Unit", project, "test|" + Guid.NewGuid());
+        var command = session.Find(SimulatorSignalKind.DO, 66).Single();
+        var setpoint = session.Find(SimulatorSignalKind.AO, 1).Single();
+        var feedback = session.Find(SimulatorSignalKind.DI, 23).Single();
+
+        command.ForceFalse = true;
+        command.ForceTrue = true;                      // both pressed: TRUE wins
+        Assert.True(session.TryRead(SimulatorSignalKind.DO, 66, out var value));
+        Assert.Equal(1, value);
+
+        setpoint.ForceValue = 42;
+        setpoint.ForceValueOn = true;
+        Assert.True(session.TryRead(SimulatorSignalKind.AO, 1, out value));
+        Assert.Equal(42, value);
+
+        feedback.ForceFalse = true;
+        Assert.Equal(0d, feedback.ForcedValue);
+        Assert.True(feedback.IsForced && session.HasForcedOutputs);
+
+        var analog = new SimulatorSignal { Kind = SimulatorSignalKind.AI, Module = 0, Channel = 0, Id = 4, ByteOffset = 32 };
+        analog.ForceValue = 10;
+        analog.ForceValueOn = true;
+        analog.WireBreak = true;                      // wire break wins over SET
+        Assert.True(double.IsNaN(analog.ForcedValue!.Value));
+
+        command.ClearForces();
+        Assert.False(command.IsForced);
+    }
+
     private sealed class FakeIo : ISignalIo
     {
         public Dictionary<(SimulatorSignalKind, int), double> Values { get; } = [];

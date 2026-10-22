@@ -12,11 +12,32 @@
         Closed="Window_Closed">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
-        <Style x:Key="SetButton" TargetType="Button">
-            <Setter Property="MinWidth" Value="74"/>
+        <!-- Latching force button: stays pressed (orange) until it is clicked again. -->
+        <Style x:Key="ForceButton" TargetType="ToggleButton">
+            <Setter Property="MinWidth" Value="70"/>
             <Setter Property="Height" Value="24"/>
             <Setter Property="Margin" Value="0,0,4,0"/>
-            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Chrome" Background="#F3F4F6" BorderBrush="#9CA3AF" BorderThickness="1" CornerRadius="3" Padding="6,0">
+                            <TextBlock x:Name="Label" Text="{TemplateBinding Content}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="11.5"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#4B5563"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#F97316"/>
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#C2410C"/>
+                                <Setter TargetName="Label" Property="Foreground" Value="White"/>
+                                <Setter TargetName="Label" Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
     <DockPanel>
@@ -146,7 +167,11 @@
                                 <CheckBox x:Name="ShowDisabledCheck" Content="Show disabled channels" VerticalAlignment="Center" Margin="16,0,0,0"
                                           Checked="Filter_Changed" Unchecked="Filter_Changed"/>
                                 <CheckBox x:Name="RawEntryCheck" Content="Enter raw values" VerticalAlignment="Center" Margin="16,0,0,0"
-                                          ToolTip="SET writes the typed number directly (e.g. 0…27648) instead of converting an engineering value."/>
+                                          ToolTip="SET holds the typed number as the raw channel value (e.g. 0…27648) instead of an engineering value."/>
+                                <Button Content="Save forces" MinWidth="85" Height="24" Margin="16,0,0,0" Click="SaveForces_Click"
+                                        ToolTip="Remember the pressed SET / WIRE BREAK buttons of all PLCs in the plant model file; they are pressed again when the simulator opens."/>
+                                <Button Content="Release all" MinWidth="80" Height="24" Margin="4,0,0,0" Click="ClearForces_Click"
+                                        ToolTip="Release every force of this PLC."/>
                             </StackPanel>
                             <TextBlock x:Name="SummaryText" Grid.Column="3" VerticalAlignment="Center" Foreground="#57606A"/>
                         </Grid>
@@ -179,6 +204,10 @@
                                             <DataTrigger Binding="{Binding IsErrorValue}" Value="True">
                                                 <Setter TargetName="ValueBorder" Property="Background" Value="#FECACA"/>
                                             </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsForced}" Value="True">
+                                                <Setter TargetName="ValueBorder" Property="BorderBrush" Value="#F97316"/>
+                                                <Setter TargetName="ValueBorder" Property="BorderThickness" Value="2"/>
+                                            </DataTrigger>
                                         </DataTemplate.Triggers>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
@@ -191,19 +220,25 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="SET" Width="230">
+                            <DataGridTemplateColumn Header="FORCE (stays on until released)" Width="330">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Grid>
                                             <StackPanel Orientation="Horizontal" Visibility="{Binding CanSetBool, Converter={StaticResource BoolToVisibility}}">
-                                                <Button Content="SET TRUE" Style="{StaticResource SetButton}" Click="SetTrue_Click"/>
-                                                <Button Content="SET FALSE" Style="{StaticResource SetButton}" Click="SetFalse_Click"/>
+                                                <ToggleButton Content="SET TRUE" Style="{StaticResource ForceButton}" IsChecked="{Binding ForceTrue, UpdateSourceTrigger=PropertyChanged}"
+                                                              ToolTip="Held TRUE whatever the PLC or the model says. Wins over SET FALSE."/>
+                                                <ToggleButton Content="SET FALSE" Style="{StaticResource ForceButton}" IsChecked="{Binding ForceFalse, UpdateSourceTrigger=PropertyChanged}"
+                                                              ToolTip="Held FALSE whatever the PLC or the model says."/>
                                             </StackPanel>
                                             <StackPanel Orientation="Horizontal" Visibility="{Binding CanSetAnalog, Converter={StaticResource BoolToVisibility}}">
-                                                <TextBox Width="90" Height="24" Margin="0,0,4,0" VerticalContentAlignment="Center"
+                                                <TextBox Width="80" Height="24" Margin="0,0,4,0" VerticalContentAlignment="Center"
                                                          Text="{Binding SetText, UpdateSourceTrigger=PropertyChanged}" KeyDown="AnalogBox_KeyDown"
                                                          ToolTip="{Binding ScalingText}"/>
-                                                <Button Content="SET" Style="{StaticResource SetButton}" MinWidth="50" Click="SetAnalog_Click"/>
+                                                <ToggleButton Content="SET" Style="{StaticResource ForceButton}" MinWidth="44" IsChecked="{Binding ForceValueOn, Mode=OneWay}"
+                                                              Click="SetAnalogToggle_Click" ToolTip="Hold the typed value (Enter updates it while held)."/>
+                                                <ToggleButton Content="WIRE BREAK" Style="{StaticResource ForceButton}" MinWidth="80" IsChecked="{Binding WireBreak, UpdateSourceTrigger=PropertyChanged}"
+                                                              Visibility="{Binding CanWireBreak, Converter={StaticResource BoolToVisibility}}"
+                                                              ToolTip="Wire break: AI/RTD 32767, COUNTER/device NaN. Wins over SET."/>
                                                 <TextBlock Text="{Binding Unit}" VerticalAlignment="Center" Foreground="#57606A"/>
                                             </StackPanel>
                                         </Grid>

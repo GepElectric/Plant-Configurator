@@ -108,15 +108,20 @@ public sealed class SimulationController
             await Guard(session, session.ReadAsync, errors);
         }
 
-        if (!Running)
+        if (Running)
         {
-            return errors;
+            SimulatedTime += dt;
+            Engine.Step(dt, plc => Session(plc) is { IsConnected: true } session ? session : null);
         }
 
-        SimulatedTime += dt;
-        Engine.Step(dt, plc => Session(plc) is { IsConnected: true } session ? session : null);
+        // Forces in the signal list are written every cycle and override the model.
         foreach (var session in Sessions.Where(session => session.IsConnected))
         {
+            if (session.HasForcedOutputs)
+            {
+                session.ApplyForces();
+            }
+
             await Guard(session, session.FlushAsync, errors);
         }
 
