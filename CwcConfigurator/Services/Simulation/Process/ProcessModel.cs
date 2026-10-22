@@ -11,6 +11,34 @@ public sealed class ProcessModel
     /// <summary>Saved forces of the signal list: "KIND:ID:ADDRESS TRUE|FALSE|SET value|WIREBREAK".</summary>
     public List<string> Forces { get; set; } = [];
 
+    /// <summary>SCADA screens in their order (objects without a screen are on the first one).</summary>
+    public List<string> Screens { get; set; } = [];
+
+    public const string MainScreen = "Main";
+
+    /// <summary>Screens in order: the listed ones plus any used by an object; at least "Main".</summary>
+    public List<string> AllScreens()
+    {
+        var screens = new List<string>();
+        foreach (var name in Screens.Concat(Objects.Select(item => item.Screen ?? "")).Where(name => !string.IsNullOrWhiteSpace(name)))
+        {
+            if (!screens.Contains(name, StringComparer.OrdinalIgnoreCase))
+            {
+                screens.Add(name);
+            }
+        }
+
+        if (screens.Count == 0 || Objects.Any(item => item.Screen is null) && !screens.Contains(MainScreen, StringComparer.OrdinalIgnoreCase))
+        {
+            screens.Insert(0, MainScreen);
+        }
+
+        return screens;
+    }
+
+    /// <summary>Screen of an object (objects without one are on the first screen).</summary>
+    public string ScreenOf(ObjectConfig item) => item.Screen ?? AllScreens()[0];
+
     public ObjectConfig? Find(string name) =>
         Objects.FirstOrDefault(item => item.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 }
@@ -30,6 +58,12 @@ public sealed class ObjectConfig
 
     public double X { get; set; }
     public double Y { get; set; }
+
+    /// <summary>Group (e.g. "Nozzles"): a node in the object tree and a named frame on the SCADA; null = no group.</summary>
+    public string? Group { get; set; }
+
+    /// <summary>SCADA screen of the object (e.g. "AC distribution"); null = the first screen.</summary>
+    public string? Screen { get; set; }
 }
 
 public enum PortDirection
@@ -53,7 +87,11 @@ public sealed record PortDef(string Name, PortDirection Direction, PortType Type
 /// <summary>Variant condition: option <paramref name="Option"/> has one of <paramref name="Values"/>.</summary>
 public sealed record ShownWhen(string Option, IReadOnlyList<string> Values);
 
-public sealed record ParamDef(string Name, double Default, string Unit, string Description);
+public sealed record ParamDef(string Name, double Default, string Unit, string Description)
+{
+    /// <summary>The parameter is used (and shown) only in these variants.</summary>
+    public ShownWhen? ShownWhen { get; init; }
+}
 
 public sealed record OptionDef(string Name, IReadOnlyList<string> Values, string Description)
 {
@@ -64,6 +102,9 @@ public sealed record OptionDef(string Name, IReadOnlyList<string> Values, string
 
     /// <summary>A "No"/"Yes" option that switches equipment (and its ports) on.</summary>
     public bool IsSwitch => Values.Count == 2 && Values[0] == "No" && Values[1] == "Yes";
+
+    /// <summary>A count ("0".."4"): how many of a numbered equipment exist.</summary>
+    public bool IsCount => Values.All(value => int.TryParse(value, out _));
 }
 
 /// <summary>A characteristic given as X/Y points (e.g. nozzle stroke → flow), interpolated linearly between points.</summary>
@@ -104,12 +145,20 @@ public sealed record ObjectTypeInfo(
     /// </summary>
     public void UpgradeSwitches(ObjectConfig config)
     {
-        foreach (var option in Options.Where(option => option.IsSwitch && !config.Options.ContainsKey(option.Name)))
+        foreach (var option in Options.Where(option => (option.IsSwitch || option.IsCount) && !config.Options.ContainsKey(option.Name)))
         {
-            if (Ports.Any(port => port.ShownWhen?.Option.Equals(option.Name, StringComparison.OrdinalIgnoreCase) == true
-                                  && config.Ports.TryGetValue(port.Name, out var text) && !string.IsNullOrWhiteSpace(text)))
+            var bound = Ports.Where(port => port.ShownWhen?.Option.Equals(option.Name, StringComparison.OrdinalIgnoreCase) == true
+                                            && config.Ports.TryGetValue(port.Name, out var text) && !string.IsNullOrWhiteSpace(text)).ToList();
+            if (bound.Count == 0 || bound.All(port => IsActive(port.ShownWhen, config)))
             {
-                config.Options[option.Name] = "Yes";
+                continue;
+            }
+
+            // The first variant (No -> Yes, or the smallest count) that shows every connected port.
+            var value = option.Values.FirstOrDefault(value => bound.All(port => port.ShownWhen!.Values.Contains(value, StringComparer.OrdinalIgnoreCase)));
+            if (value is not null)
+            {
+                config.Options[option.Name] = value;
             }
         }
     }

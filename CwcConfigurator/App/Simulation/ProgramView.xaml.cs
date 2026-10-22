@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using CwcConfigurator.Services.Simulation;
 using CwcConfigurator.Services.Simulation.Process;
 
@@ -19,6 +20,7 @@ public partial class ProgramView : UserControl
     private ObjectConfig? _current;
     private List<PortRow> _ports = [];
     private bool _selfChange;
+    private bool _reloading;
 
     public ProgramView()
     {
@@ -66,23 +68,47 @@ public partial class ProgramView : UserControl
         }
     }
 
-    private void ReloadList()
+    /// <summary>Object tree: groups (sorted by name) with their members, then the objects without a group.</summary>
+    private void ReloadList(string? select = null)
     {
-        var selected = _current?.Name;
-        ObjectList.ItemsSource = Model?.Objects
+        var selected = select ?? _current?.Name;
+        var collapsed = (ObjectTree.ItemsSource as IEnumerable<object>)?.OfType<ObjectGroupNode>().Where(group => !group.IsExpanded)
+            .Select(group => group.Name).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
+        var objects = (Model?.Objects ?? [])
             .OrderBy(item => ObjectCatalog.Find(item.Type)?.Category ?? "~")
             .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(item => new ObjectItem(item))
             .ToList();
-        var restore = ObjectList.Items.Cast<ObjectItem>().FirstOrDefault(item => item.Config.Name == selected);
-        ObjectList.SelectedItem = restore;
-        if (restore is null)
+        var nodes = new List<object>();
+        foreach (var group in objects.Where(item => item.Group is not null).GroupBy(item => item.Group!, StringComparer.OrdinalIgnoreCase)
+                     .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase))
         {
-            ShowObject(null);
+            nodes.Add(new ObjectGroupNode(group.Key, group.Select(item => new ObjectNode(item)).ToList()) { IsExpanded = !collapsed.Contains(group.Key) });
         }
 
+        nodes.AddRange(objects.Where(item => item.Group is null).Select(item => new ObjectNode(item)));
+        var restore = AllObjectNodes(nodes).FirstOrDefault(node => node.Config.Name == selected);
+        if (restore is not null)
+        {
+            restore.IsSelected = true;
+        }
+
+        _reloading = true;
+        try
+        {
+            ObjectTree.ItemsSource = nodes;
+        }
+        finally
+        {
+            _reloading = false;
+        }
+
+        GroupBox.ItemsSource = nodes.OfType<ObjectGroupNode>().Select(group => group.Name).ToList();
+        ShowObject(restore?.Config);
         UpdateProblems();
     }
+
+    private static IEnumerable<ObjectNode> AllObjectNodes(IEnumerable<object> nodes) =>
+        nodes.SelectMany(node => node is ObjectGroupNode group ? group.Members : node is ObjectNode item ? [item] : []);
 
     private void UpdateProblems()
     {
@@ -95,9 +121,164 @@ public partial class ProgramView : UserControl
         ProblemsText.Text = problems.Count == 0 ? "" : string.Join(Environment.NewLine, problems.Take(10));
     }
 
-    private void ObjectList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void ObjectTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
-        ShowObject((ObjectList.SelectedItem as ObjectItem)?.Config);
+        if (_reloading)
+        {
+            return;
+        }
+
+        if (e.NewValue is ObjectNode node)
+        {
+            ShowObject(node.Config);
+        }
+        else if (e.NewValue is ObjectGroupNode)
+        {
+            ShowObject(null);
+        }
+    }
+
+    // ---- groups: drag and drop in the tree, buttons and the Group box ----
+
+    private Point _dragStart;
+    private ObjectConfig? _dragCandidate;
+
+    private void ObjectTree_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _dragStart = e.GetPosition(ObjectTree);
+        _dragCandidate = (FindItem(e.OriginalSource as DependencyObject)?.DataContext as ObjectNode)?.Config;
+    }
+
+    private void ObjectTree_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_dragCandidate is null || e.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        var offset = e.GetPosition(ObjectTree) - _dragStart;
+        if (Math.Abs(offset.X) < SystemParameters.MinimumHorizontalDragDistance && Math.Abs(offset.Y) < SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        var config = _dragCandidate;
+        _dragCandidate = null;
+        DragDrop.DoDragDrop(ObjectTree, new DataObject(typeof(ObjectConfig), config), DragDropEffects.Move);
+    }
+
+    private void ObjectTree_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(typeof(ObjectConfig)) ? DragDropEffects.Move : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void ObjectTree_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(typeof(ObjectConfig)) is not ObjectConfig config)
+        {
+            return;
+        }
+
+        var target = FindItem(e.OriginalSource as DependencyObject)?.DataContext;
+        var group = target switch
+        {
+            ObjectGroupNode node => node.Name,
+            ObjectNode node => node.Config.Group,
+            _ => null
+        };
+        SetGroup([config], group, config.Name);
+    }
+
+    private static TreeViewItem? FindItem(DependencyObject? element)
+    {
+        while (element is not null and not TreeViewItem)
+        {
+            element = element is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(element) : LogicalTreeHelper.GetParent(element);
+        }
+
+        return element as TreeViewItem;
+    }
+
+    private void NewGroup_Click(object sender, RoutedEventArgs e)
+    {
+        if (_current is null)
+        {
+            MessageBox.Show(Window.GetWindow(this)!, "Select the object that goes into the new group.", "Simulator", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var name = TextPrompt.Ask(Window.GetWindow(this)!, "New group", $"Name of the new group for {_current.Name}:", "");
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            SetGroup([_current], name, _current.Name);
+        }
+    }
+
+    private void RenameGroup_Click(object sender, RoutedEventArgs e)
+    {
+        var group = (ObjectTree.SelectedItem as ObjectGroupNode)?.Name ?? _current?.Group;
+        if (group is null || Model is not { } model)
+        {
+            MessageBox.Show(Window.GetWindow(this)!, "Select a group or an object of a group.", "Simulator", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var name = TextPrompt.Ask(Window.GetWindow(this)!, "Rename group", $"New name of the group '{group}':", group);
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            SetGroup(model.Objects.Where(item => string.Equals(item.Group, group, StringComparison.OrdinalIgnoreCase)).ToList(), name, _current?.Name);
+        }
+    }
+
+    private void Ungroup_Click(object sender, RoutedEventArgs e)
+    {
+        if (ObjectTree.SelectedItem is ObjectGroupNode group && Model is { } model)
+        {
+            SetGroup(model.Objects.Where(item => string.Equals(item.Group, group.Name, StringComparison.OrdinalIgnoreCase)).ToList(), null, null);
+        }
+        else if (_current is not null)
+        {
+            SetGroup([_current], null, _current.Name);
+        }
+    }
+
+    private void GroupBox_LostFocus(object sender, RoutedEventArgs e) => ApplyGroupBox();
+
+    private void GroupBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            ApplyGroupBox();
+        }
+    }
+
+    private void ApplyGroupBox()
+    {
+        if (_current is not null && !string.Equals(_current.Group ?? "", GroupBox.Text.Trim(), StringComparison.Ordinal))
+        {
+            SetGroup([_current], GroupBox.Text, _current.Name);
+        }
+    }
+
+    /// <summary>Puts objects into a group (null/empty = no group); the tree and the SCADA frames follow.</summary>
+    private void SetGroup(IReadOnlyList<ObjectConfig> objects, string? group, string? select)
+    {
+        group = string.IsNullOrWhiteSpace(group) ? null : group.Trim();
+        if (Model is { } model && group is not null)
+        {
+            // Same spelling as an existing group.
+            group = model.Objects.Select(item => item.Group).FirstOrDefault(name => string.Equals(name, group, StringComparison.OrdinalIgnoreCase)) ?? group;
+        }
+
+        foreach (var config in objects)
+        {
+            config.Group = group;
+        }
+
+        _controller?.MarkDirty();
+        _controller?.NotifyLayoutChanged();
+        ReloadList(select);
     }
 
     private void ShowObject(ObjectConfig? config)
@@ -120,6 +301,7 @@ public partial class ProgramView : UserControl
 
         NameBox.Text = config.Name;
         DescriptionBox.Text = config.Description;
+        GroupBox.Text = config.Group ?? "";
         TypeText.Text = $"{info.Title} — {info.Description}";
         // Only the options and ports of the chosen variant are shown (e.g. no Setpoint for OPEN/CLOSE control,
         // no Esd without an ESD valve); hidden ports keep their binding but work as not connected.
@@ -131,7 +313,7 @@ public partial class ProgramView : UserControl
             .Select(port => new PortRow(port, config, BindingSuggestions.For(port, _plc, _controller), StructureChanged))
             .ToList();
         PortsGrid.ItemsSource = _ports;
-        ParamsGrid.ItemsSource = info.Params.Select(param => new ParamRow(param, config, Changed)).ToList();
+        ParamsGrid.ItemsSource = info.Params.Where(param => info.IsActive(param.ShownWhen, config)).Select(param => new ParamRow(param, config, Changed)).ToList();
         TablesList.ItemsSource = info.Tables.Select(table => new TableRow(table, config, Changed)).ToList();
         RefreshLive();
     }
@@ -347,12 +529,7 @@ public partial class ProgramView : UserControl
         }
     }
 
-    private void Select(string name)
-    {
-        ReloadList();
-        ObjectList.SelectedItem = ObjectList.Items.Cast<ObjectItem>().FirstOrDefault(item => item.Config.Name == name);
-        ObjectList.ScrollIntoView(ObjectList.SelectedItem);
-    }
+    private void Select(string name) => ReloadList(name);
 
     private static string UniqueName(ProcessModel model, string baseName)
     {
@@ -367,8 +544,61 @@ public partial class ProgramView : UserControl
         }
     }
 
-    private sealed record ObjectItem(ObjectConfig Config)
+}
+
+/// <summary>Group node of the object tree.</summary>
+public sealed class ObjectGroupNode(string name, List<ObjectNode> members)
+{
+    public string Name => name;
+    public List<ObjectNode> Members => members;
+    public string CountText => $"({members.Count})";
+    public bool IsExpanded { get; set; } = true;
+    public bool IsSelected { get; set; }
+}
+
+/// <summary>Object node of the object tree.</summary>
+public sealed class ObjectNode(ObjectConfig config)
+{
+    public ObjectConfig Config => config;
+    public string TypeText => $"({ObjectCatalog.Find(config.Type)?.Title ?? config.Type})";
+    public bool IsExpanded { get; set; }
+    public bool IsSelected { get; set; }
+}
+
+/// <summary>Small text prompt (WPF has none).</summary>
+public static class TextPrompt
+{
+    public static string? Ask(Window owner, string title, string text, string initial)
     {
-        public override string ToString() => $"{Config.Name}   ({ObjectCatalog.Find(Config.Type)?.Title ?? Config.Type})";
+        var box = new TextBox { Text = initial, Height = 24, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 6, 0, 10) };
+        var ok = new Button { Content = "OK", MinWidth = 70, Height = 26, IsDefault = true, Margin = new Thickness(0, 0, 6, 0) };
+        var cancel = new Button { Content = "Cancel", MinWidth = 70, Height = 26, IsCancel = true };
+        var window = new Window
+        {
+            Title = title,
+            Owner = owner,
+            Width = 380,
+            SizeToContent = SizeToContent.Height,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false,
+            Content = new StackPanel
+            {
+                Margin = new Thickness(14),
+                Children =
+                {
+                    new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap },
+                    box,
+                    new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { ok, cancel } }
+                }
+            }
+        };
+        ok.Click += (_, _) => window.DialogResult = true;
+        window.Loaded += (_, _) =>
+        {
+            box.Focus();
+            box.SelectAll();
+        };
+        return window.ShowDialog() == true ? box.Text.Trim() : null;
     }
 }

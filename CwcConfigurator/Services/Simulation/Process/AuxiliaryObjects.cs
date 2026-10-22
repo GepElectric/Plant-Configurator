@@ -132,7 +132,8 @@ public sealed class AuxSupplyObject : SimObject
             AnalogOut("S", "kVA", "Apparent power."),
             AnalogOut("PF", "", "Power factor."),
             AnalogOut("F", "Hz", "Frequency."),
-            AnalogOut("Energy", "kWh", "Active energy.")
+            AnalogOut("Energy", "kWh", "Active energy."),
+            BoolOut("Live", "Busbar live (link to the MCBs of the distribution: @AuxSupply.Live).")
         ],
         [],
         ["U", "P"],
@@ -155,6 +156,7 @@ public sealed class AuxSupplyObject : SimObject
         Out("PF", supplied ? pf : 0);
         Out("F", supplied ? P("Frequency") : 0);
         Out("Energy", _energy);
+        Out("Live", supplied);
     }
 }
 
@@ -294,16 +296,19 @@ public sealed class SignalObject : SimObject
 
     public static ObjectTypeInfo TypeInfo { get; } = new(
         "Signal", "Signal source", "General",
-        "Constant, sine, ramp, random or step signal (e.g. river inflow, grid frequency), added to the In input.",
+        "Test signal for a control loop (e.g. river inflow, grid frequency): constant, step, ramp, sine, square steps or " +
+        "random around an offset, added to the In input. Reset starts it again.",
         [
-            Option("Shape", "Constant: Value. Sine: Value + Amplitude·sin. Ramp: from Value by Rate up to Max. Random: Value + slow random. Steps: Value / Value+Amplitude every Period/2.",
-                "Constant", "Sine", "Ramp", "Random", "Steps")
+            Option("Shape", "Constant: Value. Step: Value, after Delay Value + Amplitude. Ramp: after Delay from Value by Rate (limited by Min/Max). " +
+                            "Sine: Value + Amplitude·sin. Steps: Value / Value + Amplitude every Period/2. Random: Value + slow random.",
+                "Constant", "Step", "Ramp", "Sine", "Steps", "Random")
         ],
         [
-            Param("Value", 0, "", "Base value."),
-            Param("Amplitude", 0, "", "Amplitude (Sine, Random, Steps)."),
-            Param("Period", 600, "s", "Period (Sine, Steps), time constant (Random)."),
-            Param("Rate", 0, "/s", "Ramp rate."),
+            Param("Value", 0, "", "Offset / base value."),
+            Param("Amplitude", 0, "", "Step height (Step, Steps), amplitude (Sine, Random).").When("Shape", "Step", "Sine", "Steps", "Random"),
+            Param("Delay", 60, "s", "Time after reset when the step / ramp starts.").When("Shape", "Step", "Ramp"),
+            Param("Rate", 0.01, "/s", "Ramp rate (negative = falling).").When("Shape", "Ramp"),
+            Param("Period", 600, "s", "Period (Sine, Steps), time constant (Random).").When("Shape", "Sine", "Steps", "Random"),
             Param("Min", -1e9, "", "Lower limit of the output."),
             Param("Max", 1e9, "", "Upper limit of the output.")
         ],
@@ -336,7 +341,8 @@ public sealed class SignalObject : SimObject
         _value = Opt("Shape") switch
         {
             "Sine" => P("Value") + P("Amplitude") * Math.Sin(2 * Math.PI * _time / period),
-            "Ramp" => P("Value") + P("Rate") * _time,
+            "Step" => P("Value") + (_time >= P("Delay") ? P("Amplitude") : 0),
+            "Ramp" => P("Value") + P("Rate") * Math.Max(0, _time - P("Delay")),
             "Random" => P("Value") + P("Amplitude") * (_wander = SimMath.Lag(_wander, Noise(1), period, dt)) * 2,
             "Steps" => P("Value") + ((int)(_time / (period / 2)) % 2 == 1 ? P("Amplitude") : 0),
             _ => P("Value")
@@ -442,6 +448,9 @@ public static class ObjectCatalog
         TemperatureObject.TypeInfo,
         VibrationObject.TypeInfo,
         AuxSupplyObject.TypeInfo,
+        McbObject.TypeInfo,
+        ContactorObject.TypeInfo,
+        MotorObject.TypeInfo,
         LogicObject.TypeInfo,
         SignalObject.TypeInfo,
         PidObject.TypeInfo

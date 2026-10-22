@@ -1,6 +1,7 @@
 <UserControl x:Class="CwcConfigurator.App.Simulation.ProgramView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:CwcConfigurator.App.Simulation">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="290"/>
@@ -27,6 +28,13 @@
                             ToolTip="Creates objects for this PLC from the signal names (gates, reservoir, HPU, nozzles, MIV, GCB, …) and binds their signals."/>
                 </WrapPanel>
                 <WrapPanel>
+                    <Button Content="New group…" MinWidth="80" Height="24" Margin="0,0,4,4" Click="NewGroup_Click"
+                            ToolTip="Put the selected object into a new group (e.g. Nozzles). Objects can also be dragged onto a group."/>
+                    <Button Content="Rename group…" MinWidth="95" Height="24" Margin="0,0,4,4" Click="RenameGroup_Click"/>
+                    <Button Content="Ungroup" MinWidth="65" Height="24" Margin="0,0,4,4" Click="Ungroup_Click"
+                            ToolTip="Selected object: leaves its group. Selected group: the group is dissolved."/>
+                </WrapPanel>
+                <WrapPanel>
                     <Button Content="Save model" MinWidth="80" Height="24" Margin="0,0,4,4" Click="Save_Click"/>
                     <Button Content="Reload" MinWidth="60" Height="24" Margin="0,0,4,4" Click="Reload_Click"/>
                     <Button Content="Open file" MinWidth="70" Height="24" Margin="0,0,4,4" Click="OpenFile_Click"
@@ -35,7 +43,33 @@
                 <TextBlock x:Name="ModelPathText" Foreground="#57606A" TextWrapping="Wrap" FontSize="11"/>
                 <TextBlock x:Name="ProblemsText" Foreground="#B91C1C" TextWrapping="Wrap" Margin="0,4,0,0"/>
             </StackPanel>
-            <ListBox x:Name="ObjectList" SelectionChanged="ObjectList_SelectionChanged"/>
+            <TreeView x:Name="ObjectTree" SelectedItemChanged="ObjectTree_SelectedItemChanged" AllowDrop="True"
+                      PreviewMouseLeftButtonDown="ObjectTree_PreviewMouseLeftButtonDown" PreviewMouseMove="ObjectTree_PreviewMouseMove"
+                      DragOver="ObjectTree_DragOver" Drop="ObjectTree_Drop"
+                      ToolTip="Drag an object onto a group (or onto an object of a group) to group it; onto empty space to ungroup it.">
+                <TreeView.ItemContainerStyle>
+                    <Style TargetType="TreeViewItem">
+                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                        <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+                        <Setter Property="Padding" Value="1,2"/>
+                    </Style>
+                </TreeView.ItemContainerStyle>
+                <TreeView.Resources>
+                    <HierarchicalDataTemplate DataType="{x:Type local:ObjectGroupNode}" ItemsSource="{Binding Members}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="▣ " Foreground="#2563EB"/>
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding CountText}" Foreground="#57606A" Margin="6,0,0,0"/>
+                        </StackPanel>
+                    </HierarchicalDataTemplate>
+                    <DataTemplate DataType="{x:Type local:ObjectNode}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Config.Name}"/>
+                            <TextBlock Text="{Binding TypeText}" Foreground="#57606A" Margin="6,0,0,0"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </TreeView.Resources>
+            </TreeView>
         </DockPanel>
 
         <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="#E5E7EB"/>
@@ -60,6 +94,17 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Description" VerticalAlignment="Center"/>
                     <TextBox x:Name="DescriptionBox" Grid.Column="1" Height="24" VerticalContentAlignment="Center" LostFocus="DescriptionBox_LostFocus"/>
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="260"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Group" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="GroupBox" Grid.Column="1" Height="24" IsEditable="True" LostFocus="GroupBox_LostFocus" KeyDown="GroupBox_KeyDown"/>
+                    <TextBlock Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="#57606A" TextWrapping="Wrap"
+                               Text="Objects of one group are a node in the tree and one named frame on the SCADA. Empty = no group."/>
                 </Grid>
 
                 <TextBlock Text="Variants" FontWeight="SemiBold" Margin="0,12,0,4"/>

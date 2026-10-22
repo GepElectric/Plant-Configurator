@@ -91,13 +91,11 @@ public static class ModelGenerator
         {
             var (low, high) = scaling.EngineeringRange;
             var span = Math.Max(1, high - low);
-            reservoir.Params["BottomElevation"] = Math.Round(low, 2);
-            reservoir.Params["MaxDepth"] = Math.Round(span, 2);
-            reservoir.Params["InitialDepth"] = Math.Round(span * 0.6, 2);
-            reservoir.Params["SpillCrestDepth"] = Math.Round(span * 0.8, 2);
-            reservoir.Params["LowLevelDepth"] = Math.Round(span * 0.2, 2);
-            reservoir.Params["HighLevelDepth"] = Math.Round(span * 0.85, 2);
-            reservoir.Params["GateReferenceDepth"] = Math.Round(span * 0.6, 2);
+            reservoir.Params["BottomLevel"] = Math.Round(low, 2);
+            reservoir.Params["InitialLevel"] = Math.Round(low + span * 0.6, 2);
+            reservoir.Params["SpillwayCrest"] = Math.Round(low + span * 0.8, 2);
+            reservoir.Params["LowLevel"] = Math.Round(low + span * 0.2, 2);
+            reservoir.Params["HighLevel"] = Math.Round(low + span * 0.85, 2);
             model.Note($"Reservoir: level range {low:0.##}…{high:0.##} m from the scaling of {levelSignal.PlcName}; check Area, inflow and gate capacities.");
         }
 

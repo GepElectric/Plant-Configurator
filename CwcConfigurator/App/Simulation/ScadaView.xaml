@@ -8,9 +8,36 @@
             <ColumnDefinition Width="380"/>
         </Grid.ColumnDefinitions>
 
-        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#F3F4F6">
-            <Canvas x:Name="Sheet" Width="1600" Height="1000" Background="#F3F4F6" MouseLeftButtonDown="Sheet_MouseLeftButtonDown"/>
-        </ScrollViewer>
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Background="White" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1" Padding="8,5">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Screen" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="SemiBold"/>
+                    <ListBox x:Name="ScreenTabs" SelectionChanged="ScreenTabs_SelectionChanged" BorderThickness="0" Background="Transparent"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="10,3"/>
+                                <Setter Property="Margin" Value="0,0,4,0"/>
+                                <Setter Property="BorderBrush" Value="#CBD5E1"/>
+                                <Setter Property="BorderThickness" Value="1"/>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                    <Button Content="New screen…" MinWidth="85" Height="24" Margin="10,0,4,0" Click="NewScreen_Click"/>
+                    <Button Content="Rename…" MinWidth="65" Height="24" Margin="0,0,4,0" Click="RenameScreen_Click"/>
+                    <Button Content="Delete" MinWidth="55" Height="24" Click="DeleteScreen_Click"
+                            ToolTip="Deletes an empty screen (move its objects to another screen first)."/>
+                </StackPanel>
+            </Border>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#F3F4F6">
+                <Canvas x:Name="Sheet" Width="1600" Height="1000" Background="#F3F4F6" MouseLeftButtonDown="Sheet_MouseLeftButtonDown"/>
+            </ScrollViewer>
+        </DockPanel>
 
         <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="#E5E7EB"/>
 
@@ -21,7 +48,15 @@
                            Text="Click an object on the plant sheet to set its parameters and force its outputs. Drag objects to arrange the sheet."/>
 
                 <StackPanel x:Name="ObjectPanel" Visibility="Collapsed">
-                    <ItemsControl x:Name="OptionsList" Margin="0,10,0,0">
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Screen" VerticalAlignment="Center" ToolTip="Move the object to another SCADA screen."/>
+                        <ComboBox x:Name="ObjectScreenBox" Grid.Column="1" Height="24" SelectionChanged="ObjectScreenBox_SelectionChanged"/>
+                    </Grid>
+                    <ItemsControl x:Name="OptionsList" Margin="0,4,0,0">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Grid Margin="0,2">

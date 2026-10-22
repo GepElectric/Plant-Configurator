@@ -11,35 +11,37 @@ public sealed class ReservoirObject : SimObject
 {
     private const int Units = 8;
     private const int Gates = 4;
-    private double _depth;
+    private double _level;
 
     public static ObjectTypeInfo TypeInfo { get; } = new(
         "Reservoir", "Reservoir / intake level", "Waterway",
-        "Water level from the river inflow, the flow of every unit, the intake gates/flaps and the spillway.",
+        "Water level = integral of (river inflow - unit flows - gates/flaps - spillway) / area. Above the spillway crest the " +
+        "spill grows with the height over the crest until it takes the surplus and the level settles.",
         [
-            Option("Mode", "Balance: level follows the water balance. Constant: level stays at the initial value.", "Balance", "Constant")
+            Has("RiverInflowInput", "River inflow from a link, e.g. a Signal source (step, ramp, sine) to test the level control. No = parameter RiverInflow."),
+            Count("Units", "Units whose flow is taken from the reservoir.", 0, Units, 1),
+            Count("Gates", "Intake gates / flaps that let water out of the reservoir (extra outflow).", 0, Gates, 0)
         ],
         [
-            Param("Area", 2000, "m²", "Water surface area of the reservoir / forebay."),
-            Param("BottomElevation", 0, "m", "Elevation of the reservoir bottom (Level = BottomElevation + depth)."),
-            Param("InitialDepth", 4, "m", "Water depth after reset."),
-            Param("MaxDepth", 6, "m", "Depth at which the reservoir is full."),
-            Param("RiverInflow", 0.8, "m³/s", "River inflow when the RiverInflow input is not connected."),
-            Param("SpillCrestDepth", 5, "m", "Depth of the spillway crest (0 = no spillway)."),
-            Param("SpillWidth", 10, "m", "Spillway width (Q = 1.7·width·h^1.5)."),
-            .. Enumerable.Range(1, Gates).Select(i => Param($"Gate{i}Capacity", 20, "m³/s", $"Gate/flap {i}: discharge fully open at the reference depth.")),
-            Param("GateReferenceDepth", 4, "m", "Depth at which the gate capacities apply."),
-            Param("LowLevelDepth", 2, "m", "Level low switch (depth)."),
-            Param("HighLevelDepth", 5.2, "m", "Level high switch (depth).")
+            Param("Area", 2000, "m²", "Water surface of the reservoir / forebay."),
+            Param("SpillwayCrest", 5, "m", "Level of the spillway crest (same scale as Level)."),
+            Param("SpillwayWidth", 10, "m", "Spillway width: spill = 1.7 · width · (level - crest)^1.5."),
+            Param("InitialLevel", 4, "m", "Level after reset."),
+            Param("BottomLevel", 0, "m", "Level of the bottom / intake sill: the level cannot fall below it."),
+            Param("RiverInflow", 0.8, "m³/s", "River inflow.").When("RiverInflowInput", "No"),
+            .. Enumerable.Range(1, Gates).Select(i => Param($"Gate{i}Capacity", 20, "m³/s", $"Gate/flap {i}: discharge fully open with the level at the spillway crest.")
+                .When("Gates", AtLeast(i, Gates))),
+            Param("LowLevel", 2, "m", "Level low switch."),
+            Param("HighLevel", 5.2, "m", "Level high switch.")
         ],
         [
-            AnalogIn("RiverInflow", "m³/s", "River inflow (link or AO). Not connected = parameter RiverInflow."),
-            .. Numbered(Units, i => AnalogIn($"Unit{i}Flow", "m³/s", $"Turbine flow of unit {i} (link, e.g. @Unit {i}/Flow.Flow).")),
-            .. Numbered(Gates, i => AnalogIn($"Gate{i}Opening", "%", $"Opening of intake gate / flap {i} (link from a valve or actuator).")),
+            AnalogIn("RiverInflow", "m³/s", "River inflow (link, e.g. @RiverFlow.Out from a Signal source).").When("RiverInflowInput", "Yes"),
+            .. Numbered(Units, i => AnalogIn($"Unit{i}Flow", "m³/s", $"Turbine flow of unit {i} (link, e.g. @Unit {i}/Flow.Flow).").When("Units", AtLeast(i, Units))),
+            .. Numbered(Gates, i => AnalogIn($"Gate{i}Opening", "%", $"Opening of intake gate / flap {i} (link from a valve or actuator).").When("Gates", AtLeast(i, Gates))),
             AnalogIn("OtherOutflow", "m³/s", "Any other outflow."),
-            AnalogOut("Level", "m", "Water level (BottomElevation + depth)."),
-            AnalogOut("Depth", "m", "Water depth."),
-            AnalogOut("Inflow", "m³/s", "Total inflow."),
+            AnalogOut("Level", "m", "Water level."),
+            AnalogOut("Depth", "m", "Level above the bottom."),
+            AnalogOut("Inflow", "m³/s", "River inflow."),
             AnalogOut("TurbineFlow", "m³/s", "Sum of the unit flows."),
             AnalogOut("GateFlow", "m³/s", "Discharge through the gates / flaps."),
             AnalogOut("Spill", "m³/s", "Spillway discharge."),
@@ -47,42 +49,42 @@ public sealed class ReservoirObject : SimObject
             BoolOut("LevelHigh", "Level high.")
         ],
         [],
-        ["Level", "Inflow", "TurbineFlow", "GateFlow"],
+        ["Level", "Inflow", "TurbineFlow", "Spill"],
         () => new ReservoirObject());
 
     public override void Reset()
     {
-        _depth = P("InitialDepth");
-        Publish(Connected("RiverInflow") ? In("RiverInflow") : P("RiverInflow"), 0, 0, 0);
+        _level = Math.Max(P("BottomLevel"), P("InitialLevel"));
+        Publish(Inflow(), 0, 0, 0);
     }
 
     public override void Step(double dt)
     {
-        var inflow = Connected("RiverInflow") ? In("RiverInflow") : P("RiverInflow");
+        var inflow = Inflow();
+        var bottom = P("BottomLevel");
+        var crest = P("SpillwayCrest");
         var turbines = Enumerable.Range(1, Units).Sum(i => Math.Max(0, In($"Unit{i}Flow")));
-        var depthFactor = Math.Sqrt(Math.Max(0, _depth) / Math.Max(0.1, P("GateReferenceDepth")));
+        // Gate discharge grows with the square root of the water depth over the sill; the capacity applies at the crest.
+        var depthFactor = Math.Sqrt(Math.Max(0, _level - bottom) / Math.Max(0.1, crest - bottom));
         var gates = Enumerable.Range(1, Gates).Sum(i => P($"Gate{i}Capacity") * SimMath.Clamp(In($"Gate{i}Opening"), 0, 100) / 100) * depthFactor;
-        var crest = P("SpillCrestDepth");
-        var spill = crest > 0 && _depth > crest ? 1.7 * P("SpillWidth") * Math.Pow(_depth - crest, 1.5) : 0;
-        if (OptIs("Mode", "Balance"))
-        {
-            var outflow = turbines + gates + spill + Math.Max(0, In("OtherOutflow"));
-            _depth = SimMath.Clamp(_depth + (inflow - outflow) / Math.Max(1, P("Area")) * dt, 0, P("MaxDepth"));
-        }
-
+        var spill = _level > crest ? 1.7 * Math.Max(0, P("SpillwayWidth")) * Math.Pow(_level - crest, 1.5) : 0;
+        var outflow = turbines + gates + spill + Math.Max(0, In("OtherOutflow"));
+        _level = Math.Max(bottom, _level + (inflow - outflow) / Math.Max(1, P("Area")) * dt);
         Publish(inflow, turbines, gates, spill);
     }
 
+    private double Inflow() => Math.Max(0, OptIs("RiverInflowInput", "Yes") ? In("RiverInflow") : P("RiverInflow"));
+
     private void Publish(double inflow, double turbines, double gates, double spill)
     {
-        Out("Level", P("BottomElevation") + _depth);
-        Out("Depth", _depth);
+        Out("Level", _level);
+        Out("Depth", _level - P("BottomLevel"));
         Out("Inflow", inflow);
         Out("TurbineFlow", turbines);
         Out("GateFlow", gates);
         Out("Spill", spill);
-        Out("LevelLow", _depth <= P("LowLevelDepth"));
-        Out("LevelHigh", _depth >= P("HighLevelDepth"));
+        Out("LevelLow", _level <= P("LowLevel"));
+        Out("LevelHigh", _level >= P("HighLevel"));
     }
 }
 

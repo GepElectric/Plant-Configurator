@@ -313,6 +313,18 @@ public sealed class ProcessEngine
 /// <summary>Small numeric helpers shared by the objects.</summary>
 public static class SimMath
 {
+    /// <summary>
+    /// Thermal overload (I²t): heating 0…1 (1 = trip). At 1.5 × the setting it trips after <paramref name="tripTimeAt150"/>,
+    /// the trip time falls with 1/(m² − 1); below 1.05 × it cools down three times slower.
+    /// </summary>
+    public static double Thermal(double heat, double multiple, double tripTimeAt150, double dt)
+    {
+        var time = Math.Max(0.1, tripTimeAt150);
+        return multiple > 1.05
+            ? heat + dt * (multiple * multiple - 1) / (1.25 * time)
+            : Math.Max(0, heat - dt / (3 * time));
+    }
+
     public const double G = 9.81;
     public const double WaterDensity = 1000;
 

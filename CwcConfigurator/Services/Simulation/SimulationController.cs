@@ -49,6 +49,11 @@ public sealed class SimulationController
     /// <summary>Raised after the model structure changed (objects, types, ports) and the engine was rebuilt.</summary>
     public event Action? ModelChanged;
 
+    /// <summary>Raised when only the presentation changed (groups); the SCADA redraws, the engine is untouched.</summary>
+    public event Action? LayoutChanged;
+
+    public void NotifyLayoutChanged() => LayoutChanged?.Invoke();
+
     public PlcSession? Session(string plc) => Sessions.FirstOrDefault(session => session.Name.Equals(plc, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Applies structural changes (objects added/removed/renamed, ports, options); running state is kept.</summary>

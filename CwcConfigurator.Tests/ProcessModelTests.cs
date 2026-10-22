@@ -88,7 +88,7 @@ public class ProcessModelTests
     {
         var engine = Engine(Obj("Reservoir", "Reservoir", parameters: new()
         {
-            ["Area"] = 500, ["InitialDepth"] = 5, ["SpillCrestDepth"] = 5, ["SpillWidth"] = 10, ["RiverInflow"] = 10, ["MaxDepth"] = 10
+            ["Area"] = 500, ["InitialLevel"] = 5, ["SpillwayCrest"] = 5, ["SpillwayWidth"] = 10, ["RiverInflow"] = 10
         }, ports: new() { ["Unit1Flow"] = "=2" }));
         var reservoir = engine.Find("Unit", "Reservoir")!;
 
@@ -104,7 +104,8 @@ public class ProcessModelTests
     {
         var engine = Engine(
             Obj("Gate1", "Valve", new() { ["OpenCmd"] = "=1" }, new() { ["OpenTime"] = 10 }, new() { ["Command"] = "OpenClose" }),
-            Obj("Reservoir", "Reservoir", new() { ["Gate1Opening"] = "@Gate1.Opening" }, new() { ["Area"] = 2000, ["RiverInflow"] = 1, ["InitialDepth"] = 4 }));
+            Obj("Reservoir", "Reservoir", new() { ["Gate1Opening"] = "@Gate1.Opening" }, new() { ["Area"] = 2000, ["RiverInflow"] = 1, ["InitialLevel"] = 4 },
+                new() { ["Gates"] = "1" }));
 
         Run(engine, 120);
 
@@ -193,7 +194,7 @@ public class ProcessModelTests
     {
         var models = new Dictionary<string, ProcessModel>
         {
-            ["Common"] = new() { Objects = [Obj("Reservoir", "Reservoir", new() { ["Unit1Flow"] = "@Unit 1/Flow.Out" }, new() { ["RiverInflow"] = 0, ["Area"] = 100, ["InitialDepth"] = 4 })] },
+            ["Common"] = new() { Objects = [Obj("Reservoir", "Reservoir", new() { ["Unit1Flow"] = "@Unit 1/Flow.Out" }, new() { ["RiverInflow"] = 0, ["Area"] = 100, ["InitialLevel"] = 4 })] },
             ["Unit 1"] = new() { Objects = [Obj("Flow", "Signal", parameters: new() { ["Value"] = 1 }), Obj("Penstock", "Penstock", new() { ["ReservoirLevel"] = "@Common/Reservoir.Level" })] }
         };
         var engine = new ProcessEngine(models);
@@ -282,6 +283,75 @@ public class ProcessModelTests
         info.UpgradeSwitches(gate);                         // an older model with Esd connected keeps its ESD valve
         Assert.Equal("Yes", gate.Options["EsdValve"]);
         Assert.False(gate.Options.ContainsKey("PowerSupply"));
+    }
+
+    [Fact]
+    public void Cabinet_McbContactorMotorChain()
+    {
+        var io = new FakeIo();
+        io.Values[(SimulatorSignalKind.DO, 10)] = 1;
+        var engine = new ProcessEngine(new Dictionary<string, ProcessModel>
+        {
+            ["Unit"] = new()
+            {
+                Objects =
+                [
+                    Obj("Aux", "AuxSupply"),
+                    Obj("F1", "Mcb", new() { ["Supply"] = "@Aux.Live", ["On"] = "DI:20", ["Load"] = "@M1.Current" }, new() { ["Rating"] = 16 }, new() { ["LoadInput"] = "Yes" }),
+                    Obj("K1", "Contactor", new() { ["Coil"] = "DO:10", ["Supply"] = "@F1.Live", ["Closed"] = "DI:21" }),
+                    Obj("M1", "Motor", new() { ["Supply"] = "@K1.Live", ["Running"] = "DI:22" }, new() { ["RatedCurrent"] = 5 })
+                ]
+            }
+        });
+
+        for (var i = 0; i < 50; i++)
+        {
+            engine.Step(0.1, _ => io);
+        }
+
+        Assert.Equal(1, io.Values[(SimulatorSignalKind.DI, 20)]);
+        Assert.Equal(1, io.Values[(SimulatorSignalKind.DI, 21)]);
+        Assert.Equal(1, io.Values[(SimulatorSignalKind.DI, 22)]);
+        Assert.InRange(engine.Find("Unit", "M1")!.Value("Current"), 4.5, 5.5);
+
+        engine.Find("Unit", "F1")!.Config.Options["Position"] = "Off";   // operator switches the MCB off
+        for (var i = 0; i < 80; i++)
+        {
+            engine.Step(0.1, _ => io);
+        }
+
+        Assert.Equal(0, io.Values[(SimulatorSignalKind.DI, 20)]);
+        Assert.Equal(1, io.Values[(SimulatorSignalKind.DI, 21)]);   // the contactor stays closed, but without voltage
+        Assert.Equal(0, io.Values[(SimulatorSignalKind.DI, 22)]);
+    }
+
+    [Fact]
+    public void SignalSource_StepAfterDelay()
+    {
+        var engine = Engine(Obj("River", "Signal", parameters: new() { ["Value"] = 2, ["Amplitude"] = 3, ["Delay"] = 10 }, options: new() { ["Shape"] = "Step" }),
+            Obj("Reservoir", "Reservoir", new() { ["RiverInflow"] = "@River.Out" }, options: new() { ["RiverInflowInput"] = "Yes" }));
+        Run(engine, 5);
+        Assert.Equal(2, engine.Find("Unit", "Reservoir")!.Value("Inflow"), 3);
+        Run(engine, 10);
+        Assert.Equal(5, engine.Find("Unit", "Reservoir")!.Value("Inflow"), 3);
+    }
+
+    [Fact]
+    public void OldModel_ConnectedPortsSwitchTheirVariantOn()
+    {
+        var reservoir = Obj("Reservoir", "Reservoir", new() { ["Unit3Flow"] = "@U3.Flow", ["RiverInflow"] = "AI:4" });
+        ObjectCatalog.Find("Reservoir")!.UpgradeSwitches(reservoir);
+        Assert.Equal("3", reservoir.Options["Units"]);
+        Assert.Equal("Yes", reservoir.Options["RiverInflowInput"]);
+    }
+
+    [Fact]
+    public void Screens_ListUsedAndEmptyScreens()
+    {
+        var model = new ProcessModel { Objects = [Obj("A", "Signal"), Obj("B", "Signal")], Screens = ["Main", "HPU"] };
+        model.Objects[1].Screen = "AC distribution";
+        Assert.Equal(new[] { "Main", "HPU", "AC distribution" }, model.AllScreens());
+        Assert.Equal("Main", model.ScreenOf(model.Objects[0]));
     }
 
     [Fact]
