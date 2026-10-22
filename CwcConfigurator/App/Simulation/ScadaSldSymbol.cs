@@ -18,7 +18,7 @@ public partial class ScadaView
         private const double Center = 30;
         private const double MinBusWidth = 260;
         private static readonly Brush TripBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xF5, 0x9E, 0x0B)));
-        private static readonly string[] Types = ["Busbar", "AuxSupply", "Mcb", "Contactor", "Disconnector", "EarthSwitch", "Motor"];
+        private static readonly string[] Types = ["Busbar", "AuxSupply", "Mcb", "Contactor", "Disconnector", "EarthSwitch", "Motor", "Transformer"];
 
         private readonly Canvas _canvas = new();
         private readonly Canvas _body = new();
@@ -121,7 +121,7 @@ public partial class ScadaView
                     var live = On("Live");
                     _body.Children.Add(Shape(new Rectangle { Width = _busWidth, Height = 8, Fill = instance is null ? DeadBrush : live ? LiveBrush : DeadBrush }, 0, 26));
                     _state.Text = "";
-                    _name.Text = $"{Config.Name}   {(instance is null ? "" : !live ? "dead" : Info.Type == "AuxSupply" ? $"{Value(instance, "U")} V" : "live")}";
+                    _name.Text = $"{Config.Name}   {(instance is null ? "" : !live ? "dead" : $"{Value(instance, Info.Type == "AuxSupply" ? "Live" : "Feeder1")} V")}";
                     return;
                 }
 
@@ -176,6 +176,17 @@ public partial class ScadaView
                     }
 
                     _state.Text = earthed ? "EARTHED" : "NOT EARTHED";
+                    return;
+                }
+
+                case "Transformer":
+                {
+                    // IEC: two overlapping circles, primary above, secondary below.
+                    _body.Children.Add(Segment(Center, 2, Center, 22, Wire("Primary")));
+                    _body.Children.Add(Segment(Center, 70, Center, 90, Wire("Secondary")));
+                    _body.Children.Add(Shape(new Ellipse { Width = 30, Height = 30, StrokeThickness = 2.5, Stroke = Wire("Primary") }, Center - 15, 22));
+                    _body.Children.Add(Shape(new Ellipse { Width = 30, Height = 30, StrokeThickness = 2.5, Stroke = Wire("Secondary") }, Center - 15, 40));
+                    _state.Text = instance is null ? "" : $"{Value(instance, "Primary")} / {Value(instance, "Secondary")} V";
                     return;
                 }
 

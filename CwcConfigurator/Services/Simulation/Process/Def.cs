@@ -31,6 +31,13 @@ internal static class Def
     /// <summary>Energy connection (Supply / Live).</summary>
     public static PortDef AsPower(this PortDef port) => port with { Power = true };
 
+    /// <summary>Energy input carrying the voltage in V (0 = dead).</summary>
+    public static PortDef PowerIn(string name, string description, double defaultVolts = 0) =>
+        AnalogIn(name, "V", description, defaultVolts).AsPower();
+
+    /// <summary>Energy output carrying the voltage in V (0 = dead).</summary>
+    public static PortDef PowerOut(string name, string description) => AnalogOut(name, "V", description).AsPower();
+
     /// <summary>Option "min".."max" telling how many numbered pieces of equipment exist (first value = default).</summary>
     public static OptionDef Count(string name, string description, int min, int max, int defaultValue) =>
         new(name, [defaultValue.ToString(), .. Enumerable.Range(min, max - min + 1).Where(i => i != defaultValue).Select(i => i.ToString())], description);

@@ -2,9 +2,9 @@ using static CwcConfigurator.Services.Simulation.Process.Def;
 
 namespace CwcConfigurator.Services.Simulation.Process;
 
-// Cabinet / AC distribution objects. Every object has a Supply input (voltage present upstream; not connected = live)
-// and a Live output (voltage passed on downstream), so a single-line diagram is built by linking them:
-// Busbar.Live → MCB.Supply, MCB.Live → Contactor.Supply, Contactor.Live → Motor.Supply.
+// Cabinet / AC distribution objects. Energy connections carry the voltage in V (0 = dead): every object has a
+// Supply input and a Live output, so a single-line diagram is built by linking them:
+// Busbar.Feeder1 → MCB.Supply, MCB.Live → Contactor.Supply, Contactor.Live → Motor.Supply; a transformer changes the voltage.
 
 /// <summary>Busbar of a distribution: live when a supply is live. On an SLD screen it is drawn as a bar.</summary>
 public sealed class BusbarObject : SimObject
@@ -18,10 +18,10 @@ public sealed class BusbarObject : SimObject
         ],
         [],
         [
-            BoolIn("Supply1", "Incoming supply 1 (link). Not connected = live.", true).AsPower().When("Supplies", AtLeast(1, 3)),
-            BoolIn("Supply2", "Incoming supply 2 (link).").AsPower().When("Supplies", AtLeast(2, 3)),
-            BoolIn("Supply3", "Incoming supply 3 (link).").AsPower().When("Supplies", AtLeast(3, 3)),
-            .. Numbered(Feeders, i => BoolOut($"Feeder{i}", $"Outgoing feeder {i} (link to the Supply of its MCB / disconnector).").AsPower()
+            PowerIn("Supply1", "Incoming supply 1 (link). Not connected = 400 V.", 400).When("Supplies", AtLeast(1, 3)),
+            PowerIn("Supply2", "Incoming supply 2 (link).").When("Supplies", AtLeast(2, 3)),
+            PowerIn("Supply3", "Incoming supply 3 (link).").When("Supplies", AtLeast(3, 3)),
+            .. Numbered(Feeders, i => PowerOut($"Feeder{i}", $"Outgoing feeder {i} (link to the Supply of its MCB / disconnector).")
                 .When("Feeders", AtLeast(i, Feeders))),
             BoolOut("Live", "Busbar live (to a DI or an indication).")
         ],
@@ -34,11 +34,11 @@ public sealed class BusbarObject : SimObject
     public override void Step(double dt)
     {
         var count = int.TryParse(Opt("Supplies"), out var value) ? value : 1;
-        var live = Enumerable.Range(1, count).Any(i => InB($"Supply{i}"));
-        Out("Live", live);
+        var voltage = Enumerable.Range(1, count).Max(i => Math.Max(0, In($"Supply{i}")));
+        Out("Live", voltage >= 0.5);
         for (var i = 1; i <= Feeders; i++)
         {
-            Out($"Feeder{i}", live);
+            Out($"Feeder{i}", voltage);
         }
     }
 }
@@ -68,10 +68,10 @@ public sealed class McbObject : ManualSwitchObject
         ],
         [],
         [
-            BoolIn("Supply", "Voltage upstream (link, e.g. @Busbar.Live). Not connected = live.", true).AsPower(),
+            PowerIn("Supply", "Voltage upstream (link, e.g. @Busbar.Feeder1). Not connected = 400 V.", 400),
             BoolOut("On", "Breaker on (to a DI, e.g. ..._MCB_ON)."),
             BoolOut("Tripped", "Breaker tripped (to a DI)."),
-            BoolOut("Live", "Voltage after the breaker.").AsPower()
+            PowerOut("Live", "Voltage after the breaker.")
         ],
         [],
         [],
@@ -83,7 +83,7 @@ public sealed class McbObject : ManualSwitchObject
     {
         Out("On", Closed);
         Out("Tripped", OptIs("Position", "Tripped"));
-        Out("Live", Closed && InB("Supply"));
+        Out("Live", Closed ? In("Supply") : 0);
     }
 }
 
@@ -98,10 +98,10 @@ public sealed class DisconnectorObject : ManualSwitchObject
         ],
         [],
         [
-            BoolIn("Supply", "Voltage upstream (link). Not connected = live.", true).AsPower(),
+            PowerIn("Supply", "Voltage upstream (link). Not connected = 400 V.", 400),
             BoolOut("Closed", "Closed (to a DI)."),
             BoolOut("Open", "Open (to a DI)."),
-            BoolOut("Live", "Voltage after the disconnector.").AsPower()
+            PowerOut("Live", "Voltage after the disconnector.")
         ],
         [],
         [],
@@ -113,7 +113,7 @@ public sealed class DisconnectorObject : ManualSwitchObject
     {
         Out("Closed", Closed);
         Out("Open", !Closed);
-        Out("Live", Closed && InB("Supply"));
+        Out("Live", Closed ? In("Supply") : 0);
     }
 }
 
@@ -128,9 +128,9 @@ public sealed class EarthSwitchObject : ManualSwitchObject
         ],
         [],
         [
-            BoolIn("Supply", "Voltage of the earthed part (link). Not connected = live.", true).AsPower(),
+            PowerIn("Supply", "Voltage of the earthed part (link). Not connected = 400 V.", 400),
             BoolOut("Earthed", "Earthed (to a DI)."),
-            BoolOut("Live", "Voltage passed on (FALSE while earthed).").AsPower()
+            PowerOut("Live", "Voltage passed on (0 V while earthed).")
         ],
         [],
         [],
@@ -141,7 +141,7 @@ public sealed class EarthSwitchObject : ManualSwitchObject
     protected override void Publish()
     {
         Out("Earthed", Closed);
-        Out("Live", !Closed && InB("Supply"));
+        Out("Live", Closed ? 0 : In("Supply"));
     }
 }
 
@@ -158,9 +158,9 @@ public sealed class ContactorObject : SimObject
         [],
         [
             BoolIn("Command", "Command from the PLC (DO), e.g. ..._CONT_ON."),
-            BoolIn("Supply", "Voltage before the contactor (link, e.g. @F1.Live). Not connected = live.", true).AsPower(),
+            PowerIn("Supply", "Voltage before the contactor (link, e.g. @F1.Live). Not connected = 400 V.", 400),
             BoolOut("State", "Contactor closed, back to the PLC (DI)."),
-            BoolOut("Live", "Voltage after the contactor (link to the motor / pump).").AsPower()
+            PowerOut("Live", "Voltage after the contactor (link to the motor / pump).")
         ],
         [],
         [],
@@ -170,7 +170,7 @@ public sealed class ContactorObject : SimObject
     {
         var closed = InB("Command");
         Out("State", closed);
-        Out("Live", closed && InB("Supply"));
+        Out("Live", closed ? In("Supply") : 0);
     }
 }
 
@@ -189,7 +189,7 @@ public sealed class MotorObject : SimObject
             Param("StopTime", 5, "s", "Run-down time.")
         ],
         [
-            BoolIn("Supply", "Voltage at the motor (link, e.g. @K1.Live).").AsPower(),
+            PowerIn("Supply", "Voltage at the motor (link, e.g. @K1.Live)."),
             BoolOut("Running", "Motor running (to a DI or to the HPU / reservoir as a link)."),
             AnalogOut("Speed", "%", "Speed."),
             AnalogOut("Current", "A", "Motor current (to an AI).")
@@ -221,4 +221,27 @@ public sealed class MotorObject : SimObject
         Out("Speed", _speed);
         Out("Current", supplied ? P("RatedCurrent") * (n < 0.95 ? 6 - 5 * Math.Pow(n / 0.95, 4) : 1) : 0);
     }
+}
+
+/// <summary>Transformer: the secondary voltage follows the primary by the ratio of the rated voltages.</summary>
+public sealed class TransformerObject : SimObject
+{
+    public static ObjectTypeInfo TypeInfo { get; } = new(
+        "Transformer", "Transformer", "Electrical",
+        "Transformer: Secondary = Primary × SecondaryVoltage / PrimaryVoltage (e.g. 10 kV → 0.4 kV).",
+        [],
+        [
+            Param("PrimaryVoltage", 10000, "V", "Rated primary voltage."),
+            Param("SecondaryVoltage", 400, "V", "Rated secondary voltage.")
+        ],
+        [
+            PowerIn("Primary", "Primary voltage (link, e.g. @Q1.Live). Not connected = rated primary voltage.", 10000),
+            PowerOut("Secondary", "Secondary voltage (link to the busbar or feeder it supplies).")
+        ],
+        [],
+        ["Primary", "Secondary"],
+        () => new TransformerObject());
+
+    public override void Step(double dt) =>
+        Out("Secondary", Math.Max(0, In("Primary")) * P("SecondaryVoltage") / Math.Max(1, P("PrimaryVoltage")));
 }

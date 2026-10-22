@@ -366,7 +366,7 @@ public class ProcessModelTests
                 Objects =
                 [
                     Obj("Bus", "Busbar"),
-                    Obj("Q1", "Disconnector", new() { ["Supply"] = "@Bus.Live" }),
+                    Obj("Q1", "Disconnector", new() { ["Supply"] = "@Bus.Feeder1" }),
                     Obj("E1", "EarthSwitch", new() { ["Supply"] = "@Q1.Live" }),
                     Obj("M1", "Motor", new() { ["Supply"] = "@E1.Live" })
                 ]
@@ -374,8 +374,8 @@ public class ProcessModelTests
         });
 
         engine.Step(0.1, _ => null);
-        Assert.Equal(1, engine.Find("Unit", "E1")!.Value("Live"));   // disconnector closed by default, not earthed
-        Assert.Equal(1, engine.Find("Unit", "Bus")!.Value("Feeder4"));      // every feeder of a live busbar is live
+        Assert.Equal(400, engine.Find("Unit", "E1")!.Value("Live"));   // disconnector closed by default, not earthed
+        Assert.Equal(400, engine.Find("Unit", "Bus")!.Value("Feeder4"));    // every feeder carries the busbar voltage
 
         engine.Find("Unit", "Q1")!.Config.Options["Position"] = "Open";   // opened on the SCADA
         Run(engine, 3);
@@ -424,6 +424,24 @@ public class ProcessModelTests
         Run(engine, 1);
         Assert.Equal(75, engine.Find("Unit", "Turbine")!.Value("Opening"), 3);
         Assert.Equal(1.2, engine.Find("Unit", "Reservoir")!.Value("Outflow"), 3);
+    }
+
+    [Fact]
+    public void Transformer_LowersVoltage_DetectorSeesIt()
+    {
+        var engine = Engine(
+            Obj("Q1", "Disconnector", new() { ["Supply"] = "=10000" }),
+            Obj("T1", "Transformer", new() { ["Primary"] = "@Q1.Live" }),
+            Obj("Bus", "Busbar", new() { ["Supply1"] = "@T1.Secondary" }),
+            Obj("U1", "Threshold", new() { ["In"] = "@Bus.Feeder1" }, new() { ["Limit"] = 320 }));
+        Run(engine, 0.2);
+        Assert.Equal(400, engine.Find("Unit", "Bus")!.Value("Feeder1"), 3);
+        Assert.Equal(1, engine.Find("Unit", "U1")!.Value("Out"));
+
+        engine.Find("Unit", "Q1")!.Config.Options["Position"] = "Open";
+        Run(engine, 0.2);
+        Assert.Equal(0, engine.Find("Unit", "Bus")!.Value("Feeder1"));
+        Assert.Equal(0, engine.Find("Unit", "U1")!.Value("Out"));
     }
 
     [Fact]

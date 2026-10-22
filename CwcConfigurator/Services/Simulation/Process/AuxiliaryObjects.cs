@@ -133,7 +133,7 @@ public sealed class AuxSupplyObject : SimObject
             AnalogOut("PF", "", "Power factor."),
             AnalogOut("F", "Hz", "Frequency."),
             AnalogOut("Energy", "kWh", "Active energy."),
-            BoolOut("Live", "Busbar live (link to the MCBs of the distribution: @AuxSupply.Live).").AsPower()
+            PowerOut("Live", "Busbar voltage (link to the MCBs of the distribution: @AuxSupply.Live).")
         ],
         [],
         ["U", "P"],
@@ -156,7 +156,7 @@ public sealed class AuxSupplyObject : SimObject
         Out("PF", supplied ? pf : 0);
         Out("F", supplied ? P("Frequency") : 0);
         Out("Energy", _energy);
-        Out("Live", supplied);
+        Out("Live", supplied ? P("Voltage") : 0);
     }
 }
 
@@ -428,6 +428,48 @@ public sealed class PidObject : SimObject
     }
 }
 
+/// <summary>
+/// Threshold / voltage detector: Out is TRUE while the value is above (or below) the limit, with hysteresis.
+/// Linked to a Live output it is a voltage relay; Value passes the input on, e.g. to an AI.
+/// </summary>
+public sealed class ThresholdObject : SimObject
+{
+    private bool _out;
+
+    public static ObjectTypeInfo TypeInfo { get; } = new(
+        "Threshold", "Threshold / voltage detector", "General",
+        "Out = TRUE while In is above (or below) Limit, with hysteresis: a voltage relay on a Live output, a level or pressure switch, …",
+        [
+            Option("Compare", "Above: TRUE while In ≥ Limit. Below: TRUE while In ≤ Limit.", "Above", "Below")
+        ],
+        [
+            Param("Limit", 320, "", "Switching limit (e.g. 320 V = 80 % of 400 V)."),
+            Param("Hysteresis", 0, "", "Switching back only this much beyond the limit.")
+        ],
+        [
+            AnalogIn("In", "", "Value to watch (link, e.g. @F1.Live for the voltage, @Reservoir.Level)."),
+            BoolOut("Out", "Limit reached (to a DI)."),
+            AnalogOut("Value", "", "The input value (e.g. to an AI).")
+        ],
+        [],
+        ["Value"],
+        () => new ThresholdObject());
+
+    public override void Reset() => _out = false;
+
+    public override void Step(double dt)
+    {
+        var value = In("In");
+        var limit = P("Limit");
+        var band = Math.Max(0, P("Hysteresis"));
+        _out = OptIs("Compare", "Below")
+            ? value <= limit || (_out && value <= limit + band)
+            : value >= limit || (_out && value >= limit - band);
+        Out("Out", _out);
+        Out("Value", value);
+    }
+}
+
 /// <summary>All object types offered by the simulator.</summary>
 public static class ObjectCatalog
 {
@@ -452,11 +494,13 @@ public static class ObjectCatalog
         BusbarObject.TypeInfo,
         DisconnectorObject.TypeInfo,
         EarthSwitchObject.TypeInfo,
+        TransformerObject.TypeInfo,
         McbObject.TypeInfo,
         ContactorObject.TypeInfo,
         MotorObject.TypeInfo,
         LogicObject.TypeInfo,
         SignalObject.TypeInfo,
+        ThresholdObject.TypeInfo,
         PidObject.TypeInfo
     ];
 
