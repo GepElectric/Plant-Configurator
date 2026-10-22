@@ -170,6 +170,9 @@ public sealed record ObjectTypeInfo(
     IReadOnlyList<string> ScadaValues,
     Func<SimObject> Create)
 {
+    /// <summary>Output watched by the switch outputs Switch1…n (level, pressure, speed …); null = no switches.</summary>
+    public string? SwitchSource { get; init; }
+
     /// <summary>Value of an option of an object (the default when not set or unknown).</summary>
     public string OptionValue(ObjectConfig config, string name)
     {

@@ -56,6 +56,29 @@ public abstract class SimObject
         }
     }
 
+    private readonly bool[] _switches = new bool[Def.MaxSwitches];
+
+    /// <summary>Switch outputs on the switch source (see <see cref="Def.WithSwitches"/>), with hysteresis.</summary>
+    internal void UpdateSwitches()
+    {
+        if (Info.SwitchSource is not { } source)
+        {
+            return;
+        }
+
+        var count = int.TryParse(Opt("Switches"), out var value) ? Math.Clamp(value, 0, Def.MaxSwitches) : 0;
+        var x = Value(source);
+        for (var i = 0; i < count; i++)
+        {
+            var on = P($"Switch{i + 1}On");
+            var off = P($"Switch{i + 1}Off");
+            _switches[i] = on >= off
+                ? x >= on || (_switches[i] && x > off)
+                : x <= on || (_switches[i] && x < off);
+            Out($"Switch{i + 1}", _switches[i]);
+        }
+    }
+
     internal void ApplyForces()
     {
         foreach (var (port, value) in Forces)
@@ -238,6 +261,7 @@ public sealed class ProcessEngine
             }
 
             instance.Step(dt);
+            instance.UpdateSwitches();
             instance.ApplyForces();
             if (plcIo is null)
             {

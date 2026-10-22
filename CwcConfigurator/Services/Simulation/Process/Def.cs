@@ -31,6 +31,36 @@ internal static class Def
     /// <summary>Energy connection (Supply / Live).</summary>
     public static PortDef AsPower(this PortDef port) => port with { Power = true };
 
+    public const int MaxSwitches = 6;
+
+    /// <summary>
+    /// Adds digital switch outputs on <paramref name="source"/> (e.g. level switches for drainage): the Switches
+    /// option sets how many, and every switch has an ON and an OFF limit. ON above OFF = active above (rising),
+    /// ON below OFF = active below; the difference is the hysteresis.
+    /// </summary>
+    public static ObjectTypeInfo WithSwitches(this ObjectTypeInfo info, string source)
+    {
+        var unit = info.Port(source)?.Unit ?? "";
+        var all = Enumerable.Range(1, MaxSwitches).ToList();
+        return info with
+        {
+            Options = [.. info.Options, Count("Switches", $"Digital outputs switched by {source} (e.g. level switches, pressure switches).", 0, MaxSwitches, 0)],
+            Params =
+            [
+                .. info.Params,
+                .. all.SelectMany(i => new[]
+                {
+                    Param($"Switch{i}On", 0, unit, $"Switch {i} turns ON when {source} reaches this value (above OFF = active above, below OFF = active below).")
+                        .When("Switches", AtLeast(i, MaxSwitches)),
+                    Param($"Switch{i}Off", 0, unit, $"Switch {i} turns OFF when {source} goes back past this value.")
+                        .When("Switches", AtLeast(i, MaxSwitches))
+                })
+            ],
+            Ports = [.. info.Ports, .. all.Select(i => BoolOut($"Switch{i}", $"Switch {i} on {source} (to a DI).").When("Switches", AtLeast(i, MaxSwitches)))],
+            SwitchSource = source
+        };
+    }
+
     /// <summary>Energy input carrying the voltage in V (0 = dead).</summary>
     public static PortDef PowerIn(string name, string description, double defaultVolts = 0) =>
         AnalogIn(name, "V", description, defaultVolts).AsPower();

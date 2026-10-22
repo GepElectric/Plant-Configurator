@@ -445,6 +445,30 @@ public class ProcessModelTests
     }
 
     [Fact]
+    public void Reservoir_LevelSwitchesForDrainage()
+    {
+        // Drainage pit: pump start switch ON at 3 m, OFF at 1 m; low-level switch ON below 0.5 m, OFF above 0.8 m.
+        var engine = Engine(Obj("Pit", "Reservoir", new() { ["Outlet1"] = "=0" },
+            new() { ["Area"] = 10, ["InitialLevel"] = 2, ["RiverInflow"] = 1, ["Switch1On"] = 3, ["Switch1Off"] = 1, ["Switch2On"] = 0.5, ["Switch2Off"] = 0.8 },
+            new() { ["Switches"] = "2" }));
+        var pit = engine.Find("Unit", "Pit")!;
+        Run(engine, 5);
+        Assert.Equal(0, pit.Value("Switch1"));      // 2.5 m
+        Run(engine, 6);
+        Assert.Equal(1, pit.Value("Switch1"));      // 3.1 m
+        Assert.Equal(0, pit.Value("Switch2"));
+
+        pit.Config.Ports["Outlet1"] = "=100";       // pump drains 2 m³/s, net −1 m³/s
+        engine = new ProcessEngine(engine.Models, engine);
+        pit = engine.Find("Unit", "Pit")!;
+        Run(engine, 15);
+        Assert.Equal(1, pit.Value("Switch1"));      // 1.6 m: still on (hysteresis down to 1 m)
+        Run(engine, 12);
+        Assert.Equal(0, pit.Value("Switch1"));      // 0.4 m
+        Assert.Equal(1, pit.Value("Switch2"));
+    }
+
+    [Fact]
     public void Model_RoundTripsThroughYaml()
     {
         var path = Path.Combine(Path.GetTempPath(), $"model_{Guid.NewGuid():N}.simulator.yaml");
