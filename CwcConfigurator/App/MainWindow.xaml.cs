@@ -14,7 +14,6 @@ using System.Diagnostics;
 using Microsoft.Win32;
 using CwcConfigurator.Domain;
 using CwcConfigurator.Services;
-using CwcConfigurator.Services.AlarmTesting;
 using CwcConfigurator.Services.TiaSync;
 
 namespace CwcConfigurator.App;
@@ -9304,7 +9303,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void AlarmTester_Click(object sender, RoutedEventArgs e)
+    private void Simulator_Click(object sender, RoutedEventArgs e)
     {
         if (!_projectOpen)
         {
@@ -9316,36 +9315,25 @@ public partial class MainWindow : Window
         {
             SaveActivePlcDatabase();
 
-            // Build one plan per PLC database so signals from different PLCs never
-            // mix; the tester lets the operator pick which PLC is under test.
-            var builder = new AlarmTestPlanBuilder();
-            var options = new List<AlarmTestPlcOption>();
-            foreach (var database in _project.PlcDatabases)
+            // One option per PLC database: each PLC has its own hardware tables and simulator DB.
+            var projectKey = _projectPath ?? _project.ProjectName;
+            var options = _project.PlcDatabases.Select(database =>
             {
                 var scoped = new CwcProject();
                 database.ApplyTo(scoped);
-                options.Add(new AlarmTestPlcOption
-                {
-                    Id = database.Id,
-                    Name = database.Name,
-                    Plan = builder.Build(scoped)
-                });
-            }
-
+                return new SimulatorPlcOption { Name = database.Name, Project = scoped, SettingsKey = projectKey + "|" + database.Name };
+            }).ToList();
             if (options.Count == 0)
             {
-                options.Add(new AlarmTestPlcOption { Id = "", Name = "PLC", Plan = builder.Build(_project) });
+                options.Add(new SimulatorPlcOption { Name = "PLC", Project = _project, SettingsKey = projectKey + "|PLC" });
             }
 
-            var dialog = new AlarmTesterDialog(options, _project.ActivePlcDatabaseId)
-            {
-                Owner = EditorOwner
-            };
-            dialog.ShowDialog();
+            var window = new SimulatorWindow(options, GetActivePlcDatabase()?.Name) { Owner = this };
+            window.Show();
         }
         catch (Exception ex)
         {
-            ShowError("Could not open Alarm Tester: " + ex.Message);
+            ShowError("Could not open the Simulator: " + ex.Message);
         }
     }
 
