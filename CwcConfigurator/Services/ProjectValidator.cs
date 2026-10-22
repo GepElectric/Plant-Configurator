@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using CwcConfigurator.Domain;
 using CwcConfigurator.Services.Validation;
 
@@ -385,6 +386,11 @@ public sealed class ProjectValidator
             yield return issue;
         }
 
+        foreach (var issue in ValidatePlcIdentifiers("DB_ALM", catalog.AlarmRows, catalog.AlarmSystemNameRows))
+        {
+            yield return issue;
+        }
+
         foreach (var issue in ValidateStringRows("DB_PAR", catalog.ParameterRows, catalog.ParameterTextLengths))
         {
             yield return issue;
@@ -524,6 +530,40 @@ public sealed class ProjectValidator
             }
         }
     }
+
+    /// <summary>
+    /// TIA rejects the whole generated type source when a structure member or structure name does not start
+    /// with a letter or underscore (e.g. "6_3_MV_CONTROL_MCB_FAULT"), so such names block generation and push.
+    /// </summary>
+    private static IEnumerable<ProjectIssue> ValidatePlcIdentifiers(string tableName, IEnumerable<DbStringRow> rows, IEnumerable<DbDiSystemNameRow> systemRows)
+    {
+        foreach (var row in rows)
+        {
+            if (!IsValidPlcIdentifier(row.PlcName))
+            {
+                yield return ProjectIssue.Error(tableName, row.Id, null, $"PLC NAME '{row.PlcName}' is not a valid TIA name. It must start with a letter or underscore and contain only letters, digits and underscores.");
+            }
+        }
+
+        foreach (var system in systemRows)
+        {
+            foreach (var (fieldName, value) in new[] { ("SYSTEM PLC SHORT NAME", system.SystemPlcShortName), ("PLC VARIABLE NAME", system.PlcVariableName) })
+            {
+                if (!IsValidPlcIdentifier(value))
+                {
+                    yield return ProjectIssue.Error(tableName, system.SystemNumber, null, $"System {system.SystemNumber}: {fieldName} '{value}' is not a valid TIA name. It must start with a letter or underscore and contain only letters, digits and underscores.");
+                }
+            }
+        }
+    }
+
+    public static bool IsValidPlcIdentifier(string? value)
+    {
+        var text = (value ?? "").Trim();
+        return text.Length == 0 || PlcIdentifierRegex.IsMatch(text);
+    }
+
+    private static readonly Regex PlcIdentifierRegex = new("^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.CultureInvariant);
 
     private static IEnumerable<ProjectIssue> ValidateTextLength(string tableName, int id, string fieldName, string value, int maxLength)
     {

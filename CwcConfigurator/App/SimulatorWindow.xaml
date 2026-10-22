@@ -1,0 +1,299 @@
+<Window x:Class="CwcConfigurator.App.SimulatorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sim="clr-namespace:CwcConfigurator.App.Simulation"
+        Title="Simulator"
+        Width="1400"
+        Height="880"
+        MinWidth="1000"
+        MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Closing="Window_Closing"
+        Closed="Window_Closed">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+        <!-- Latching force button: stays pressed (orange) until it is clicked again. -->
+        <Style x:Key="ForceButton" TargetType="ToggleButton">
+            <Setter Property="MinWidth" Value="70"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Chrome" Background="#F3F4F6" BorderBrush="#9CA3AF" BorderThickness="1" CornerRadius="3" Padding="6,0">
+                            <TextBlock x:Name="Label" Text="{TemplateBinding Content}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="11.5"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#4B5563"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#F97316"/>
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#C2410C"/>
+                                <Setter TargetName="Label" Property="Foreground" Value="White"/>
+                                <Setter TargetName="Label" Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <DockPanel>
+        <!-- PLC connection and model control -->
+        <Border DockPanel.Dock="Top" Padding="10,8" BorderBrush="#D0D7DE" BorderThickness="0,0,0,1" Background="#F6F8FA">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <WrapPanel VerticalAlignment="Center">
+                    <TextBlock Text="PLC" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox x:Name="PlcSelector" Width="170" SelectionChanged="PlcSelector_SelectionChanged"/>
+                    <TextBlock Text="IP" VerticalAlignment="Center" Margin="14,0,6,0"/>
+                    <TextBox x:Name="IpBox" Width="115" VerticalContentAlignment="Center"/>
+                    <TextBlock Text="Rack" VerticalAlignment="Center" Margin="8,0,6,0"/>
+                    <TextBox x:Name="RackBox" Width="30" VerticalContentAlignment="Center" Text="0"/>
+                    <TextBlock Text="Slot" VerticalAlignment="Center" Margin="8,0,6,0"/>
+                    <TextBox x:Name="SlotBox" Width="30" VerticalContentAlignment="Center" Text="1"/>
+                    <TextBlock Text="DB" VerticalAlignment="Center" Margin="8,0,6,0"/>
+                    <TextBox x:Name="DbBox" Width="42" VerticalContentAlignment="Center" Text="30"/>
+                    <Button x:Name="ConnectButton" Content="Connect" MinWidth="95" Height="26" Margin="12,0,0,0" Click="ConnectButton_Click"/>
+                    <Ellipse x:Name="ConnectionLamp" Width="12" Height="12" Margin="10,0,6,0" Fill="#C9CED6" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="ConnectionText" Text="Not connected" VerticalAlignment="Center" Foreground="#57606A"/>
+                </WrapPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="ModelFileText" VerticalAlignment="Center" Foreground="#57606A" Margin="0,0,6,0" MaxWidth="260" TextTrimming="CharacterEllipsis"/>
+                    <Button Content="Open…" MinWidth="60" Height="28" Click="OpenModel_Click"
+                            ToolTip="Open a simulation (.plantsim: database, model and PLC connections inside), a Plant Configurator project, or a model file."/>
+                    <Button Content="Save" MinWidth="55" Height="28" Margin="4,0,0,0" Click="SaveModel_Click"
+                            ToolTip="Save the simulation: copy of the database, plant model, forces and PLC connection settings."/>
+                    <Button Content="Save as…" MinWidth="65" Height="28" Margin="4,0,0,0" Click="SaveModelAs_Click"
+                            ToolTip="Save the simulation to another file, e.g. a shared folder, and continue working on that file."/>
+                    <Button Content="Update database…" MinWidth="110" Height="28" Margin="4,0,16,0" Click="UpdateDatabase_Click"
+                            ToolTip="Load the signals from a newer Plant Configurator project (.plantcfg); the model, forces and connections stay."/>
+                    <TextBlock x:Name="PlcStatusText" VerticalAlignment="Center" Foreground="#57606A" Margin="0,0,14,0" MaxWidth="320" TextTrimming="CharacterEllipsis"/>
+                    <Button x:Name="RunButton" Content="▶ Run model" MinWidth="110" Height="28" FontWeight="SemiBold" Click="RunButton_Click"
+                            ToolTip="Run the plant model: it reads the PLC outputs (DO/AO) and writes the simulated inputs (DI/AI/RTD/COUNTER). Runs also without a PLC connection."/>
+                    <Button Content="Reset" MinWidth="60" Height="28" Margin="6,0,0,0" Click="ResetButton_Click"
+                            ToolTip="Back to the initial state (valves closed, pressures 0, standstill) and remove all forces."/>
+                    <TextBlock x:Name="SimTimeText" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#57606A" MinWidth="70"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- status -->
+        <Border DockPanel.Dock="Bottom" Padding="10,6" BorderBrush="#D0D7DE" BorderThickness="0,1,0,0" Background="#F6F8FA">
+            <StackPanel>
+                <TextBlock x:Name="StatusText" TextWrapping="Wrap"/>
+                <TextBlock x:Name="LayoutText" Foreground="#57606A" TextWrapping="Wrap" Margin="0,2,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <TabControl x:Name="Tabs" Margin="0,4,0,0">
+            <TabItem Header="  Signals  ">
+                <DockPanel>
+                    <!-- simulator DB layout = PLC constants -->
+                    <Border DockPanel.Dock="Top" Padding="10,4" BorderBrush="#D0D7DE" BorderThickness="0,0,0,1">
+                        <Expander x:Name="LayoutExpander" Header="Simulator DB layout (PLC constants from the TIA tag table)">
+                            <StackPanel Margin="0,6,0,2">
+                                <WrapPanel x:Name="ConstantsPanel"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                    <Button Content="Apply layout" MinWidth="110" Height="26" Click="ApplyLayout_Click"/>
+                                    <TextBlock Margin="10,0,0,0" VerticalAlignment="Center" Foreground="#57606A" TextWrapping="Wrap"
+                                               Text="Values as in TIA (highest index, e.g. DI_MODUL_NUM = 15 means 16 modules). DO channels use DI_CH_NUM, as in DT_MATRIX_DO."/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
+
+                    <!-- devices DB = which devices the plant has -->
+                    <Border DockPanel.Dock="Top" Padding="10,4" BorderBrush="#D0D7DE" BorderThickness="0,0,0,1">
+                        <Expander x:Name="DevicesExpander" Header="Devices on the plant (devices DB: Sentron, protection relays, excitation)">
+                            <Grid Margin="0,6,0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="640"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <DataGrid x:Name="DevicesGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="False"
+                                          HeadersVisibility="Column" GridLinesVisibility="Horizontal" MaxHeight="220" SelectionMode="Single">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="DEVICE (as in the TIA DB)" Width="190" Binding="{Binding Name, UpdateSourceTrigger=LostFocus}"/>
+                                        <DataGridComboBoxColumn x:Name="DeviceTypeColumn" Header="TYPE" Width="150" SelectedItemBinding="{Binding Type}"/>
+                                        <DataGridTextColumn Header="FIRST MEAS ID" Width="100" Binding="{Binding FirstMeasId, UpdateSourceTrigger=LostFocus}"/>
+                                        <DataGridTextColumn Header="FIRST ENERGY ID" Width="110" Binding="{Binding FirstEnergyId, UpdateSourceTrigger=LostFocus}"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ComboBox x:Name="DevicePresetBox" Width="170" Height="24" DisplayMemberPath="Name"/>
+                                        <Button Content="Add" MinWidth="50" Height="24" Margin="4,0,0,0" Click="AddDevice_Click"/>
+                                        <Button Content="Remove" MinWidth="60" Height="24" Margin="4,0,0,0" Click="RemoveDevice_Click"/>
+                                        <Button Content="&#x25B2;" Width="26" Height="24" Margin="4,0,0,0" Click="MoveDeviceUp_Click"/>
+                                        <Button Content="&#x25BC;" Width="26" Height="24" Margin="2,0,0,0" Click="MoveDeviceDown_Click"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <TextBlock Text="Devices DB" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBox x:Name="DevicesDbBox" Width="44" Height="24" VerticalContentAlignment="Center"/>
+                                        <Button Content="Unit template" MinWidth="95" Height="24" Margin="10,0,0,0" Click="DeviceTemplate_Click"
+                                                ToolTip="GEN_SENTRON, AUX_SENTRON, GEN_PROT, LINE_PROT, TRAFO_PROT, EXC: the order of the standard unit DB27."/>
+                                        <Button Content="Apply devices" MinWidth="100" Height="24" Margin="6,0,0,0" FontWeight="SemiBold" Click="ApplyDevices_Click"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="DevicesInfoText" Margin="0,6,0,0" Foreground="#57606A" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Grid>
+                        </Expander>
+                    </Border>
+
+                    <!-- filters -->
+                    <Border DockPanel.Dock="Top" Padding="10,6" BorderBrush="#D0D7DE" BorderThickness="0,0,0,1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal">
+                                <!-- signal groups as tabs -->
+                                <ListBox x:Name="KindFilter" SelectedIndex="0" SelectionChanged="Filter_Changed" BorderThickness="0" Background="Transparent"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ListBox.ItemsPanel>
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="Padding" Value="12,4"/>
+                                            <Setter Property="Margin" Value="0,0,2,0"/>
+                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListBoxItem">
+                                                        <Border x:Name="Tab" Background="#F3F4F6" BorderBrush="#D0D7DE" BorderThickness="1,1,1,0"
+                                                                CornerRadius="4,4,0,0" Padding="{TemplateBinding Padding}">
+                                                            <ContentPresenter/>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsSelected" Value="True">
+                                                                <Setter TargetName="Tab" Property="Background" Value="#2563EB"/>
+                                                                <Setter Property="Foreground" Value="White"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="Tab" Property="BorderBrush" Value="#2563EB"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                    <ListBoxItem Content="All"/>
+                                    <ListBoxItem Content="DI"/>
+                                    <ListBoxItem Content="DO"/>
+                                    <ListBoxItem Content="AI"/>
+                                    <ListBoxItem Content="RTD"/>
+                                    <ListBoxItem Content="COUNTER"/>
+                                    <ListBoxItem Content="AO"/>
+                                    <ListBoxItem Content="Devices" ToolTip="Device values of the devices DB (DB27): Sentrons, protection relays, excitation."/>
+                                </ListBox>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,0,0">
+                                <TextBlock Text="Search" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBox x:Name="SearchBox" Width="240" VerticalContentAlignment="Center" TextChanged="Filter_Changed"/>
+                                <CheckBox x:Name="ShowDisabledCheck" Content="Show disabled channels" VerticalAlignment="Center" Margin="16,0,0,0"
+                                          Checked="Filter_Changed" Unchecked="Filter_Changed"/>
+                                <CheckBox x:Name="RawEntryCheck" Content="Enter raw values" VerticalAlignment="Center" Margin="16,0,0,0"
+                                          ToolTip="SET holds the typed number as the raw channel value (e.g. 0…27648) instead of an engineering value."/>
+                                <Button Content="Save forces" MinWidth="85" Height="24" Margin="16,0,0,0" Click="SaveForces_Click"
+                                        ToolTip="Remember the pressed SET / WIRE BREAK buttons of all PLCs in the plant model file; they are pressed again when the simulator opens."/>
+                                <Button Content="Release all" MinWidth="80" Height="24" Margin="4,0,0,0" Click="ClearForces_Click"
+                                        ToolTip="Release every force of this PLC."/>
+                            </StackPanel>
+                            <TextBlock x:Name="SummaryText" Grid.Column="3" VerticalAlignment="Center" Foreground="#57606A"/>
+                        </Grid>
+                    </Border>
+
+                    <DataGrid x:Name="SignalsGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False"
+                              CanUserSortColumns="True" SelectionMode="Single" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                              EnableRowVirtualization="True" VirtualizingPanel.IsVirtualizingWhenGrouping="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="TYPE" Width="50" MinWidth="50" Binding="{Binding KindText}"/>
+                            <DataGridTextColumn Header="DIR" Width="58" MinWidth="58" Binding="{Binding DirectionText}"/>
+                            <DataGridTextColumn Header="MOD" Width="44" MinWidth="44" Binding="{Binding Module}"/>
+                            <DataGridTextColumn Header="CH" Width="40" MinWidth="40" Binding="{Binding Channel}"/>
+                            <DataGridTextColumn Header="ID" Width="50" MinWidth="50" Binding="{Binding Id}"/>
+                            <DataGridTextColumn Header="SYSTEM" Width="150" MinWidth="100" Binding="{Binding System}"/>
+                            <DataGridTextColumn Header="NAME" Width="*" MinWidth="180" Binding="{Binding Name}"/>
+                            <DataGridTextColumn Header="PLC NAME" Width="160" MinWidth="100" Binding="{Binding PlcName}"/>
+                            <DataGridTextColumn Header="CONFIG" Width="64" MinWidth="64" Binding="{Binding ConfigText}"/>
+                            <DataGridTextColumn Header="ADDRESS" Width="80" MinWidth="80" Binding="{Binding Address}"/>
+                            <DataGridTemplateColumn Header="VALUE" Width="120" MinWidth="100" SortMemberPath="ValueText">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border x:Name="ValueBorder" CornerRadius="3" Padding="6,1" HorizontalAlignment="Left">
+                                            <TextBlock Text="{Binding ValueText}" FontWeight="SemiBold" ToolTip="{Binding ScalingDetails}"/>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsTrue}" Value="True">
+                                                <Setter TargetName="ValueBorder" Property="Background" Value="#B7E4C7"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsErrorValue}" Value="True">
+                                                <Setter TargetName="ValueBorder" Property="Background" Value="#FECACA"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsForced}" Value="True">
+                                                <Setter TargetName="ValueBorder" Property="BorderBrush" Value="#F97316"/>
+                                                <Setter TargetName="ValueBorder" Property="BorderThickness" Value="2"/>
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="RAW" Width="64" MinWidth="60" Binding="{Binding RawText}"/>
+                            <DataGridTemplateColumn Header="SCALING" Width="200" MinWidth="120" SortMemberPath="ScalingText">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding ScalingText}" ToolTip="{Binding ScalingDetails}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="FORCE (stays on until released)" Width="330">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <StackPanel Orientation="Horizontal" Visibility="{Binding CanSetBool, Converter={StaticResource BoolToVisibility}}">
+                                                <ToggleButton Content="SET TRUE" Style="{StaticResource ForceButton}" IsChecked="{Binding ForceTrue, UpdateSourceTrigger=PropertyChanged}"
+                                                              ToolTip="Held TRUE whatever the PLC or the model says. Wins over SET FALSE."/>
+                                                <ToggleButton Content="SET FALSE" Style="{StaticResource ForceButton}" IsChecked="{Binding ForceFalse, UpdateSourceTrigger=PropertyChanged}"
+                                                              ToolTip="Held FALSE whatever the PLC or the model says."/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Visibility="{Binding CanSetAnalog, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBox Width="80" Height="24" Margin="0,0,4,0" VerticalContentAlignment="Center"
+                                                         Text="{Binding SetText, UpdateSourceTrigger=PropertyChanged}" KeyDown="AnalogBox_KeyDown" TextChanged="AnalogBox_TextChanged"
+                                                         ToolTip="{Binding ScalingText}"/>
+                                                <ToggleButton Content="SET" Style="{StaticResource ForceButton}" MinWidth="44" IsChecked="{Binding ForceValueOn, Mode=OneWay}"
+                                                              Click="SetAnalogToggle_Click" ToolTip="Hold the typed value; while held, the typed value goes to the PLC as you type."/>
+                                                <ToggleButton Content="WIRE BREAK" Style="{StaticResource ForceButton}" MinWidth="80" IsChecked="{Binding WireBreak, UpdateSourceTrigger=PropertyChanged}"
+                                                              Visibility="{Binding CanWireBreak, Converter={StaticResource BoolToVisibility}}"
+                                                              ToolTip="Wire break: AI/RTD 32767, device value NaN. Wins over SET."/>
+                                                <TextBlock Text="{Binding Unit}" VerticalAlignment="Center" Foreground="#57606A"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+            <TabItem Header="  Program  " Visibility="Collapsed">
+                <sim:ProgramView x:Name="ProgramPanel"/>
+            </TabItem>
+            <TabItem Header="  SCADA  ">
+                <sim:ScadaView x:Name="ScadaPanel"/>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

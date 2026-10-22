@@ -33,3 +33,7 @@ Vba*.bas
 
 # Build requires this template (CopyToOutputDirectory)
 !CwcConfigurator/Templates/Configuration_Unit_List_Template.xlsm
+
+# Release packages (Release.ps1 / Velopack) and the local bug report token
+Releases/
+bugreport.token

@@ -38,6 +38,7 @@ public sealed class CwcProject
     public DescriptionTextListConfig DescriptionTextLists { get; set; } = new();
     public DescriptionTemplateCatalog DescriptionTemplates { get; set; } = new();
     public AlmParExportConfig AlmParExport { get; set; } = new();
+    public EplanImportConfig EplanImport { get; set; } = new();
 
     public static CwcProject CreateEmpty()
     {
@@ -48,6 +49,75 @@ public sealed class CwcProject
         database.ApplyTo(project);
         return project;
     }
+}
+
+/// <summary>Remembered EPLAN import: which CPU fills which PLC database and which distributed stations belong to it.</summary>
+public sealed class EplanImportConfig
+{
+    public string LastEpjPath { get; set; } = "";
+    public List<EplanCpuAssignment> Assignments { get; set; } = [];
+    /// <summary>Abbreviations and synonyms used by Automap IDs to compare schematic and DB signal names.</summary>
+    public List<EplanSynonym> Synonyms { get; set; } = EplanSynonym.Defaults();
+    /// <summary>Schematic names the user linked to a DB name by hand; Automap treats them as exact next time.</summary>
+    public List<EplanLearnedName> LearnedNames { get; set; } = [];
+}
+
+/// <summary>"CB" means "CIRCUIT BREAKER", "FASTER" means "UP" … (whole words, case-insensitive).</summary>
+public sealed class EplanSynonym
+{
+    public string Words { get; set; } = "";
+    public string Means { get; set; } = "";
+
+    public static List<EplanSynonym> Defaults() =>
+    [
+        new() { Words = "CB", Means = "CIRCUIT BREAKER" },
+        new() { Words = "GCB", Means = "GENERATOR CIRCUIT BREAKER" },
+        new() { Words = "MCB", Means = "MINIATURE CIRCUIT BREAKER" },
+        new() { Words = "TIV", Means = "TURBINE INLET VALVE" },
+        new() { Words = "MIV", Means = "MAIN INLET VALVE" },
+        new() { Words = "TRAFO", Means = "TRANSFORMER" },
+        new() { Words = "GEN", Means = "GENERATOR" },
+        new() { Words = "MEAS", Means = "MEASUREMENT" },
+        new() { Words = "TEMP", Means = "TEMPERATURE" },
+        new() { Words = "PRESS", Means = "PRESSURE" },
+        new() { Words = "POS", Means = "POSITION" },
+        new() { Words = "VIB", Means = "VIBRATION" },
+        new() { Words = "LUBRIFICATION", Means = "LUBRICATION" },
+        new() { Words = "BUCHOLZ", Means = "BUCHHOLZ" },
+        new() { Words = "RAISE", Means = "UP" },
+        new() { Words = "HIGHER", Means = "UP" },
+        new() { Words = "FASTER", Means = "UP" },
+        new() { Words = "INCREASE", Means = "UP" },
+        new() { Words = "LOWER", Means = "DOWN" },
+        new() { Words = "SLOWER", Means = "DOWN" },
+        new() { Words = "DECREASE", Means = "DOWN" },
+        new() { Words = "CLOSE", Means = "CLOSED" },
+        new() { Words = "OPENED", Means = "OPEN" },
+        new() { Words = "AUTO", Means = "AUTOMATIC" },
+        new() { Words = "MAN", Means = "MANUAL" },
+        new() { Words = "ESD", Means = "EMERGENCY SHUTDOWN" },
+        new() { Words = "QSD", Means = "QUICK SHUTDOWN" },
+        new() { Words = "NSD", Means = "NORMAL SHUTDOWN" },
+        new() { Words = "PSU", Means = "POWER SUPPLY" },
+        new() { Words = "PS", Means = "POWER SUPPLY" },
+        new() { Words = "PB", Means = "PUSHBUTTON" },
+        new() { Words = "PUSH BUTTON", Means = "PUSHBUTTON" }
+    ];
+}
+
+public sealed class EplanLearnedName
+{
+    public string SchematicName { get; set; } = "";
+    public string DbName { get; set; } = "";
+}
+
+public sealed class EplanCpuAssignment
+{
+    /// <summary>Higher-level function of the CPU station in EPLAN, e.g. "1CJA01".</summary>
+    public string CpuFunction { get; set; } = "";
+    public string PlcDatabaseId { get; set; } = "";
+    /// <summary>Distributed I/O stations (EPLAN functions) of this CPU, in module numbering order.</summary>
+    public List<string> DistributedFunctions { get; set; } = [];
 }
 
 public sealed class DescriptionTextListConfig
@@ -797,7 +867,19 @@ public enum SignalConfigState
     Inverted = 2
 }
 
-public sealed class DigitalSignalConfig : ObservableModel, IValidationState
+/// <summary>Hardware row that carries documentation read from the EPLAN schematics.</summary>
+public interface IEplanDocumented
+{
+    int Id { get; set; }
+    SignalConfigState Config { get; }
+    string EplanSignalName { get; set; }
+    string EplanConnectedTo { get; set; }
+    int? EplanPdfPage { get; set; }
+    string EplanSchematicPage { get; set; }
+    string EplanTerminalRef { get; set; }
+}
+
+public sealed class DigitalSignalConfig : ObservableModel, IValidationState, IEplanDocumented
 {
     private int _moduleNumber;
     private string _moduleName = "";
@@ -810,6 +892,11 @@ public sealed class DigitalSignalConfig : ObservableModel, IValidationState
     private int _calcId;
     private string _structName = "";
     private string _signalName = "";
+    private string _eplanSignalName = "";
+    private string _eplanConnectedTo = "";
+    private int? _eplanPdfPage;
+    private string _eplanSchematicPage = "";
+    private string _eplanTerminalRef = "";
     private bool _hasValidationError;
 
     public int ModuleNumber { get => _moduleNumber; set => SetField(ref _moduleNumber, value); }
@@ -823,10 +910,19 @@ public sealed class DigitalSignalConfig : ObservableModel, IValidationState
     public int CalcId { get => _calcId; set => SetField(ref _calcId, value); }
     public string StructName { get => _structName; set => SetField(ref _structName, value); }
     public string SignalName { get => _signalName; set => SetField(ref _signalName, value); }
+    // Read from the EPLAN schematics (.epj) – documentation only, not sent to TIA Portal
+    public string EplanSignalName { get => _eplanSignalName; set => SetField(ref _eplanSignalName, value ?? ""); }
+    public string EplanConnectedTo { get => _eplanConnectedTo; set => SetField(ref _eplanConnectedTo, value ?? ""); }
+    /// <summary>Page in the PDF of all schematics (1-based), used by SCADA to open the PDF at this page.</summary>
+    public int? EplanPdfPage { get => _eplanPdfPage; set => SetField(ref _eplanPdfPage, value); }
+    /// <summary>Page.column inside the cabinet's schematic, e.g. "=2CJA01/22.2".</summary>
+    public string EplanSchematicPage { get => _eplanSchematicPage; set => SetField(ref _eplanSchematicPage, value ?? ""); }
+    /// <summary>EPLAN PLC terminal this row was filled from ("1CJA01|A115|2"); used to write the ID back into the schematic.</summary>
+    public string EplanTerminalRef { get => _eplanTerminalRef; set => SetField(ref _eplanTerminalRef, value ?? ""); }
     public bool HasValidationError { get => _hasValidationError; set => SetField(ref _hasValidationError, value); }
 }
 
-public sealed class AnalogSignalConfig : ObservableModel, IValidationState
+public sealed class AnalogSignalConfig : ObservableModel, IValidationState, IEplanDocumented
 {
     private int _moduleNumber;
     private string _moduleName = "";
@@ -844,6 +940,11 @@ public sealed class AnalogSignalConfig : ObservableModel, IValidationState
     private int _calcMeasurement;
     private string _signalName = "";
     private string _unit = "";
+    private string _eplanSignalName = "";
+    private string _eplanConnectedTo = "";
+    private int? _eplanPdfPage;
+    private string _eplanSchematicPage = "";
+    private string _eplanTerminalRef = "";
     private bool _hasValidationError;
 
     public int ModuleNumber { get => _moduleNumber; set => SetField(ref _moduleNumber, value); }
@@ -862,10 +963,19 @@ public sealed class AnalogSignalConfig : ObservableModel, IValidationState
     public int CalcMeasurement { get => _calcMeasurement; set => SetField(ref _calcMeasurement, value); }
     public string SignalName { get => _signalName; set => SetField(ref _signalName, value); }
     public string Unit { get => _unit; set => SetField(ref _unit, value); }
+    // Read from the EPLAN schematics (.epj) – documentation only, not sent to TIA Portal
+    public string EplanSignalName { get => _eplanSignalName; set => SetField(ref _eplanSignalName, value ?? ""); }
+    public string EplanConnectedTo { get => _eplanConnectedTo; set => SetField(ref _eplanConnectedTo, value ?? ""); }
+    /// <summary>Page in the PDF of all schematics (1-based), used by SCADA to open the PDF at this page.</summary>
+    public int? EplanPdfPage { get => _eplanPdfPage; set => SetField(ref _eplanPdfPage, value); }
+    /// <summary>Page.column inside the cabinet's schematic, e.g. "=2CJA01/22.2".</summary>
+    public string EplanSchematicPage { get => _eplanSchematicPage; set => SetField(ref _eplanSchematicPage, value ?? ""); }
+    /// <summary>EPLAN PLC terminal this row was filled from ("1CJA01|A115|2"); used to write the ID back into the schematic.</summary>
+    public string EplanTerminalRef { get => _eplanTerminalRef; set => SetField(ref _eplanTerminalRef, value ?? ""); }
     public bool HasValidationError { get => _hasValidationError; set => SetField(ref _hasValidationError, value); }
 }
 
-public sealed class CounterConfig : ObservableModel, IValidationState
+public sealed class CounterConfig : ObservableModel, IValidationState, IEplanDocumented
 {
     private int _moduleNumber;
     private string _moduleName = "";
@@ -878,6 +988,11 @@ public sealed class CounterConfig : ObservableModel, IValidationState
     private int _calcMeasurement;
     private string _signalName = "";
     private string _unit = "";
+    private string _eplanSignalName = "";
+    private string _eplanConnectedTo = "";
+    private int? _eplanPdfPage;
+    private string _eplanSchematicPage = "";
+    private string _eplanTerminalRef = "";
     private bool _hasValidationError;
 
     public int ModuleNumber { get => _moduleNumber; set => SetField(ref _moduleNumber, value); }
@@ -891,10 +1006,19 @@ public sealed class CounterConfig : ObservableModel, IValidationState
     public int CalcMeasurement { get => _calcMeasurement; set => SetField(ref _calcMeasurement, value); }
     public string SignalName { get => _signalName; set => SetField(ref _signalName, value); }
     public string Unit { get => _unit; set => SetField(ref _unit, value); }
+    // Read from the EPLAN schematics (.epj) – documentation only, not sent to TIA Portal
+    public string EplanSignalName { get => _eplanSignalName; set => SetField(ref _eplanSignalName, value ?? ""); }
+    public string EplanConnectedTo { get => _eplanConnectedTo; set => SetField(ref _eplanConnectedTo, value ?? ""); }
+    /// <summary>Page in the PDF of all schematics (1-based), used by SCADA to open the PDF at this page.</summary>
+    public int? EplanPdfPage { get => _eplanPdfPage; set => SetField(ref _eplanPdfPage, value); }
+    /// <summary>Page.column inside the cabinet's schematic, e.g. "=2CJA01/22.2".</summary>
+    public string EplanSchematicPage { get => _eplanSchematicPage; set => SetField(ref _eplanSchematicPage, value ?? ""); }
+    /// <summary>EPLAN PLC terminal this row was filled from ("1CJA01|A115|2"); used to write the ID back into the schematic.</summary>
+    public string EplanTerminalRef { get => _eplanTerminalRef; set => SetField(ref _eplanTerminalRef, value ?? ""); }
     public bool HasValidationError { get => _hasValidationError; set => SetField(ref _hasValidationError, value); }
 }
 
-public sealed class AnalogOutputConfig : ObservableModel, IValidationState
+public sealed class AnalogOutputConfig : ObservableModel, IValidationState, IEplanDocumented
 {
     private int _moduleNumber;
     private string _moduleName = "";
@@ -903,6 +1027,11 @@ public sealed class AnalogOutputConfig : ObservableModel, IValidationState
     private int _id;
     private string _systemName = "";
     private string _signalName = "";
+    private string _eplanSignalName = "";
+    private string _eplanConnectedTo = "";
+    private int? _eplanPdfPage;
+    private string _eplanSchematicPage = "";
+    private string _eplanTerminalRef = "";
     private bool _hasValidationError;
 
     public int ModuleNumber { get => _moduleNumber; set => SetField(ref _moduleNumber, value); }
@@ -912,6 +1041,15 @@ public sealed class AnalogOutputConfig : ObservableModel, IValidationState
     public int Id { get => _id; set => SetField(ref _id, value); }
     public string SystemName { get => _systemName; set => SetField(ref _systemName, value); }
     public string SignalName { get => _signalName; set => SetField(ref _signalName, value); }
+    // Read from the EPLAN schematics (.epj) – documentation only, not sent to TIA Portal
+    public string EplanSignalName { get => _eplanSignalName; set => SetField(ref _eplanSignalName, value ?? ""); }
+    public string EplanConnectedTo { get => _eplanConnectedTo; set => SetField(ref _eplanConnectedTo, value ?? ""); }
+    /// <summary>Page in the PDF of all schematics (1-based), used by SCADA to open the PDF at this page.</summary>
+    public int? EplanPdfPage { get => _eplanPdfPage; set => SetField(ref _eplanPdfPage, value); }
+    /// <summary>Page.column inside the cabinet's schematic, e.g. "=2CJA01/22.2".</summary>
+    public string EplanSchematicPage { get => _eplanSchematicPage; set => SetField(ref _eplanSchematicPage, value ?? ""); }
+    /// <summary>EPLAN PLC terminal this row was filled from ("1CJA01|A115|2"); used to write the ID back into the schematic.</summary>
+    public string EplanTerminalRef { get => _eplanTerminalRef; set => SetField(ref _eplanTerminalRef, value ?? ""); }
     public bool HasValidationError { get => _hasValidationError; set => SetField(ref _hasValidationError, value); }
 }
 
@@ -1808,6 +1946,10 @@ public sealed class DbStringRow : IValidationState
     public string TrueText { get; set; } = "";
     public string ModuleName { get; set; } = "";
     public int? ModulePort { get; set; }
+    /// <summary>EPLAN signal of the hardware channel mapped to this ID (Refresh DB from hardware).</summary>
+    public string EplanSignal { get; set; } = "";
+    /// <summary>EPLAN "connected to" of that hardware channel (Refresh DB from hardware).</summary>
+    public string EplanConnectedTo { get; set; } = "";
     public string ColorValue0 { get; set; } = "";
     public string ColorValue1 { get; set; } = "";
     public string AlarmConfig { get; set; } = "";
@@ -2008,6 +2150,10 @@ public sealed class DbAoRow
     public string TrueText { get; set; } = "";
     public string ModuleName { get; set; } = "";
     public int? ModulePort { get; set; }
+    /// <summary>EPLAN signal of the hardware channel mapped to this ID (Refresh DB from hardware).</summary>
+    public string EplanSignal { get; set; } = "";
+    /// <summary>EPLAN "connected to" of that hardware channel (Refresh DB from hardware).</summary>
+    public string EplanConnectedTo { get; set; } = "";
     public double Low { get; set; }
     public double High { get; set; }
     public double Offset { get; set; }

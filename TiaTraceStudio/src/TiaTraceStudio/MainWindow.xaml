@@ -1,0 +1,70 @@
+<Window x:Class="TiaTraceStudio.MainWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="TIA Trace Studio" Width="1720" Height="980" MinWidth="1080" MinHeight="720" WindowStartupLocation="CenterScreen"
+ Background="#F1F5F9" FontFamily="Segoe UI" FontSize="13" AllowDrop="True" Drop="Window_Drop" DragOver="Window_DragOver" Closing="Window_Closing" Activated="Window_Activated">
+ <Window.Resources>
+  <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#172B45"/></Style>
+  <Style TargetType="Button"><Setter Property="Padding" Value="12,8"/><Setter Property="Margin" Value="0,0,6,6"/><Setter Property="Background" Value="White"/><Setter Property="Foreground" Value="#172B45"/><Setter Property="BorderBrush" Value="#CBD5E1"/><Setter Property="Cursor" Value="Hand"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Opacity" Value="0.75"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Opacity" Value="0.4"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style x:Key="Primary" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Background" Value="#146CDA"/><Setter Property="Foreground" Value="White"/><Setter Property="BorderBrush" Value="#146CDA"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <Style TargetType="TextBox"><Setter Property="Padding" Value="7,6"/><Setter Property="Margin" Value="0,3,0,9"/><Setter Property="BorderBrush" Value="#CBD5E1"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
+  <Style TargetType="ComboBox"><Setter Property="Padding" Value="6"/><Setter Property="Margin" Value="0,3,0,9"/></Style>
+  <Style TargetType="CheckBox"><Setter Property="Margin" Value="0,5,12,8"/></Style>
+  <Style TargetType="TabItem"><Setter Property="Padding" Value="12,9"/><Setter Property="FontWeight" Value="Normal"/></Style>
+  <Style TargetType="DataGrid"><Setter Property="AutoGenerateColumns" Value="False"/><Setter Property="CanUserAddRows" Value="False"/><Setter Property="GridLinesVisibility" Value="Horizontal"/><Setter Property="HorizontalGridLinesBrush" Value="#E2E8F0"/><Setter Property="RowBackground" Value="White"/><Setter Property="AlternatingRowBackground" Value="#F8FAFC"/><Setter Property="BorderThickness" Value="0"/><Setter Property="RowHeight" Value="32"/><Setter Property="HeadersVisibility" Value="Column"/></Style>
+ </Window.Resources>
+ <DockPanel>
+  <Border DockPanel.Dock="Top" Background="#11253F" Padding="22,16"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+   <StackPanel Orientation="Horizontal"><Border Background="#2787F5" CornerRadius="7" Padding="9,4" Margin="0,0,13,0"><TextBlock Text="∿" Foreground="White" FontSize="28"/></Border><StackPanel><TextBlock Text="TIA TRACE STUDIO" FontSize="19" FontWeight="Bold" Foreground="White"/><TextBlock Text="CSV → GRAF → JPG" FontSize="10" Foreground="#9DB4CF" Margin="0,4,0,0"/></StackPanel></StackPanel>
+   <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><Button x:Name="ProjectMenuButton" Content="Projekt  ▾" Click="ProjectMenu_Click" ToolTip="Definicija postrojenja, PLC-ovi, katalog testova, korisnička snimanja, izvoz svih grafova"/><Button Content="Novi projekt" Click="NewWorkspace_Click" ToolTip="Definicija postrojenja i stablo testova"/><Button Content="Otvori CSV" Click="OpenCsv_Click" ToolTip="Ctrl+O"/><Button Content="Otvori projekt" Click="OpenProject_Click"/><Button Content="Spremi projekt" Click="SaveProject_Click" ToolTip="Ctrl+S"/><Button x:Name="CopyImageButton" Content="Kopiraj sliku" Click="CopyImage_Click" ToolTip="Kopira sliku u punoj rezoluciji bez spremanja datoteke"/><Button Content="Izvezi sliku  ↗" Style="{StaticResource Primary}" Click="Export_Click" ToolTip="Ctrl+E"/></StackPanel>
+  </Grid></Border>
+  <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="#DCE4EE" BorderThickness="0,1,0,0" Padding="18,8"><TextBlock x:Name="StatusText" Text="Spremno · Otvori CSV ili ga povuci u prozor." TextTrimming="CharacterEllipsis"/></Border>
+  <Grid Margin="16"><Grid.ColumnDefinitions><ColumnDefinition x:Name="TreeColumn" Width="0"/><ColumnDefinition x:Name="TreeGap" Width="0"/><ColumnDefinition x:Name="SettingsColumn" Width="350"/><ColumnDefinition x:Name="SettingsGap" Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+   <Border x:Name="TreePane" Background="White" CornerRadius="9" BorderBrush="#DFE7F0" BorderThickness="1" Visibility="Collapsed"><Grid Margin="10"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*" MinHeight="120"/><RowDefinition Height="6"/><RowDefinition Height="*" MinHeight="120"/></Grid.RowDefinitions>
+    <StackPanel Margin="2,4,2,8"><TextBlock x:Name="PlantTitle" FontWeight="SemiBold" FontSize="16" TextTrimming="CharacterEllipsis"/><TextBlock x:Name="PlantProgress" Foreground="#64748B" Margin="0,3,0,0"/><TextBlock x:Name="PlantConfigInfo" Margin="0,4,0,0" TextWrapping="Wrap" Cursor="Hand" MouseLeftButtonUp="PlantConfigInfo_Click"/><Button x:Name="PlantConfigRefresh" Visibility="Collapsed" HorizontalAlignment="Left" Margin="0,6,0,0" Content="↻ Osvježi iz Plant Configuratora (datoteka je izmijenjena)" ToolTip="Ponovno učitaj nazive, jedinice, adrese i raspone iz .plantcfg" Click="PlantConfigRefresh_Click"/></StackPanel>
+    <TreeView x:Name="PlantTree" Grid.Row="1" BorderBrush="#DFE7F0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectedItemChanged="PlantTree_SelectedItemChanged"/>
+    <GridSplitter Grid.Row="2" HorizontalAlignment="Stretch" Height="6" Background="Transparent"/>
+    <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto"><StackPanel x:Name="SlotPanel" Margin="2,8,6,4"/></ScrollViewer>
+   </Grid></Border>
+   <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Center" Background="Transparent"/>
+   <Border x:Name="SettingsPane" Grid.Column="2" Background="White" CornerRadius="9" BorderBrush="#DFE7F0" BorderThickness="1"><TabControl BorderThickness="0" Margin="8">
+    <TabItem Header="Signali"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="SignalsTab" Margin="8">
+     <TextBlock Text="Signali" FontWeight="SemiBold" FontSize="16" Margin="0,10,0,8"/>
+     <TextBlock Text="Naziv i jedinicu upisuješ sam. * Naziv je obavezan za izvoz." TextWrapping="Wrap" Foreground="#64748B" Margin="0,0,0,10"/>
+     <ListBox x:Name="SignalList" Height="155" SelectionChanged="SignalList_SelectionChanged" BorderBrush="#DFE7F0"><ListBox.ItemTemplate><DataTemplate><StackPanel Orientation="Horizontal" Margin="2,4"><CheckBox IsChecked="{Binding Visible}" Margin="0,0,7,0"/><TextBlock Text="●" Foreground="{Binding Color}" Margin="0,0,7,0"/><TextBlock Text="{Binding DisplayName}" Width="240" TextTrimming="CharacterEllipsis" ToolTip="{Binding Source}"/></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox>
+     <StackPanel x:Name="SignalEditor" Margin="0,12,0,0"/>
+     <Button Content="Primijeni promjene" Style="{StaticResource Primary}" Click="Apply_Click"/>
+     
+    </StackPanel></ScrollViewer></TabItem>
+    <TabItem Header="Graf"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="OptionsEditor" Margin="8"/></ScrollViewer></TabItem>
+    <TabItem Header="Izvoz"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="ExportEditor" Margin="8"/></ScrollViewer></TabItem>
+   </TabControl></Border>
+   <Grid Grid.Column="4"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <Border Background="White" CornerRadius="8" Padding="16,12" Margin="0,0,0,12"><StackPanel>
+     <ComboBox x:Name="DocumentPicker" Visibility="Collapsed" DisplayMemberPath="DisplayTitle" SelectionChanged="DocumentPicker_SelectionChanged" ToolTip="Prebaci na drugi učitani CSV; svaki čuva svoje postavke."/>
+     <TextBlock x:Name="FileTitle" Text="Otvori CSV trace" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+     <TextBlock x:Name="FileInfo" Text="Učitaj podatke, unesi nazive i izvezi sliku." Foreground="#64748B" Margin="0,5,0,0"/>
+     <TextBlock x:Name="NamingHint" TextWrapping="Wrap" Foreground="#A8640A" Margin="0,6,0,0" Visibility="Collapsed"/>
+     <WrapPanel x:Name="ModeEditor" Margin="0,14,0,0">
+      <CheckBox Content="Označi min / max" IsChecked="{Binding ShowExtrema}" Click="Redraw_Click" ToolTip="Ekstremi vidljivog intervala. Oznake zamjenjuju legendu." VerticalAlignment="Center"/>
+      <CheckBox x:Name="MeasurementToggle" Content="Vertikalni A/B" IsChecked="{Binding Cursors}" Click="ToggleCursors_Click" ToolTip="Statistika između dva vremenska kursora: Δt, vrijednosti na A i B, Δy, Δy/Δt, min, max i srednja vrijednost." VerticalAlignment="Center"/>
+      <Button Content="Primijeni" Click="Apply_Click"/>
+      <Button Content="Cijela snimka" Click="Fit_Click"/>
+      <Button Content="Koristi pogled" Click="UseView_Click"/>
+     </WrapPanel>
+    </StackPanel></Border>
+    <Border Grid.Row="1" Background="White" CornerRadius="8" Padding="10" BorderBrush="#DFE7F0" BorderThickness="1"><Grid><Grid x:Name="PlotHost"/><StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="∿" FontSize="86" Foreground="#2787F5" HorizontalAlignment="Center"/><TextBlock Text="Od CSV-a do gotovog grafa" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="Povuci TIA trace ovdje ili otvori datoteku." Foreground="#64748B" Margin="0,12,0,20" HorizontalAlignment="Center"/><Button Content="Otvori CSV" Style="{StaticResource Primary}" Click="OpenCsv_Click" HorizontalAlignment="Center"/></StackPanel></Grid></Border>
+    
+    <Expander x:Name="AdvancedTools" Grid.Row="2" Header="Dodatni alati · statistika, kursori, bilješke" Margin="0,10,0,0" IsExpanded="False"><TabControl Height="225" BorderBrush="#DFE7F0" Margin="0,10,0,0">
+     <TabItem Header="Statistika i kursori"><DockPanel Margin="10"><StackPanel DockPanel.Dock="Top" Orientation="Horizontal" x:Name="CursorEditor"><CheckBox Content="Kursori" IsChecked="{Binding Cursors}"/><TextBlock Text="A [s]" VerticalAlignment="Center" Margin="4,0"/><TextBox Text="{Binding CursorA, ValidatesOnExceptions=True}" Width="75"/><TextBlock Text="B [s]" VerticalAlignment="Center" Margin="8,0"/><TextBox Text="{Binding CursorB, ValidatesOnExceptions=True}" Width="75"/><Button Content="Izmjeri" Click="Apply_Click" Margin="10,0,5,6"/><Button Content="Raspon A–B" Click="CursorRange_Click"/><TextBlock x:Name="DeltaText" VerticalAlignment="Center" Margin="8,0"/></StackPanel>
+      <DataGrid x:Name="StatsGrid" IsReadOnly="True"><DataGrid.Columns><DataGridTextColumn Header="Signal" Binding="{Binding Signal}" Width="*"/><DataGridTextColumn Header="N" Binding="{Binding Count}"/><DataGridTextColumn Header="Min" Binding="{Binding Minimum, StringFormat=G5}"/><DataGridTextColumn Header="Max" Binding="{Binding Maximum, StringFormat=G5}"/><DataGridTextColumn Header="Srednja" Binding="{Binding Mean, StringFormat=G5}"/><DataGridTextColumn Header="σ" Binding="{Binding StdDev, StringFormat=G5}"/><DataGridTextColumn Header="A" Binding="{Binding AtA, StringFormat=G5}"/><DataGridTextColumn Header="B" Binding="{Binding AtB, StringFormat=G5}"/><DataGridTextColumn Header="B − A" Binding="{Binding Delta, StringFormat=G5}"/></DataGrid.Columns></DataGrid>
+     </DockPanel></TabItem>
+     <TabItem Header="Bilješke"><DockPanel Margin="10"><WrapPanel DockPanel.Dock="Top"><Button Content="Dodaj bilješku" Click="AddNote_Click"/><Button Content="Ukloni" Click="RemoveNote_Click"/><Button Content="Primijeni" Click="Apply_Click"/><TextBlock Text="Vrijeme od prvog uzorka · lijeva Y-os" VerticalAlignment="Center" Foreground="#64748B"/></WrapPanel><DataGrid x:Name="NotesGrid"><DataGrid.Columns><DataGridTextColumn Header="Vrijeme [s]" Binding="{Binding Time, ValidatesOnExceptions=True}" Width="100"/><DataGridTextColumn Header="Vrijednost" Binding="{Binding Value, ValidatesOnExceptions=True}" Width="100"/><DataGridTextColumn Header="Panel" Binding="{Binding Panel, ValidatesOnExceptions=True}" Width="60"/><DataGridTextColumn Header="Tekst" Binding="{Binding Text}" Width="*"/></DataGrid.Columns></DataGrid></DockPanel></TabItem>
+     <TabItem Header="Izvedeni signali"><StackPanel Margin="14"><TextBlock Text="Izračun koristi skalirane vrijednosti. Novi signal je snimka izračuna." Foreground="#64748B"/><WrapPanel Margin="0,10,0,0"><ComboBox x:Name="DerivedA" Width="190" DisplayMemberPath="DisplayName"/><TextBlock Text=" − " VerticalAlignment="Center"/><ComboBox x:Name="DerivedB" Width="190" DisplayMemberPath="DisplayName"/><Button Content="Dodaj A − B" Click="Difference_Click" Margin="10,0,0,6"/></WrapPanel><Button Content="Dodaj derivaciju signala A" Click="Derivative_Click" HorizontalAlignment="Left"/><TextBlock Text="Odaberi dva signala koja želiš oduzeti. Naziv rezultata unosiš sam." Foreground="#64748B"/></StackPanel></TabItem>
+     <TabItem Header="Provjera uvoza"><TextBox x:Name="WarningsText" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" BorderThickness="0" Margin="10"/></TabItem>
+    </TabControl></Expander>
+   </Grid>
+  </Grid>
+ </DockPanel>
+</Window>

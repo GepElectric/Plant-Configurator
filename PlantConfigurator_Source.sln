@@ -1,4 +1,4 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -7,6 +7,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CwcConfigurator.TiaHelper", "CwcConfigurator.TiaHelper\CwcConfigurator.TiaHelper.csproj", "{FB420B9C-F429-2389-F318-471B1DA2E557}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CwcConfigurator.Tests", "CwcConfigurator.Tests\CwcConfigurator.Tests.csproj", "{8B7E1234-5A6B-4C7D-8E9F-1A2B3C4D5E6F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlantSimulator", "PlantSimulator\PlantSimulator.csproj", "{71243ABF-4295-4670-97BE-767350479572}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,6 +28,10 @@ Global
 		{8B7E1234-5A6B-4C7D-8E9F-1A2B3C4D5E6F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8B7E1234-5A6B-4C7D-8E9F-1A2B3C4D5E6F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8B7E1234-5A6B-4C7D-8E9F-1A2B3C4D5E6F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{71243ABF-4295-4670-97BE-767350479572}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{71243ABF-4295-4670-97BE-767350479572}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{71243ABF-4295-4670-97BE-767350479572}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{71243ABF-4295-4670-97BE-767350479572}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -647,6 +647,9 @@ public sealed class TiaPortalExportImporter
                 case "COUNTER":
                     imported += ApplyCounterHwValue(project.Counters, module, field, value);
                     break;
+                case "AO":
+                    imported += ApplyAnalogOutputHwValue(project.AnalogOutputs, module, port, field, value);
+                    break;
             }
         }
 
@@ -659,6 +662,28 @@ public sealed class TiaPortalExportImporter
         if (row is null)
         {
             row = new DigitalSignalConfig { ModuleNumber = module, Port = port };
+            rows.Add(row);
+        }
+
+        switch (field)
+        {
+            case "ID":
+                row.Id = ToInt(value);
+                return 1;
+            case "CONFIG":
+                row.Config = ToConfigState(value);
+                return 1;
+            default:
+                return 0;
+        }
+    }
+
+    private static int ApplyAnalogOutputHwValue(List<AnalogOutputConfig> rows, int module, int port, string field, string value)
+    {
+        var row = rows.FirstOrDefault(item => item.ModuleNumber == module && item.Port == port);
+        if (row is null)
+        {
+            row = new AnalogOutputConfig { ModuleNumber = module, Port = port };
             rows.Add(row);
         }
 
@@ -1435,7 +1460,7 @@ public sealed class TiaPortalExportImporter
         return value.Replace("''", "'");
     }
 
-    private static void SplitTime(string value, out string delay, out string timeBase)
+    public static void SplitTime(string value, out string delay, out string timeBase)
     {
         var text = value.Trim();
         if (text.StartsWith("T#", StringComparison.OrdinalIgnoreCase))
@@ -1443,22 +1468,46 @@ public sealed class TiaPortalExportImporter
             text = text[2..];
         }
 
-        var suffixStart = text.Length;
-        while (suffixStart > 0 && char.IsLetter(text[suffixStart - 1]))
+        text = text.Replace("_", "");
+        var parts = TimePartRegex.Matches(text);
+        if (parts.Count == 0 || string.Concat(parts.Select(part => part.Value)).Length != text.Length)
         {
-            suffixStart--;
+            delay = string.IsNullOrWhiteSpace(text) ? "0" : text;
+            timeBase = "0";
+            return;
         }
 
-        delay = suffixStart > 0 ? text[..suffixStart] : "0";
-        timeBase = text[suffixStart..].ToUpperInvariant() switch
+        if (parts.Count == 1)
         {
-            "S" => "1",
-            "M" => "2",
-            "MIN" => "2",
-            "H" => "3",
-            _ => "0"
-        };
+            var unit = parts[0].Groups[2].Value.ToUpperInvariant();
+            if (unit is "MS" or "S" or "M" or "H")
+            {
+                delay = parts[0].Groups[1].Value;
+                timeBase = unit switch { "S" => "1", "M" => "2", "H" => "3", _ => "0" };
+                return;
+            }
+        }
+
+        // Compound value such as T#8S_500MS or T#1M_10S: the alarm delay holds one base, so use milliseconds.
+        var totalMs = 0m;
+        foreach (Match part in parts)
+        {
+            var amount = decimal.Parse(part.Groups[1].Value, CultureInfo.InvariantCulture);
+            totalMs += amount * part.Groups[2].Value.ToUpperInvariant() switch
+            {
+                "D" => 86_400_000m,
+                "H" => 3_600_000m,
+                "M" => 60_000m,
+                "S" => 1_000m,
+                _ => 1m
+            };
+        }
+
+        delay = decimal.Round(totalMs).ToString(CultureInfo.InvariantCulture);
+        timeBase = "0";
     }
+
+    private static readonly Regex TimePartRegex = new(@"(\d+(?:\.\d+)?)(MS|D|H|M|S)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private static Encoding CreateTiaEncoding()
     {

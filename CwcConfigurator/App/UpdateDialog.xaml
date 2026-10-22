@@ -1,0 +1,39 @@
+<Window x:Class="CwcConfigurator.App.UpdateDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Plant Configurator update"
+        Width="560"
+        Height="440"
+        MinWidth="420"
+        MinHeight="320"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Closing="Window_Closing">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="HeadlineText" FontSize="16" FontWeight="SemiBold" Text="A new version is available"/>
+        <TextBlock x:Name="VersionText" Grid.Row="1" Margin="0,6,0,0" Foreground="#555" TextWrapping="Wrap"/>
+        <Border x:Name="MandatoryBanner" Grid.Row="2" Margin="0,10,0,0" Padding="8,6" Background="#FFF4E5" BorderBrush="#D97706" BorderThickness="1" Visibility="Collapsed">
+            <TextBlock TextWrapping="Wrap" Foreground="#7C2D12"
+                       Text="This update is required. Plant Configurator can only be used after it is installed. Unsaved work is offered for saving before the app restarts."/>
+        </Border>
+        <TextBox x:Name="NotesText" Grid.Row="3" Margin="0,10,0,0" IsReadOnly="True" TextWrapping="Wrap"
+                 VerticalScrollBarVisibility="Auto" FontFamily="Consolas" Background="#F6F8FA"/>
+        <StackPanel Grid.Row="4" Margin="0,10,0,0">
+            <ProgressBar x:Name="DownloadProgress" Height="14" Minimum="0" Maximum="100" Visibility="Collapsed"/>
+            <TextBlock x:Name="StatusText" Margin="0,6,0,0" Foreground="#555" TextWrapping="Wrap"/>
+        </StackPanel>
+        <StackPanel Grid.Row="5" Margin="0,12,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="UpdateButton" Content="Update now" MinWidth="110" Height="28" IsDefault="True" Click="UpdateButton_Click"/>
+            <Button x:Name="LaterButton" Content="Later" MinWidth="90" Height="28" Margin="8,0,0,0" IsCancel="True" Click="LaterButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

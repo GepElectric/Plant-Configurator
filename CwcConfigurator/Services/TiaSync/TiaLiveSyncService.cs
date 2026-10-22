@@ -11,7 +11,7 @@ public sealed class TiaLiveSyncService(ITiaSessionService sessionService)
     private readonly TiaMappingService _mappingService = new();
     private readonly TiaSourceGenerator _generator = new();
     private readonly TiaPortalExportImporter _importer = new();
-    private static readonly string[] KnownSections = ["HW DI", "HW DO", "HW AI", "HW RTD", "HW COUNTER", "DB DI", "DB DO", "DB MEAS", "DB AO", "DB ALM", "DB PAR", "DB SEQUENCE"];
+    private static readonly string[] KnownSections = ["HW DI", "HW DO", "HW AI", "HW RTD", "HW COUNTER", "HW AO", "DB DI", "DB DO", "DB MEAS", "DB AO", "DB ALM", "DB PAR", "DB SEQUENCE"];
 
     public async Task<TiaLiveSyncResult> PullAsync(CwcProject project)
     {
@@ -233,7 +233,7 @@ public sealed class TiaLiveSyncService(ITiaSessionService sessionService)
     {
         var session = RequireSession();
         var (database, binding) = RequireActiveMappedBinding(project, session);
-        var sections = new[] { "DI", "DO", "AI", "RTD", "COUNTER" };
+        var sections = new[] { "DI", "DO", "AI", "RTD", "COUNTER", "AO" };
         var snapshotRoot = CreateSnapshotFolder(project, "check_HW_all");
         var remoteRoot = Path.Combine(snapshotRoot, "remote");
         var plcFolder = Path.Combine(remoteRoot, SanitizeName(binding.PlcName));
@@ -832,7 +832,7 @@ public sealed class TiaLiveSyncService(ITiaSessionService sessionService)
     private static string NormalizeHwSection(string section)
     {
         var value = section.Trim().ToUpperInvariant();
-        return value is "DI" or "DO" or "AI" or "RTD" or "COUNTER"
+        return value is "DI" or "DO" or "AI" or "RTD" or "COUNTER" or "AO"
             ? value
             : throw new NotSupportedException($"HW section '{section}' is not supported.");
     }
@@ -1141,6 +1141,10 @@ public sealed class TiaLiveSyncService(ITiaSessionService sessionService)
             "COUNTER" => database.Counters
                 .OrderBy(row => row.ModuleNumber)
                 .Select(row => new { row.ModuleNumber, row.Id, row.Config, row.FilterTime }),
+            "AO" => database.AnalogOutputs
+                .OrderBy(row => row.ModuleNumber)
+                .ThenBy(row => row.Port)
+                .Select(row => new { row.ModuleNumber, row.Port, row.Id, row.Config }),
             _ => throw new NotSupportedException($"HW section '{section}' comparison is not implemented.")
         };
 

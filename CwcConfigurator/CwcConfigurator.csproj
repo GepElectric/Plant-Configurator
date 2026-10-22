@@ -8,6 +8,9 @@
     <AssemblyName>PlantConfigurator</AssemblyName>
     <RootNamespace>CwcConfigurator</RootNamespace>
     <ApplicationIcon>PlantConfigurator.ico</ApplicationIcon>
+    <!-- Release.ps1 overrides this with -p:Version=x.y.z; Velopack needs Program.Main to run first. -->
+    <Version>1.0.0</Version>
+    <StartupObject>CwcConfigurator.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="PlantConfigurator.ico" />
@@ -16,6 +19,7 @@
     <PackageReference Include="ClosedXML" Version="0.104.2" />
     <PackageReference Include="S7netplus" Version="0.20.0" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
+    <PackageReference Include="Velopack" Version="1.2.161" />
     <PackageReference Include="YamlDotNet" Version="16.2.1" />
   </ItemGroup>
   <ItemGroup>
@@ -28,6 +32,8 @@
     <None Include="Start Plant Configurator.bat" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Installers\install_prerequisites.ps1" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Installers\*.exe" CopyToOutputDirectory="PreserveNewest" />
+    <!-- GitHub token for Help -> Report a bug; local only (.gitignore), shipped inside the release package. -->
+    <None Include="bugreport.token" CopyToOutputDirectory="PreserveNewest" Condition="Exists('bugreport.token')" />
     <None Include="..\..\tag_browser\dist\WinCC_Tag_Browser.exe" Link="Tools\tag_browser\WinCC_Tag_Browser.exe" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\tag_browser\dist\WinCC_Tag_Browser.exe')" />
     <None Include="..\..\tag_browser\tags_config.json" Link="Tools\tag_browser\tags_config.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\tag_browser\tags_config.json')" />
     <None Include="Tools\WinCCUnifiedJsConnector\server\**\*.*" CopyToOutputDirectory="PreserveNewest" />

@@ -1,0 +1,86 @@
+<Window x:Class="CwcConfigurator.App.BugReportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Report a bug"
+        Width="720"
+        Height="680"
+        MinWidth="560"
+        MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="110"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.ColumnSpan="2" Margin="0,0,0,12" TextWrapping="Wrap" Foreground="#555">
+            Describe what went wrong and how to reproduce it. The report is sent to the developers as a GitHub issue,
+            together with the selected files, the app version and today's log.
+        </TextBlock>
+
+        <TextBlock Grid.Row="1" Text="Short title" VerticalAlignment="Center"/>
+        <TextBox x:Name="TitleBox" Grid.Row="1" Grid.Column="1" Height="26" VerticalContentAlignment="Center"/>
+
+        <TextBlock Grid.Row="2" Text="Your name" VerticalAlignment="Center" Margin="0,8,0,0"/>
+        <TextBox x:Name="ReporterBox" Grid.Row="2" Grid.Column="1" Height="26" Margin="0,8,0,0" VerticalContentAlignment="Center"/>
+
+        <TextBlock Grid.Row="3" Text="Description" Margin="0,8,0,0"/>
+        <TextBox x:Name="DescriptionBox" Grid.Row="3" Grid.Column="1" Margin="0,8,0,0" AcceptsReturn="True" AcceptsTab="True"
+                 TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MinHeight="140"/>
+
+        <TextBlock Grid.Row="4" Text="Attach" Margin="0,10,0,0"/>
+        <Grid Grid.Row="4" Grid.Column="1" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <CheckBox x:Name="ScreenshotCheck" Content="Screenshot of Plant Configurator" Margin="0,0,0,4"/>
+                <CheckBox x:Name="ProjectCheck" Content="Current project (.plantcfg, including unsaved changes)" Margin="0,0,0,4"/>
+                <CheckBox x:Name="LogCheck" Content="Today's log file" Margin="0,0,0,4"/>
+            </StackPanel>
+            <Border Grid.Column="1" BorderBrush="#D0D7DE" BorderThickness="1" Margin="8,0,0,0">
+                <Image x:Name="ScreenshotPreview" Width="160" Height="90" Stretch="Uniform"/>
+            </Border>
+        </Grid>
+
+        <TextBlock Grid.Row="5" Text="Other files" Margin="0,10,0,0"/>
+        <Grid Grid.Row="5" Grid.Column="1" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <ListBox x:Name="FilesList" Height="90" SelectionMode="Single"/>
+            <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                <Button Content="Add files..." MinWidth="130" Height="26" Click="AddFiles_Click"/>
+                <Button Content="Paste image" MinWidth="130" Height="26" Margin="0,4,0,0" Click="PasteImage_Click"
+                        ToolTip="Adds an image from the clipboard (e.g. after Win+Shift+S)."/>
+                <Button Content="Remove" MinWidth="130" Height="26" Margin="0,4,0,0" Click="RemoveFiles_Click"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="6" Grid.ColumnSpan="2" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="#555" TextWrapping="Wrap"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button x:Name="SaveZipButton" Content="Save as .zip..." MinWidth="110" Height="28" Click="SaveZip_Click"
+                        ToolTip="Save the report as a zip file instead of sending it."/>
+                <Button x:Name="SendButton" Content="Send report" MinWidth="110" Height="28" Margin="8,0,0,0" IsDefault="True" Click="Send_Click"/>
+                <Button x:Name="CancelButton" Content="Cancel" MinWidth="90" Height="28" Margin="8,0,0,0" IsCancel="True"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

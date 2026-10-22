@@ -14,7 +14,6 @@ using System.Diagnostics;
 using Microsoft.Win32;
 using CwcConfigurator.Domain;
 using CwcConfigurator.Services;
-using CwcConfigurator.Services.AlarmTesting;
 using CwcConfigurator.Services.TiaSync;
 
 namespace CwcConfigurator.App;
@@ -777,6 +776,7 @@ public partial class MainWindow : Window
         ShowMessage("Ready.");
         ShowWelcomeScreen();
         InitializeAutosave();
+        InitializeUpdates();
         Dispatcher.BeginInvoke(OfferAutosaveRecovery, DispatcherPriority.Loaded);
     }
 
@@ -978,7 +978,7 @@ public partial class MainWindow : Window
             EnsureProjectDefaults();
             _projectOpen = true;
             BindProject();
-            await CheckTiaAfterImportAsync("DI", "DO", "AI", "RTD", "COUNTER", "DB DI", "DB DO", "DB MEAS", "DB AO", "DB ALM", "DB PAR");
+            await CheckTiaAfterImportAsync("DI", "DO", "AI", "RTD", "COUNTER", "AO", "DB DI", "DB DO", "DB MEAS", "DB AO", "DB ALM", "DB PAR");
             ShowMessage($"Imported Excel workbook into {targetDatabase.Name}: {dialog.FileName}");
             HideWelcomeScreen();
         }
@@ -1312,6 +1312,9 @@ public partial class MainWindow : Window
     private async void CounterHwTiaPull_Click(object sender, RoutedEventArgs e) => await ConfirmAndRunHwPullAsync("COUNTER", service => service.PullHwSectionAsync(_project, "COUNTER"));
     private async void CounterHwTiaPush_Click(object sender, RoutedEventArgs e) => await ConfirmAndRunHwPushAsync("COUNTER", service => service.PushHwSectionAsync(_project, "COUNTER"));
 
+    private async void AoHwTiaPull_Click(object sender, RoutedEventArgs e) => await ConfirmAndRunHwPullAsync("AO", service => service.PullHwSectionAsync(_project, "AO"));
+    private async void AoHwTiaPush_Click(object sender, RoutedEventArgs e) => await ConfirmAndRunHwPushAsync("AO", service => service.PushHwSectionAsync(_project, "AO"));
+
     private async Task ConfirmAndRunHwPullAsync(string section, Func<TiaLiveSyncService, Task<TiaLiveSyncResult>> operation)
     {
         if (MessageBox.Show(this,
@@ -1616,6 +1619,7 @@ public partial class MainWindow : Window
             "AI" => (AiHwTiaStatusText, AiHwTiaPullButton, AiHwTiaPushButton),
             "RTD" => (RtdHwTiaStatusText, RtdHwTiaPullButton, RtdHwTiaPushButton),
             "COUNTER" => (CounterHwTiaStatusText, CounterHwTiaPullButton, CounterHwTiaPushButton),
+            "AO" => (AoHwTiaStatusText, AoHwTiaPullButton, AoHwTiaPushButton),
             _ => throw new NotSupportedException($"HW section '{section}' is not supported.")
         };
 
@@ -1708,7 +1712,7 @@ public partial class MainWindow : Window
     {
         section = tabKey switch
         {
-            "DI" or "DO" or "AI" or "RTD" or "COUNTER" => "HW " + tabKey,
+            "DI" or "DO" or "AI" or "RTD" or "COUNTER" or "AO" => "HW " + tabKey,
             "DB DI" or "DB DO" or "DB MEAS" or "DB AO" or "DB ALM" or "DB PAR" => tabKey,
             "Sequence" => "DB SEQUENCE",
             _ => ""
@@ -1775,7 +1779,7 @@ public partial class MainWindow : Window
     {
         return tabKey switch
         {
-            "DI" or "DO" or "AI" or "RTD" or "COUNTER" => service.CheckHwSectionAsync(_project, tabKey),
+            "DI" or "DO" or "AI" or "RTD" or "COUNTER" or "AO" => service.CheckHwSectionAsync(_project, tabKey),
             "DB DI" or "DB DO" or "DB MEAS" or "DB AO" or "DB ALM" or "DB PAR" => service.CheckDbAsync(_project, tabKey),
             "Sequence" => service.CheckDbAsync(_project, "DB SEQUENCE"),
             _ => null
@@ -1792,6 +1796,7 @@ public partial class MainWindow : Window
             case "AI": AiHwTiaStatusText.Text = status; break;
             case "RTD": RtdHwTiaStatusText.Text = status; break;
             case "COUNTER": CounterHwTiaStatusText.Text = status; break;
+            case "AO": AoHwTiaStatusText.Text = status; break;
             case "DB DI": DbDiTiaStatusText.Text = status; break;
             case "DB DO": DbDoTiaStatusText.Text = status; break;
             case "DB MEAS": DbMeasTiaStatusText.Text = status; break;
@@ -1860,7 +1865,7 @@ public partial class MainWindow : Window
 
     private void SetAllHwTiaBusy(bool busy, string? status = null)
     {
-        foreach (var section in new[] { "DI", "DO", "AI", "RTD", "COUNTER" })
+        foreach (var section in new[] { "DI", "DO", "AI", "RTD", "COUNTER", "AO" })
         {
             SetHwTiaBusy(section, busy, status);
         }
@@ -1873,6 +1878,7 @@ public partial class MainWindow : Window
         AiHwTiaStatusText.Text = status;
         RtdHwTiaStatusText.Text = status;
         CounterHwTiaStatusText.Text = status;
+        AoHwTiaStatusText.Text = status;
     }
 
     private void InitializeTiaTabIndicators()
@@ -1882,6 +1888,7 @@ public partial class MainWindow : Window
         AddTiaTabIndicator(AiTab, "AI", "HW AI");
         AddTiaTabIndicator(RtdTab, "RTD", "HW RTD");
         AddTiaTabIndicator(CounterTab, "COUNTER", "HW COUNTER");
+        AddTiaTabIndicator(AoTab, "AO", "HW AO");
         AddTiaTabIndicator(DbDiTab, "DB DI", "DB DI");
         AddTiaTabIndicator(DbDoTab, "DB DO", "DB DO");
         AddTiaTabIndicator(DbMeasTab, "DB MEAS", "DB MEAS");
@@ -1933,6 +1940,7 @@ public partial class MainWindow : Window
         UpdateHwTabVisual(AiTab, AiHwTiaStatusText, attached, binding, "HW AI");
         UpdateHwTabVisual(RtdTab, RtdHwTiaStatusText, attached, binding, "HW RTD");
         UpdateHwTabVisual(CounterTab, CounterHwTiaStatusText, attached, binding, "HW COUNTER");
+        UpdateHwTabVisual(AoTab, AoHwTiaStatusText, attached, binding, "HW AO");
         UpdateDbTabVisual(DbDiTab, DbDiTiaStatusText, attached, binding, "DB DI");
         UpdateDbTabVisual(DbDoTab, DbDoTiaStatusText, attached, binding, "DB DO");
         UpdateDbTabVisual(DbMeasTab, DbMeasTiaStatusText, attached, binding, "DB MEAS");
@@ -2015,7 +2023,7 @@ public partial class MainWindow : Window
             return "NotAttached";
         }
 
-        var sections = new[] { "HW DI", "HW DO", "HW AI", "HW RTD", "HW COUNTER", "DB DI", "DB DO", "DB MEAS", "DB AO", "DB ALM", "DB PAR" };
+        var sections = new[] { "HW DI", "HW DO", "HW AI", "HW RTD", "HW COUNTER", "HW AO", "DB DI", "DB DO", "DB MEAS", "DB AO", "DB ALM", "DB PAR" };
         var states = sections
             .Select(section => GetSectionVisualState(binding, section))
             .Where(state => state != "NotAttached")
@@ -3281,6 +3289,10 @@ public partial class MainWindow : Window
                 _counterView?.Refresh();
                 CounterGrid.Items.Refresh();
                 break;
+            case "AO":
+                _aoView?.Refresh();
+                AoGrid.Items.Refresh();
+                break;
         }
     }
 
@@ -3332,6 +3344,7 @@ public partial class MainWindow : Window
                 "AI",
                 "RTD",
                 "COUNTER",
+                "AO",
                 "DEVICES",
                 "DB DI",
                 "DB DO",
@@ -4336,7 +4349,7 @@ public partial class MainWindow : Window
         DbMeasGrid.Items.Refresh();
         _dbAoRowsView?.Refresh();
         DbAoGrid.Items.Refresh();
-        ShowMessage("DB DI, DB DO, DB MEAS and DB AO configuration columns updated.");
+        ShowMessage("DB DI, DB DO, DB MEAS and DB AO configuration columns updated (module, port, EPLAN signal, connected to).");
     }
 
     private void ConfigureDbDiRow_Click(object sender, RoutedEventArgs e)
@@ -9290,7 +9303,11 @@ public partial class MainWindow : Window
         }
     }
 
-    private void AlarmTester_Click(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Tools → Simulator: starts the separate Plant Simulator application with this project. The simulator reads the
+    /// saved project file, so pending changes are saved first. Without PlantSimulator.exe the simulator opens here.
+    /// </summary>
+    private void Simulator_Click(object sender, RoutedEventArgs e)
     {
         if (!_projectOpen)
         {
@@ -9300,38 +9317,46 @@ public partial class MainWindow : Window
 
         try
         {
-            SaveActivePlcDatabase();
-
-            // Build one plan per PLC database so signals from different PLCs never
-            // mix; the tester lets the operator pick which PLC is under test.
-            var builder = new AlarmTestPlanBuilder();
-            var options = new List<AlarmTestPlcOption>();
-            foreach (var database in _project.PlcDatabases)
+            if (_projectPath is null || HasUnsavedChanges())
             {
-                var scoped = new CwcProject();
-                database.ApplyTo(scoped);
-                options.Add(new AlarmTestPlcOption
+                var answer = MessageBox.Show(this,
+                    "The Plant Simulator reads the saved project file. Save the project now?",
+                    "Plant Simulator", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (answer != MessageBoxResult.Yes)
                 {
-                    Id = database.Id,
-                    Name = database.Name,
-                    Plan = builder.Build(scoped)
+                    return;
+                }
+
+                SaveProject();
+                if (_projectPath is null || HasUnsavedChanges())
+                {
+                    return;
+                }
+            }
+
+            var exe = Path.Combine(AppContext.BaseDirectory, "PlantSimulator.exe");
+            if (File.Exists(exe))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = exe,
+                    Arguments = $"\"{_projectPath}\"",
+                    WorkingDirectory = AppContext.BaseDirectory,
+                    UseShellExecute = false
                 });
+                ShowMessage("Plant Simulator started.");
+                return;
             }
 
-            if (options.Count == 0)
-            {
-                options.Add(new AlarmTestPlcOption { Id = "", Name = "PLC", Plan = builder.Build(_project) });
-            }
-
-            var dialog = new AlarmTesterDialog(options, _project.ActivePlcDatabaseId)
-            {
-                Owner = EditorOwner
-            };
-            dialog.ShowDialog();
+            SaveActivePlcDatabase();
+            var options = SimulatorWindow.CreateOptions(_project, _projectPath);
+            var window = new SimulatorWindow(options, GetActivePlcDatabase()?.Name,
+                Services.Simulation.Process.ProcessModelStore.PathFor(_projectPath)) { Owner = this };
+            window.Show();
         }
         catch (Exception ex)
         {
-            ShowError("Could not open Alarm Tester: " + ex.Message);
+            ShowError("Could not start the Plant Simulator: " + ex.Message);
         }
     }
 
@@ -9642,32 +9667,32 @@ public partial class MainWindow : Window
             case "DB DI":
                 _dbDiView?.Refresh();
                 DbDiGrid.Items.Refresh();
-                LoadDbDiFilterItems();
+                UpdateDbDiFilterItems();
                 break;
             case "DB DO":
                 _dbDoView?.Refresh();
                 DbDoGrid.Items.Refresh();
-                LoadDbDoFilterItems();
+                UpdateDbDoFilterItems();
                 break;
             case "DB MEAS":
                 _dbMeasView?.Refresh();
                 DbMeasGrid.Items.Refresh();
-                LoadDbMeasFilterItems();
+                UpdateDbMeasFilterItems();
                 break;
             case "DB AO":
                 _dbAoRowsView?.Refresh();
                 DbAoGrid.Items.Refresh();
-                LoadDbAoFilterItems();
+                UpdateDbAoFilterItems();
                 break;
             case "DB ALM":
                 _dbAlmView?.Refresh();
                 DbAlmGrid.Items.Refresh();
-                LoadDbAlmFilterItems();
+                UpdateDbAlmFilterItems();
                 break;
             case "DB PAR":
                 _dbParView?.Refresh();
                 DbParGrid.Items.Refresh();
-                LoadDbParFilterItems();
+                UpdateDbParFilterItems();
                 break;
             case "DB SEQUENCE":
                 UpdateSequenceReferenceOptions();
@@ -9675,8 +9700,8 @@ public partial class MainWindow : Window
                 _sequenceCommandView?.Refresh();
                 SequenceControlStatusGrid.Items.Refresh();
                 SequenceCommandGrid.Items.Refresh();
-                LoadSequenceControlStatusFilterItems();
-                LoadSequenceCommandFilterItems();
+                UpdateSequenceControlStatusFilterItems();
+                UpdateSequenceCommandFilterItems();
                 break;
         }
     }
@@ -9968,7 +9993,7 @@ public partial class MainWindow : Window
 
     private void MarkImportedSectionDiffers(string section)
     {
-        if (section is "DI" or "DO" or "AI" or "RTD" or "COUNTER")
+        if (section is "DI" or "DO" or "AI" or "RTD" or "COUNTER" or "AO")
         {
             MarkTiaSectionState("HW " + section, "Differs", $"{section} imported from Excel; TIA check required.");
             return;
@@ -10299,9 +10324,11 @@ public partial class MainWindow : Window
     {
         loadingFlag = true;
         var rowList = rows.ToList();
+        // Capture every selection before any ItemsSource is replaced, so one filter cannot reset the others.
+        var selections = specs.ToDictionary(spec => spec.Filter, spec => spec.Filter.SelectedItem as string);
         foreach (var spec in specs)
         {
-            var currentValue = spec.Filter.SelectedItem as string;
+            var currentValue = selections[spec.Filter];
             var availableRows = rowList.Where(row => specs.Where(other => !ReferenceEquals(other.Filter, spec.Filter)).All(other => MatchesDbFilter(other.Filter, other.ValueSelector(row))));
             SetDbFilterItems(spec.Filter, BuildDbFilterItems(availableRows.Select(spec.ValueSelector), spec.AllText, spec.SortAsNumber), currentValue);
         }
@@ -10372,10 +10399,20 @@ public partial class MainWindow : Window
 
     private static void SetDbFilterItems(ComboBox filter, List<string> items, string? preferredValue)
     {
+        string? selected = null;
+        if (!string.IsNullOrEmpty(preferredValue) && items.Count > 0)
+        {
+            selected = items.FirstOrDefault(item => string.Equals(item, preferredValue, StringComparison.OrdinalIgnoreCase));
+            if (selected is null)
+            {
+                // The active filter value has no rows right now (e.g. after an edit); keep it instead of falling back to "All".
+                items.Insert(1, preferredValue);
+                selected = preferredValue;
+            }
+        }
+
         filter.ItemsSource = items;
-        filter.SelectedItem = preferredValue is not null && items.Contains(preferredValue, StringComparer.OrdinalIgnoreCase)
-            ? preferredValue
-            : items.FirstOrDefault();
+        filter.SelectedItem = selected ?? items.FirstOrDefault();
     }
 
     private string DisplayValidation(string key, string value)
@@ -10560,6 +10597,8 @@ public partial class MainWindow : Window
             new(DbDiTrueFilter, "All used", row => row.TrueText),
             new(DbDiModuleNameFilter, "All modules", row => DisplayModuleName("DI", row.ModuleName)),
             new(DbDiModulePortFilter, "All ports", row => row.ModulePort?.ToString() ?? string.Empty, SortAsNumber: true),
+            new(DbDiEplanSignalFilter, "All EPLAN signals", row => row.EplanSignal),
+            new(DbDiEplanConnectedToFilter, "All connected to", row => row.EplanConnectedTo),
             new(DbDiColor0Filter, "All color 0", row => DisplayValidation(DbValidationDefaults.DbDiColorValues, row.ColorValue0)),
             new(DbDiColor1Filter, "All color 1", row => DisplayValidation(DbValidationDefaults.DbDiColorValues, row.ColorValue1)),
             new(DbDiAlarmConfigFilter, "All alarm config", row => DisplayValidation(DbValidationDefaults.DbDiAlarmBoolean, row.AlarmConfig)),
@@ -10586,6 +10625,8 @@ public partial class MainWindow : Window
             new(DbDoTrueFilter, "All used", row => row.TrueText),
             new(DbDoModuleNameFilter, "All modules", row => DisplayModuleName("DO", row.ModuleName)),
             new(DbDoModulePortFilter, "All ports", row => row.ModulePort?.ToString() ?? string.Empty, SortAsNumber: true),
+            new(DbDoEplanSignalFilter, "All EPLAN signals", row => row.EplanSignal),
+            new(DbDoEplanConnectedToFilter, "All connected to", row => row.EplanConnectedTo),
             new(DbDoXrefIdFilter, "All XREF ID", row => row.CrossReferenceIdCount?.ToString(CultureInfo.InvariantCulture) ?? "", SortAsNumber: true),
             new(DbDoXrefValFilter, "All XREF VAL", row => row.CrossReferenceValCount?.ToString(CultureInfo.InvariantCulture) ?? "", SortAsNumber: true)
         ];
@@ -10607,6 +10648,8 @@ public partial class MainWindow : Window
             new(DbMeasTypeFilter, "All types", row => row.Type),
             new(DbMeasModuleNameFilter, "All modules", row => FormatMeasModuleName(row)),
             new(DbMeasModulePortFilter, "All ports", row => row.ModulePort?.ToString() ?? string.Empty, SortAsNumber: true),
+            new(DbMeasEplanSignalFilter, "All EPLAN signals", row => row.EplanSignal),
+            new(DbMeasEplanConnectedToFilter, "All connected to", row => row.EplanConnectedTo),
             new(DbMeasXrefMeasIdFilter, "All XREF MEAS_ID", row => row.CrossReferenceMeasIdCount?.ToString(CultureInfo.InvariantCulture) ?? "", SortAsNumber: true),
             new(DbMeasXrefValFilter, "All XREF VAL", row => row.CrossReferenceValCount?.ToString(CultureInfo.InvariantCulture) ?? "", SortAsNumber: true)
         ];
@@ -10658,6 +10701,8 @@ public partial class MainWindow : Window
             new(DbAoUnitFilter, "All units", row => DisplayValidation(DbValidationDefaults.DbMeasUnit, row.Unit)),
             new(DbAoModuleNameFilter, "All modules", row => row.ModuleName),
             new(DbAoModulePortFilter, "All ports", row => row.ModulePort?.ToString() ?? string.Empty, SortAsNumber: true),
+            new(DbAoEplanSignalFilter, "All EPLAN signals", row => row.EplanSignal),
+            new(DbAoEplanConnectedToFilter, "All connected to", row => row.EplanConnectedTo),
             new(DbAoParValLowIdFilter, "All low IDs", row => row.ParValLowId, SortAsNumber: true),
             new(DbAoParValLowStructFilter, "All low structs", row => DisplayParameterReference(row.ParValLowId, "PlcStructure")),
             new(DbAoParValLowNameFilter, "All low names", row => DisplayParameterReference(row.ParValLowId, "PlcName")),
@@ -10787,12 +10832,14 @@ public partial class MainWindow : Window
 
         SetColumnsVisibility(showOtherLanguage, DbDiStatusSystemOtherColumn, DbDiStatusNameOtherColumn);
         SetColumnsVisibility(showMapping, DbDiModuleNameColumn, DbDiModulePortColumn);
+        SetColumnsVisibility(showMapping, DbDiEplanSignalColumn, DbDiEplanConnectedToColumn);
         SetColumnsVisibility(showColoring, DbDiColor0Column, DbDiColor1Column);
         SetColumnsVisibility(showAlarmMapping, DbDiAlarmConfigColumn, DbDiAlarmInvertColumn, DbDiAlarmIdColumn, DbDiExtra1Column, DbDiExtra2Column);
         SetColumnsVisibility(showXref, DbDiXrefIdColumn, DbDiXrefValColumn);
         SetColumnsVisibility(showRepair, DbDiRepairColumn);
         SetControlsVisibility(showOtherLanguage, DbDiSystemOtherFilter, DbDiNameOtherFilter);
         SetControlsVisibility(showMapping, DbDiModuleNameFilter, DbDiModulePortFilter);
+        SetControlsVisibility(showMapping, DbDiEplanSignalFilter, DbDiEplanConnectedToFilter);
         SetControlsVisibility(showColoring, DbDiColor0Filter, DbDiColor1Filter);
         SetControlsVisibility(showAlarmMapping, DbDiAlarmConfigFilter, DbDiAlarmInvertFilter, DbDiAlarmIdFilter, DbDiExtra1Filter, DbDiExtra2Filter);
         SetControlsVisibility(showXref, DbDiXrefIdFilter, DbDiXrefValFilter);
@@ -10822,10 +10869,12 @@ public partial class MainWindow : Window
 
         SetColumnsVisibility(showOtherLanguage, DbDoStatusSystemOtherColumn, DbDoStatusNameOtherColumn);
         SetColumnsVisibility(showMapping, DbDoModuleNameColumn, DbDoModulePortColumn);
+        SetColumnsVisibility(showMapping, DbDoEplanSignalColumn, DbDoEplanConnectedToColumn);
         SetColumnsVisibility(showXref, DbDoXrefIdColumn, DbDoXrefValColumn);
         SetColumnsVisibility(showRepair, DbDoRepairColumn);
         SetControlsVisibility(showOtherLanguage, DbDoSystemOtherFilter, DbDoNameOtherFilter);
         SetControlsVisibility(showMapping, DbDoModuleNameFilter, DbDoModulePortFilter);
+        SetControlsVisibility(showMapping, DbDoEplanSignalFilter, DbDoEplanConnectedToFilter);
         SetControlsVisibility(showXref, DbDoXrefIdFilter, DbDoXrefValFilter);
         _dbDoView?.Refresh();
         Dispatcher.BeginInvoke(ResizeDbDoColumnsToViewport, DispatcherPriority.Background);
@@ -10853,6 +10902,7 @@ public partial class MainWindow : Window
 
         SetColumnsVisibility(showOtherLanguage, DbMeasNameOtherColumn);
         SetColumnsVisibility(showSettings, DbMeasUnitColumn, DbMeasLoggingEnableColumn, DbMeasLoggingTimeColumn, DbMeasTypeColumn, DbMeasModuleNameColumn, DbMeasModulePortColumn);
+        SetColumnsVisibility(showSettings, DbMeasEplanSignalColumn, DbMeasEplanConnectedToColumn);
         SetColumnsVisibility(showLimitConfiguration, DbMeasLimitLlEnabledColumn, DbMeasLimitLoEnabledColumn, DbMeasLimitHiEnabledColumn, DbMeasLimitHhEnabledColumn);
         SetColumnsVisibility(showParameterScaling,
             DbMeasParVal1IdColumn, DbMeasParVal1StructColumn, DbMeasParVal1NameColumn, DbMeasParVal1ValueColumn,
@@ -10874,6 +10924,7 @@ public partial class MainWindow : Window
         SetColumnsVisibility(showRepair, DbMeasRepairColumn);
         SetControlsVisibility(showOtherLanguage, DbMeasNameOtherFilter);
         SetControlsVisibility(showSettings, DbMeasUnitFilter, DbMeasLoggingEnableFilter, DbMeasLoggingTimeFilter, DbMeasTypeFilter, DbMeasModuleNameFilter, DbMeasModulePortFilter);
+        SetControlsVisibility(showSettings, DbMeasEplanSignalFilter, DbMeasEplanConnectedToFilter);
         SetControlsVisibility(showXref, DbMeasXrefMeasIdFilter, DbMeasXrefValFilter);
         _dbMeasView?.Refresh();
         Dispatcher.BeginInvoke(ResizeDbMeasColumnsToViewport, DispatcherPriority.Background);
@@ -10896,6 +10947,7 @@ public partial class MainWindow : Window
 
         SetColumnsVisibility(showOtherLanguage, DbAoNameOtherColumn);
         SetColumnsVisibility(showMapping, DbAoModuleNameColumn, DbAoModulePortColumn);
+        SetColumnsVisibility(showMapping, DbAoEplanSignalColumn, DbAoEplanConnectedToColumn);
         SetColumnsVisibility(showConfiguration,
             DbAoParValLowIdColumn, DbAoParValLowStructColumn, DbAoParValLowNameColumn, DbAoParValLowValueColumn,
             DbAoParValHighIdColumn, DbAoParValHighStructColumn, DbAoParValHighNameColumn, DbAoParValHighValueColumn,
@@ -10905,6 +10957,7 @@ public partial class MainWindow : Window
         SetColumnsVisibility(showRepair, DbAoRepairColumn);
         SetControlsVisibility(showOtherLanguage, DbAoNameOtherFilter);
         SetControlsVisibility(showMapping, DbAoModuleNameFilter, DbAoModulePortFilter);
+        SetControlsVisibility(showMapping, DbAoEplanSignalFilter, DbAoEplanConnectedToFilter);
         SetControlsVisibility(showConfiguration,
             DbAoParValLowIdFilter, DbAoParValLowStructFilter, DbAoParValLowNameFilter, DbAoParValLowValueFilter,
             DbAoParValHighIdFilter, DbAoParValHighStructFilter, DbAoParValHighNameFilter, DbAoParValHighValueFilter,
@@ -11182,6 +11235,8 @@ public partial class MainWindow : Window
             new(DbDiStatusNameOtherColumn, DbDiNameOtherFilter, 160, true),
             new(DbDiModuleNameColumn, DbDiModuleNameFilter, 110, true),
             new(DbDiModulePortColumn, DbDiModulePortFilter, 80, false),
+            new(DbDiEplanSignalColumn, DbDiEplanSignalFilter, 180, true),
+            new(DbDiEplanConnectedToColumn, DbDiEplanConnectedToFilter, 110, true),
             new(DbDiColor0Column, DbDiColor0Filter, 90, false),
             new(DbDiColor1Column, DbDiColor1Filter, 90, false),
             new(DbDiAlarmConfigColumn, DbDiAlarmConfigFilter, 90, false),
@@ -11211,6 +11266,8 @@ public partial class MainWindow : Window
             new(DbDoStatusNameOtherColumn, DbDoNameOtherFilter, 160, true),
             new(DbDoModuleNameColumn, DbDoModuleNameFilter, 110, true),
             new(DbDoModulePortColumn, DbDoModulePortFilter, 80, false),
+            new(DbDoEplanSignalColumn, DbDoEplanSignalFilter, 180, true),
+            new(DbDoEplanConnectedToColumn, DbDoEplanConnectedToFilter, 110, true),
             new(DbDoXrefIdColumn, DbDoXrefIdFilter, 80, false),
             new(DbDoXrefValColumn, DbDoXrefValFilter, 80, false)
         ];
@@ -11235,6 +11292,8 @@ public partial class MainWindow : Window
             new(DbMeasTypeColumn, DbMeasTypeFilter, 80, false),
             new(DbMeasModuleNameColumn, DbMeasModuleNameFilter, 110, true),
             new(DbMeasModulePortColumn, DbMeasModulePortFilter, 90, false),
+            new(DbMeasEplanSignalColumn, DbMeasEplanSignalFilter, 180, true),
+            new(DbMeasEplanConnectedToColumn, DbMeasEplanConnectedToFilter, 110, true),
             new(DbMeasXrefMeasIdColumn, DbMeasXrefMeasIdFilter, 95, false),
             new(DbMeasXrefValColumn, DbMeasXrefValFilter, 80, false)
         ];
@@ -11256,6 +11315,8 @@ public partial class MainWindow : Window
             new(DbAoUnitColumn, DbAoUnitFilter, 90, false),
             new(DbAoModuleNameColumn, DbAoModuleNameFilter, 120, true),
             new(DbAoModulePortColumn, DbAoModulePortFilter, 90, false),
+            new(DbAoEplanSignalColumn, DbAoEplanSignalFilter, 180, true),
+            new(DbAoEplanConnectedToColumn, DbAoEplanConnectedToFilter, 110, true),
             new(DbAoParValLowIdColumn, DbAoParValLowIdFilter, 110, false),
             new(DbAoParValLowStructColumn, DbAoParValLowStructFilter, 170, true),
             new(DbAoParValLowNameColumn, DbAoParValLowNameFilter, 170, true),
@@ -12008,8 +12069,8 @@ public partial class MainWindow : Window
         _dbParView?.Refresh();
         DbAlmGrid.Items.Refresh();
         DbParGrid.Items.Refresh();
-        LoadDbAlmFilterItems();
-        LoadDbParFilterItems();
+        UpdateDbAlmFilterItems();
+        UpdateDbParFilterItems();
         return changed;
     }
 
@@ -12090,6 +12151,8 @@ public partial class MainWindow : Window
             dbRow.TrueText = "";
             dbRow.ModuleName = "";
             dbRow.ModulePort = null;
+            dbRow.EplanSignal = "";
+            dbRow.EplanConnectedTo = "";
         }
 
         foreach (var configRow in configRows)
@@ -12109,6 +12172,8 @@ public partial class MainWindow : Window
             dbRow.TrueText = "TRUE";
             dbRow.ModuleName = configRow.ModuleNumber.ToString(CultureInfo.InvariantCulture);
             dbRow.ModulePort = configRow.Port;
+            dbRow.EplanSignal = configRow.EplanSignalName;
+            dbRow.EplanConnectedTo = configRow.EplanConnectedTo;
         }
     }
 
@@ -12120,6 +12185,8 @@ public partial class MainWindow : Window
             dbRow.Type = "";
             dbRow.ModuleName = "";
             dbRow.ModulePort = null;
+            dbRow.EplanSignal = "";
+            dbRow.EplanConnectedTo = "";
         }
 
         FillMeasRows(_project.AnalogInputs, "AI");
@@ -12158,6 +12225,8 @@ public partial class MainWindow : Window
             dbRow.Type = type;
             dbRow.ModuleName = configRow.ModuleName;
             dbRow.ModulePort = configRow.Port;
+            dbRow.EplanSignal = configRow.EplanSignalName;
+            dbRow.EplanConnectedTo = configRow.EplanConnectedTo;
         }
     }
 
@@ -12175,6 +12244,8 @@ public partial class MainWindow : Window
             dbRow.Type = type;
             dbRow.ModuleName = configRow.ModuleName;
             dbRow.ModulePort = 0;
+            dbRow.EplanSignal = configRow.EplanSignalName;
+            dbRow.EplanConnectedTo = configRow.EplanConnectedTo;
         }
     }
 
@@ -12195,6 +12266,8 @@ public partial class MainWindow : Window
             dbRow.TrueText = "";
             dbRow.ModuleName = "";
             dbRow.ModulePort = null;
+            dbRow.EplanSignal = "";
+            dbRow.EplanConnectedTo = "";
         }
 
         foreach (var configRow in _project.AnalogOutputs.Where(row => row.Config == SignalConfigState.Enabled))
@@ -12208,6 +12281,8 @@ public partial class MainWindow : Window
             dbRow.TrueText = "TRUE";
             dbRow.ModuleName = configRow.ModuleName;
             dbRow.ModulePort = configRow.Port;
+            dbRow.EplanSignal = configRow.EplanSignalName;
+            dbRow.EplanConnectedTo = configRow.EplanConnectedTo;
             if (!string.IsNullOrWhiteSpace(configRow.SystemName))
             {
                 dbRow.AoSystemName = configRow.SystemName;
@@ -12473,7 +12548,7 @@ public partial class MainWindow : Window
             StatusActiveDbText.Text = "";
             StatusRowCountsText.Text = "";
             StatusDirtyText.Text = "";
-            Title = "Plant Configurator";
+            Title = AppTitle;
             UpdateToolbarButtonStates(isDirty: false);
             return;
         }
@@ -12503,7 +12578,7 @@ public partial class MainWindow : Window
     private void ApplyDirtyIndicator(bool dirty)
     {
         StatusDirtyText.Text = dirty ? "● Unsaved changes" : "";
-        Title = (dirty ? "● " : string.Empty) + GetCurrentProjectFileName() + " — Plant Configurator";
+        Title = (dirty ? "● " : string.Empty) + GetCurrentProjectFileName() + " — " + AppTitle;
         UpdateToolbarButtonStates(dirty);
     }
 

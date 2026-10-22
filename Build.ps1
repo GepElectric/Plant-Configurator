@@ -28,7 +28,10 @@ param(
 
     [string]$PublishDir = "$PSScriptRoot\publish_output",
 
-    [switch]$Clean
+    [switch]$Clean,
+
+    # Version written into the assemblies (Release.ps1 passes the release version).
+    [string]$Version = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -63,7 +66,9 @@ Invoke-Step 'Restore (solution)' @('restore', $sln)
 Invoke-Step 'Restore (TiaHelper.V21 -- nije u .sln)' @('restore', $v21)
 
 # Korak 3: build bez restorea
-Invoke-Step "Build ($Configuration)" @('build', $sln, '-c', $Configuration, '--no-restore', '-v', 'minimal', '--nologo')
+$versionArgs = @()
+if ($Version) { $versionArgs = @("-p:Version=$Version") }
+Invoke-Step "Build ($Configuration)" (@('build', $sln, '-c', $Configuration, '--no-restore', '-v', 'minimal', '--nologo') + $versionArgs)
 
 if ($Test) {
     Invoke-Step 'Testovi' @('test', $tests, '-c', $Configuration, '--no-build', '-v', 'minimal', '--nologo')
@@ -72,6 +77,11 @@ if ($Test) {
 if ($Publish) {
     Invoke-Step "Publish -> $PublishDir" @('publish', $app, '-c', $Configuration, '-o', $PublishDir, '-v', 'minimal', '--nologo')
 }
+
+# Korak 4: TIA Trace Studio (Tools -> TIA Trace Studio...) u Tools\TiaTraceStudio pokraj PlantConfigurator.exe
+$traceStudioPublish = ''
+if ($Publish) { $traceStudioPublish = $PublishDir }
+& (Join-Path $PSScriptRoot 'Build-TraceStudio.ps1') -Configuration $Configuration -PublishDir $traceStudioPublish
 
 Write-Host ''
 Write-Host 'Gotovo.' -ForegroundColor Green

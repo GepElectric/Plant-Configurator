@@ -6,6 +6,7 @@ namespace CwcConfigurator.Services;
 public sealed class DbTextWorkbookService
 {
     private const string IdHeader = "ID";
+    private const string UsedHeader = "USED";
     private const string PlcStructureHeader = "PLC STRUCT NAME";
     private const string PlcNameHeader = "PLC DEFINITION NAME";
     private const string StatusSystemEngHeader = "STATUS SYSTEM ENG";
@@ -207,6 +208,7 @@ public sealed class DbTextWorkbookService
         var columns = new List<TextColumn>
         {
             IdColumn(),
+            UsedColumn(),
             ContextColumn(PlcStructureHeader, row => row.PlcStructure),
             ContextColumn(PlcNameHeader, row => row.PlcName),
             EditableColumn(StatusSystemEngHeader, row => row.SystemNameEnglish, (row, value) => row.SetSystemNameEnglish?.Invoke(value)),
@@ -230,6 +232,7 @@ public sealed class DbTextWorkbookService
         return
         [
             IdColumn(),
+            UsedColumn(),
             ContextColumn(PlcStructureHeader, row => row.PlcStructure),
             ContextColumn(PlcNameHeader, row => row.PlcName),
             EditableColumn(StatusNameEngHeader, row => row.NameEnglish, (row, value) => row.SetNameEnglish?.Invoke(value)),
@@ -242,6 +245,7 @@ public sealed class DbTextWorkbookService
         return
         [
             IdColumn(),
+            UsedColumn(),
             ContextColumn(AoSystemHeader, row => row.PlcStructure),
             ContextColumn(AoPlcHeader, row => row.PlcName),
             EditableColumn(StatusNameEngHeader, row => row.NameEnglish, (row, value) => row.SetNameEnglish?.Invoke(value)),
@@ -254,6 +258,7 @@ public sealed class DbTextWorkbookService
         return
         [
             IdColumn(),
+            UsedColumn(),
             ContextColumn(PlcStructureHeader, row => row.PlcStructure),
             ContextColumn(PlcNameHeader, row => row.PlcName),
             EditableColumn(StatusNameEngHeader, row => row.NameEnglish, (row, value) => row.SetNameEnglish?.Invoke(value)),
@@ -394,7 +399,26 @@ public sealed class DbTextWorkbookService
             {
                 row.DescriptionTemplateKey = value;
                 row.DescriptionDirty = true;
+            },
+            scope switch
+            {
+                "ALM" => FormatBooleanText(row.Used),
+                "PAR" => row.InUse,
+                _ => row.TrueText
             });
+    }
+
+    private static string FormatBooleanText(string value)
+    {
+        var text = (value ?? "").Trim();
+        if (int.TryParse(text, out var number))
+        {
+            return number == 0 ? "False" : "True";
+        }
+
+        return text.Equals("true", StringComparison.OrdinalIgnoreCase) ? "True"
+            : text.Equals("false", StringComparison.OrdinalIgnoreCase) ? "False"
+            : text;
     }
 
     private static TextRow ToTextRow(DbAoRow row)
@@ -417,7 +441,8 @@ public sealed class DbTextWorkbookService
             (value) => row.NameOther = value,
             null,
             null,
-            null);
+            null,
+            row.TrueText);
     }
 
     private void WriteDescriptionListSheet(XLWorkbook workbook, string sheetName, string dbName, IEnumerable<DbStringRow> rows, DescriptionTemplateCatalog templates)
@@ -558,6 +583,11 @@ public sealed class DbTextWorkbookService
         return ContextColumn(IdHeader, row => row.Id.ToString());
     }
 
+    private static TextColumn UsedColumn()
+    {
+        return ContextColumn(UsedHeader, row => row.Used);
+    }
+
     private static TextColumn ContextColumn(string header, Func<TextRow, string> get)
     {
         return new TextColumn(header, get, null);
@@ -607,5 +637,6 @@ public sealed class DbTextWorkbookService
         Action<string>? SetNameOther,
         Action<string>? SetDescriptionEnglish,
         Action<string>? SetDescriptionOther,
-        Action<string>? SetDescriptionTemplateKey);
+        Action<string>? SetDescriptionTemplateKey,
+        string Used = "");
 }
