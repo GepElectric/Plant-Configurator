@@ -219,7 +219,11 @@ public partial class ScadaView : UserControl
             }
 
             SheetItem item = sld && SldSymbol.Supports(info.Type)
-                ? new SldSymbol(config, info)
+                ? new SldSymbol(config, info, () =>
+                {
+                    _controller?.MarkDirty();
+                    Dispatcher.BeginInvoke(Rebuild);
+                })
                 : new Tile(config, info, CategoryColors.GetValueOrDefault(info.Category, Colors.Gray), model);
             item.Element.MouseLeftButtonDown += (_, e) => StartDrag(item, e);
             item.Element.MouseMove += (_, e) => Drag(e);
@@ -256,6 +260,7 @@ public partial class ScadaView : UserControl
                 }
 
                 var sourcePort = source.Info.Port(link.LinkPort);
+                source.LinkedOutput(link.LinkPort);
                 var power = port.Power || sourcePort?.Power == true;
                 var view = new LinkView(source.Config.Name, link.LinkPort, item.Config.Name, port.Name, power, sld && power);
                 view.Hit.ContextMenu = LinkMenu(item, port, text);
@@ -1368,6 +1373,11 @@ public partial class ScadaView : UserControl
         public abstract void Refresh(SimObject? instance);
 
         public abstract void SetSelected(bool selected);
+
+        /// <summary>An output of this item is linked (a busbar hides that feeder's pin).</summary>
+        public virtual void LinkedOutput(string port)
+        {
+        }
 
         /// <summary>Sheet position where a link to/from the port attaches (<paramref name="towards"/> = other end, for busbars).</summary>
         public virtual Point Anchor(string port, Point? towards)

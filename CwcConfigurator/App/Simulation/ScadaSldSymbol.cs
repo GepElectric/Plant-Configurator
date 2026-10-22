@@ -16,7 +16,7 @@ public partial class ScadaView
     private sealed class SldSymbol : SheetItem
     {
         private const double Center = 30;
-        private const double MinBusWidth = 260;
+        private const double MinBusLength = 80;
         private static readonly Brush TripBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xF5, 0x9E, 0x0B)));
         private static readonly string[] Types = ["Busbar", "AuxSupply", "Mcb", "Contactor", "Disconnector", "EarthSwitch", "Motor", "Transformer", "Breaker", "Generator", "Grid"];
 
@@ -26,23 +26,30 @@ public partial class ScadaView
         private readonly TextBlock _state;
         private readonly Border _border;
         private readonly bool _bus;
-        private readonly double _busWidth;
+        private readonly bool _vertical;
+        private double _busLength;
+        private readonly Action? _changed;
+        private Rectangle? _handle;
+        private Point _resizeStart;
+        private double _resizeLength;
 
         public static bool Supports(string type) => Types.Contains(type, StringComparer.OrdinalIgnoreCase);
 
-        public SldSymbol(ObjectConfig config, ObjectTypeInfo info) : base(config, info)
+        /// <param name="changed">Called after the busbar was resized on the sheet.</param>
+        public SldSymbol(ObjectConfig config, ObjectTypeInfo info, Action? changed = null) : base(config, info)
         {
             _bus = info.Type == "Busbar";
-            var feeders = info.Ports.Count(port => port.Power && port.Direction == PortDirection.Output && info.IsActive(port.ShownWhen, config));
-            _busWidth = Math.Max(MinBusWidth, feeders * 90);
+            _changed = changed;
+            _vertical = _bus && info.OptionValue(config, "Orientation") == "Vertical";
+            _busLength = Math.Max(MinBusLength, config.Params.TryGetValue("Length", out var length) ? length : info.Params.FirstOrDefault(param => param.Name == "Length")?.Default ?? 300);
 
             _name = new TextBlock { Text = config.Name, FontWeight = FontWeights.SemiBold, FontSize = 12 };
             _state = new TextBlock { FontSize = 10.5, Foreground = Brushes.DimGray };
-            _canvas.Width = _bus ? _busWidth : 150;
-            _canvas.Height = _bus ? 44 : 92;
+            _canvas.Width = !_bus ? 150 : _vertical ? 130 : _busLength;
+            _canvas.Height = !_bus ? 92 : _vertical ? _busLength + 20 : 44;
             _canvas.Children.Add(_body);
             var label = new StackPanel { Children = { _name, _state } };
-            Canvas.SetLeft(label, _bus ? 0 : 52);
+            Canvas.SetLeft(label, !_bus ? 52 : _vertical ? 36 : 0);
             Canvas.SetTop(label, _bus ? 0 : 28);
             _canvas.Children.Add(label);
 
@@ -50,16 +57,44 @@ public partial class ScadaView
             var inputs = active.Where(port => port.Direction == PortDirection.Input).ToList();
             for (var i = 0; i < inputs.Count; i++)
             {
-                // Incoming supplies on top (a busbar with several supplies spreads them along the bar).
-                var x = _bus ? _busWidth * (i + 1) / (inputs.Count + 1) : Center;
-                AddPin(inputs[i], x, _bus ? 18 : 2);
+                // Incoming supplies on top (left of a vertical bar), spread along the bar.
+                var along = _busLength * (i + 1) / (inputs.Count + 1);
+                if (!_bus)
+                {
+                    AddPin(inputs[i], Center, 2);
+                }
+                else if (_vertical)
+                {
+                    AddPin(inputs[i], 10, 20 + along);
+                }
+                else
+                {
+                    AddPin(inputs[i], along, 18);
+                }
             }
 
-            // Outgoing feeders spread along the bar.
+            // Outgoing feeders: pins along the bar for new links (a linked feeder leaves the bar where its feeder is).
             var outputs = active.Where(port => port.Direction == PortDirection.Output).ToList();
             for (var i = 0; i < outputs.Count; i++)
             {
-                AddPin(outputs[i], _bus ? _busWidth * (i + 1) / (outputs.Count + 1) : Center, _bus ? 34 : 90);
+                var along = _busLength * (i + 1) / (outputs.Count + 1);
+                if (!_bus)
+                {
+                    AddPin(outputs[i], Center, 90);
+                }
+                else if (_vertical)
+                {
+                    AddPin(outputs[i], 30, 20 + along);
+                }
+                else
+                {
+                    AddPin(outputs[i], along, 34);
+                }
+            }
+
+            if (_bus)
+            {
+                AddResizeHandle();
             }
 
             _border = new Border
@@ -82,20 +117,95 @@ public partial class ScadaView
 
         public override void Refresh(SimObject? instance) => Draw(instance);
 
-        /// <summary>A busbar takes its feeders where they are: the link leaves the bar straight above the feeder.</summary>
+        /// <summary>
+        /// A busbar feeds its feeders where they are: the link leaves the bar straight above (or beside) the breaker,
+        /// so a breaker under the bar gets a straight line.
+        /// </summary>
         public override Point Anchor(string port, Point? towards)
         {
             var point = base.Anchor(port, towards);
-            // An output without its own pin (an older link to Busbar.Live) leaves the bar straight above the feeder.
-            var pinned = PinElements.ContainsKey(port) && PinElements.Count(pair => Info.Port(pair.Key)?.Direction == PortDirection.Output) > 1;
-            if (_bus && !pinned && towards is { } other && Info.Port(port) is { Direction: PortDirection.Output })
+            if (_bus && towards is { } other && Info.Port(port) is { Direction: PortDirection.Output })
             {
                 var left = Canvas.GetLeft(Element) + 4;
                 var top = Canvas.GetTop(Element) + 4;
-                return new Point(Math.Clamp(other.X, left + 6, left + _busWidth - 6), top + 34);
+                return _vertical
+                    ? new Point(left + 30, Math.Clamp(other.Y, top + 26, top + 20 + _busLength - 6))
+                    : new Point(Math.Clamp(other.X, left + 6, left + _busLength - 6), top + 34);
             }
 
             return point;
+        }
+
+        /// <summary>A linked feeder's pin is not needed any more: its line starts where the feeder is.</summary>
+        public override void LinkedOutput(string port)
+        {
+            if (_bus && PinElements.TryGetValue(port, out var pin))
+            {
+                pin.Visibility = Visibility.Hidden;
+            }
+        }
+
+        /// <summary>Handle at the end of the bar: drag to make the busbar longer or shorter.</summary>
+        private void AddResizeHandle()
+        {
+            _handle = new Rectangle
+            {
+                Width = 10,
+                Height = 10,
+                Fill = HighlightBrush,
+                Cursor = _vertical ? Cursors.SizeNS : Cursors.SizeWE,
+                ToolTip = "Drag to change the length of the busbar"
+            };
+            Panel.SetZIndex(_handle, 6);
+            PlaceHandle();
+            _handle.MouseLeftButtonDown += (_, e) =>
+            {
+                _resizeStart = e.GetPosition(_canvas);
+                _resizeLength = _busLength;
+                _handle.CaptureMouse();
+                e.Handled = true;
+            };
+            _handle.MouseMove += (_, e) =>
+            {
+                if (!_handle.IsMouseCaptured)
+                {
+                    return;
+                }
+
+                var position = e.GetPosition(_canvas);
+                var delta = _vertical ? position.Y - _resizeStart.Y : position.X - _resizeStart.X;
+                _busLength = Math.Max(MinBusLength, Math.Round((_resizeLength + delta) / 10) * 10);
+                if (_vertical)
+                {
+                    _canvas.Height = _busLength + 20;
+                }
+                else
+                {
+                    _canvas.Width = _busLength;
+                }
+
+                PlaceHandle();
+                Draw(null);
+            };
+            _handle.MouseLeftButtonUp += (_, e) =>
+            {
+                if (!_handle.IsMouseCaptured)
+                {
+                    return;
+                }
+
+                _handle.ReleaseMouseCapture();
+                e.Handled = true;
+                Config.Params["Length"] = _busLength;
+                _changed?.Invoke();
+            };
+            _canvas.Children.Add(_handle);
+        }
+
+        private void PlaceHandle()
+        {
+            Canvas.SetLeft(_handle!, _vertical ? 13 : _busLength - 10);
+            Canvas.SetTop(_handle!, _vertical ? 20 + _busLength - 10 : 25);
         }
 
         private void AddPin(PortDef port, double x, double y)
@@ -118,7 +228,10 @@ public partial class ScadaView
                 case "Busbar":
                 {
                     var live = On("Live");
-                    _body.Children.Add(Shape(new Rectangle { Width = _busWidth, Height = 8, Fill = instance is null ? DeadBrush : live ? LiveBrush : DeadBrush }, 0, 26));
+                    var fill = instance is null ? DeadBrush : live ? LiveBrush : DeadBrush;
+                    _body.Children.Add(_vertical
+                        ? Shape(new Rectangle { Width = 8, Height = _busLength, Fill = fill }, 16, 20)
+                        : Shape(new Rectangle { Width = _busLength, Height = 8, Fill = fill }, 0, 26));
                     _state.Text = "";
                     _name.Text = $"{Config.Name}   {(instance is null ? "" : !live ? "dead" : $"{Value(instance, "Feeder1")} V")}";
                     return;

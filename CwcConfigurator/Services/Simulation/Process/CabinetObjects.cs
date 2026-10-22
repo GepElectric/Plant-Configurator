@@ -14,9 +14,12 @@ public sealed class BusbarObject : SimObject
         "Busbar of a distribution: live when a supply is live. Every outgoing feeder has its own output (Feeder1, Feeder2, …).",
         [
             Count("Supplies", "Number of incoming supplies (any live supply makes the busbar live).", 1, 3, 1),
-            Count("Feeders", "Number of outgoing feeders.", 1, Feeders, 4)
+            Count("Feeders", "Number of outgoing feeders.", 1, Feeders, 4),
+            Option("Orientation", "How the bar is drawn on an SLD screen.", "Horizontal", "Vertical")
         ],
-        [],
+        [
+            Param("Length", 300, "px", "Drawn length on an SLD screen (or drag the end of the bar).")
+        ],
         [
             PowerIn("Supply1", "Incoming supply 1 (link). Not connected = 400 V.", 400).When("Supplies", AtLeast(1, 3)),
             PowerIn("Supply2", "Incoming supply 2 (link).").When("Supplies", AtLeast(2, 3)),
