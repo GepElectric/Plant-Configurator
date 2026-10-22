@@ -10,7 +10,7 @@
         </Grid.ColumnDefinitions>
 
         <!-- object list -->
-        <DockPanel Margin="8">
+        <DockPanel x:Name="ListPanel" Margin="8">
             <TextBlock DockPanel.Dock="Top" Text="Objects" FontWeight="SemiBold" Margin="0,0,0,4"/>
             <StackPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
                 <Grid>
@@ -72,7 +72,7 @@
             </TreeView>
         </DockPanel>
 
-        <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="#E5E7EB"/>
+        <GridSplitter x:Name="ListSplitter" Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="#E5E7EB"/>
 
         <!-- object details -->
         <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">

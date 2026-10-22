@@ -34,18 +34,47 @@ public partial class ProgramView : UserControl
     public void Attach(SimulationController controller)
     {
         _controller = controller;
-        controller.ModelChanged += () =>
-        {
-            if (!_selfChange)
-            {
-                ReloadList();
-            }
-
-            UpdateProblems();
-        };
-        controller.FileStateChanged += () => ModelPathText.Text = controller.ModelPath is null ? "Model not saved yet." : "Model file: " + controller.ModelPath;
-        ModelPathText.Text = controller.ModelPath is null ? "Model not saved yet." : "Model file: " + controller.ModelPath;
+        controller.ModelChanged += OnModelChanged;
+        controller.FileStateChanged += OnFileStateChanged;
+        OnFileStateChanged();
     }
+
+    /// <summary>Stops following the controller (an object editor window that is closed).</summary>
+    public void Detach()
+    {
+        if (_controller is not null)
+        {
+            _controller.ModelChanged -= OnModelChanged;
+            _controller.FileStateChanged -= OnFileStateChanged;
+        }
+    }
+
+    private void OnModelChanged()
+    {
+        if (!_selfChange)
+        {
+            ReloadList();
+        }
+
+        UpdateProblems();
+    }
+
+    private void OnFileStateChanged() =>
+        ModelPathText.Text = _controller?.ModelPath is null ? "Model not saved yet." : "Model file: " + _controller.ModelPath;
+
+    /// <summary>Editor of one object only (the SCADA double-click window): no object list.</summary>
+    public void ShowSingle(string plc, string name)
+    {
+        ListPanel.Visibility = Visibility.Collapsed;
+        ListSplitter.Visibility = Visibility.Collapsed;
+        ((Grid)Content).ColumnDefinitions[0].Width = new GridLength(0);
+        ((Grid)Content).ColumnDefinitions[1].Width = new GridLength(0);
+        _plc = plc;
+        ReloadList(name);
+    }
+
+    /// <summary>The object shown (null = deleted meanwhile).</summary>
+    public string? CurrentName => _current?.Name;
 
     public void ShowPlc(string plc)
     {
@@ -408,7 +437,16 @@ public partial class ProgramView : UserControl
 
     private void Generate_Click(object sender, RoutedEventArgs e)
     {
-        if (Model is not { } model || _controller?.Session(_plc) is not { } session)
+        if (_controller is not null)
+        {
+            GenerateFromSignals(Window.GetWindow(this)!, _controller, _plc);
+        }
+    }
+
+    /// <summary>Creates objects for a PLC from its signal names (after a preview) and adds them to the model.</summary>
+    public static void GenerateFromSignals(Window owner, SimulationController controller, string plc)
+    {
+        if (!controller.Models.TryGetValue(plc, out var model) || controller.Session(plc) is not { } session)
         {
             return;
         }
@@ -416,20 +454,20 @@ public partial class ProgramView : UserControl
         var result = ModelGenerator.Generate(session, model);
         if (result.Objects.Count == 0)
         {
-            MessageBox.Show(Window.GetWindow(this)!, string.Join(Environment.NewLine, result.Report), "Generate from signals", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(owner, string.Join(Environment.NewLine, result.Report), "Generate from signals", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         var preview = string.Join(Environment.NewLine, result.Report.Take(40)) + (result.Report.Count > 40 ? $"{Environment.NewLine}… ({result.Report.Count - 40} more)" : "");
-        if (MessageBox.Show(Window.GetWindow(this)!,
-                $"Add {result.Objects.Count} objects to {_plc}: {string.Join(", ", result.Objects.Select(item => item.Name))}?{Environment.NewLine}{Environment.NewLine}{preview}",
+        if (MessageBox.Show(owner,
+                $"Add {result.Objects.Count} objects to {plc}: {string.Join(", ", result.Objects.Select(item => item.Name))}?{Environment.NewLine}{Environment.NewLine}{preview}",
                 "Generate from signals", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
         {
             return;
         }
 
         model.Objects.AddRange(result.Objects);
-        _controller.Rebuild();
+        controller.Rebuild();
     }
 
     /// <summary>Save: the window's Save model (asks for a file when none is chosen yet).</summary>

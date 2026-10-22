@@ -258,7 +258,7 @@
                     </DataGrid>
                 </DockPanel>
             </TabItem>
-            <TabItem Header="  Program  ">
+            <TabItem Header="  Program  " Visibility="Collapsed">
                 <sim:ProgramView x:Name="ProgramPanel"/>
             </TabItem>
             <TabItem Header="  SCADA  ">

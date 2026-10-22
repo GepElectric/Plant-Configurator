@@ -52,15 +52,33 @@ public partial class ScadaView : UserControl
     private readonly HashSet<string> _selection = new(StringComparer.OrdinalIgnoreCase);
     private Point? _bandStart;
     private Rectangle? _band;
+    private readonly Dictionary<string, Window> _editors = new(StringComparer.OrdinalIgnoreCase);
+    private readonly System.Windows.Threading.DispatcherTimer _clickTimer = new();
+    private SheetItem? _clicked;
     private (SheetItem Item, PortDef Port)? _wireFrom;
     private Line? _wireLine;
 
     public ScadaView()
     {
         InitializeComponent();
+        // A single click on a switch waits for the double-click time before offering its states.
+        _clickTimer.Interval = TimeSpan.FromMilliseconds(GetDoubleClickTime());
+        _clickTimer.Tick += (_, _) =>
+        {
+            _clickTimer.Stop();
+            if (_clicked is { } item && _items.ContainsValue(item))
+            {
+                ShowSwitchMenu(item);
+            }
+
+            _clicked = null;
+        };
         AddTypeBox.ItemsSource = ObjectCatalog.All.OrderBy(info => info.Category).ThenBy(info => info.Title).ToList();
         AddTypeBox.SelectedIndex = 0;
     }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetDoubleClickTime();
 
     private static Brush Freeze(Brush brush)
     {
@@ -108,6 +126,58 @@ public partial class ScadaView : UserControl
         {
             row.Refresh();
         }
+
+        foreach (var editor in _editors.Values)
+        {
+            (editor.Content as ProgramView)?.RefreshLive();
+        }
+    }
+
+    private void Generate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_controller is not null)
+        {
+            ProgramView.GenerateFromSignals(Window.GetWindow(this)!, _controller, _plc);
+        }
+    }
+
+    /// <summary>Double-click: a window with every setting of the object (name, variants, bindings, parameters, tables).</summary>
+    private void OpenEditor(SheetItem item)
+    {
+        if (_controller is null)
+        {
+            return;
+        }
+
+        var key = $"{_plc}/{item.Config.Name}";
+        if (_editors.TryGetValue(key, out var open))
+        {
+            open.Activate();
+            return;
+        }
+
+        var view = new ProgramView();
+        view.Attach(_controller);
+        view.ShowSingle(_plc, item.Config.Name);
+        var owner = Window.GetWindow(this);
+        var window = new Window
+        {
+            Title = $"{item.Config.Name} — {item.Info.Title}",
+            Content = view,
+            Owner = owner,
+            Width = 1150,
+            Height = 760,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Icon = owner?.Icon,
+            ShowInTaskbar = false
+        };
+        window.Closed += (_, _) =>
+        {
+            view.Detach();
+            _editors.Remove(key);
+        };
+        _editors[key] = window;
+        window.Show();
     }
 
     private void Rebuild()
@@ -863,6 +933,15 @@ public partial class ScadaView : UserControl
 
     private void StartDrag(SheetItem item, MouseButtonEventArgs e)
     {
+        if (e.ClickCount == 2)
+        {
+            _clickTimer.Stop();
+            _clicked = null;
+            e.Handled = true;
+            OpenEditor(item);
+            return;
+        }
+
         _drag = item;
         _dragMoved = false;
         _dragStart = e.GetPosition(Sheet);
@@ -937,7 +1016,9 @@ public partial class ScadaView : UserControl
             _selection.Clear();
             _selection.Add(name);
             ShowDetails(name);
-            ShowSwitchMenu(item);
+            _clicked = item;
+            _clickTimer.Stop();
+            _clickTimer.Start();
         }
 
         UpdateLines();
@@ -1030,7 +1111,8 @@ public partial class ScadaView : UserControl
         {
             TitleText.Text = "Select an object";
             SubtitleText.Text = "Click an object to set its parameters and force its outputs (breakers, disconnectors and earthing switches " +
-                                "offer their states). Drag objects to arrange the sheet; frame or Ctrl+click to select several. " +
+                                "offer their states); double-click for all its settings and bindings. Drag objects to arrange the sheet; " +
+                                "frame or Ctrl+click to select several. " +
                                 "Drag from a pin to a pin to link them (right-click a pin or a link to remove it).";
             ObjectPanel.Visibility = Visibility.Collapsed;
             _forces = [];

@@ -36,6 +36,8 @@
                               ToolTip="Object type to add to this screen."/>
                     <Button Content="Add" MinWidth="45" Height="24" Click="AddObject_Click"
                             ToolTip="Add the chosen object to this screen (or right-click on the empty sheet: Add object here)."/>
+                    <Button Content="Generate from signals" MinWidth="130" Height="24" Margin="8,0,0,0" Click="Generate_Click"
+                            ToolTip="Create objects for this PLC from the signal names (gates, reservoir, HPU, nozzles, MIV, GCB, …) and bind their signals."/>
                     <CheckBox x:Name="SldCheck" Content="SLD screen" VerticalAlignment="Center" Margin="16,0,0,0"
                               Checked="SldCheck_Changed" Unchecked="SldCheck_Changed"
                               ToolTip="Draw this screen as a single-line diagram: busbars, breakers, contactors, disconnectors, earthing switches and motors as symbols."/>
