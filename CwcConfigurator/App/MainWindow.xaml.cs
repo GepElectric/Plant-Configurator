@@ -978,7 +978,7 @@ public partial class MainWindow : Window
             EnsureProjectDefaults();
             _projectOpen = true;
             BindProject();
-            await CheckTiaAfterImportAsync("DI", "DO", "AI", "RTD", "COUNTER", "DB DI", "DB DO", "DB MEAS", "DB AO", "DB ALM", "DB PAR");
+            await CheckTiaAfterImportAsync("DI", "DO", "AI", "RTD", "COUNTER", "AO", "DB DI", "DB DO", "DB MEAS", "DB AO", "DB ALM", "DB PAR");
             ShowMessage($"Imported Excel workbook into {targetDatabase.Name}: {dialog.FileName}");
             HideWelcomeScreen();
         }
@@ -1312,6 +1312,9 @@ public partial class MainWindow : Window
     private async void CounterHwTiaPull_Click(object sender, RoutedEventArgs e) => await ConfirmAndRunHwPullAsync("COUNTER", service => service.PullHwSectionAsync(_project, "COUNTER"));
     private async void CounterHwTiaPush_Click(object sender, RoutedEventArgs e) => await ConfirmAndRunHwPushAsync("COUNTER", service => service.PushHwSectionAsync(_project, "COUNTER"));
 
+    private async void AoHwTiaPull_Click(object sender, RoutedEventArgs e) => await ConfirmAndRunHwPullAsync("AO", service => service.PullHwSectionAsync(_project, "AO"));
+    private async void AoHwTiaPush_Click(object sender, RoutedEventArgs e) => await ConfirmAndRunHwPushAsync("AO", service => service.PushHwSectionAsync(_project, "AO"));
+
     private async Task ConfirmAndRunHwPullAsync(string section, Func<TiaLiveSyncService, Task<TiaLiveSyncResult>> operation)
     {
         if (MessageBox.Show(this,
@@ -1616,6 +1619,7 @@ public partial class MainWindow : Window
             "AI" => (AiHwTiaStatusText, AiHwTiaPullButton, AiHwTiaPushButton),
             "RTD" => (RtdHwTiaStatusText, RtdHwTiaPullButton, RtdHwTiaPushButton),
             "COUNTER" => (CounterHwTiaStatusText, CounterHwTiaPullButton, CounterHwTiaPushButton),
+            "AO" => (AoHwTiaStatusText, AoHwTiaPullButton, AoHwTiaPushButton),
             _ => throw new NotSupportedException($"HW section '{section}' is not supported.")
         };
 
@@ -1708,7 +1712,7 @@ public partial class MainWindow : Window
     {
         section = tabKey switch
         {
-            "DI" or "DO" or "AI" or "RTD" or "COUNTER" => "HW " + tabKey,
+            "DI" or "DO" or "AI" or "RTD" or "COUNTER" or "AO" => "HW " + tabKey,
             "DB DI" or "DB DO" or "DB MEAS" or "DB AO" or "DB ALM" or "DB PAR" => tabKey,
             "Sequence" => "DB SEQUENCE",
             _ => ""
@@ -1775,7 +1779,7 @@ public partial class MainWindow : Window
     {
         return tabKey switch
         {
-            "DI" or "DO" or "AI" or "RTD" or "COUNTER" => service.CheckHwSectionAsync(_project, tabKey),
+            "DI" or "DO" or "AI" or "RTD" or "COUNTER" or "AO" => service.CheckHwSectionAsync(_project, tabKey),
             "DB DI" or "DB DO" or "DB MEAS" or "DB AO" or "DB ALM" or "DB PAR" => service.CheckDbAsync(_project, tabKey),
             "Sequence" => service.CheckDbAsync(_project, "DB SEQUENCE"),
             _ => null
@@ -1792,6 +1796,7 @@ public partial class MainWindow : Window
             case "AI": AiHwTiaStatusText.Text = status; break;
             case "RTD": RtdHwTiaStatusText.Text = status; break;
             case "COUNTER": CounterHwTiaStatusText.Text = status; break;
+            case "AO": AoHwTiaStatusText.Text = status; break;
             case "DB DI": DbDiTiaStatusText.Text = status; break;
             case "DB DO": DbDoTiaStatusText.Text = status; break;
             case "DB MEAS": DbMeasTiaStatusText.Text = status; break;
@@ -1860,7 +1865,7 @@ public partial class MainWindow : Window
 
     private void SetAllHwTiaBusy(bool busy, string? status = null)
     {
-        foreach (var section in new[] { "DI", "DO", "AI", "RTD", "COUNTER" })
+        foreach (var section in new[] { "DI", "DO", "AI", "RTD", "COUNTER", "AO" })
         {
             SetHwTiaBusy(section, busy, status);
         }
@@ -1873,6 +1878,7 @@ public partial class MainWindow : Window
         AiHwTiaStatusText.Text = status;
         RtdHwTiaStatusText.Text = status;
         CounterHwTiaStatusText.Text = status;
+        AoHwTiaStatusText.Text = status;
     }
 
     private void InitializeTiaTabIndicators()
@@ -1882,6 +1888,7 @@ public partial class MainWindow : Window
         AddTiaTabIndicator(AiTab, "AI", "HW AI");
         AddTiaTabIndicator(RtdTab, "RTD", "HW RTD");
         AddTiaTabIndicator(CounterTab, "COUNTER", "HW COUNTER");
+        AddTiaTabIndicator(AoTab, "AO", "HW AO");
         AddTiaTabIndicator(DbDiTab, "DB DI", "DB DI");
         AddTiaTabIndicator(DbDoTab, "DB DO", "DB DO");
         AddTiaTabIndicator(DbMeasTab, "DB MEAS", "DB MEAS");
@@ -1933,6 +1940,7 @@ public partial class MainWindow : Window
         UpdateHwTabVisual(AiTab, AiHwTiaStatusText, attached, binding, "HW AI");
         UpdateHwTabVisual(RtdTab, RtdHwTiaStatusText, attached, binding, "HW RTD");
         UpdateHwTabVisual(CounterTab, CounterHwTiaStatusText, attached, binding, "HW COUNTER");
+        UpdateHwTabVisual(AoTab, AoHwTiaStatusText, attached, binding, "HW AO");
         UpdateDbTabVisual(DbDiTab, DbDiTiaStatusText, attached, binding, "DB DI");
         UpdateDbTabVisual(DbDoTab, DbDoTiaStatusText, attached, binding, "DB DO");
         UpdateDbTabVisual(DbMeasTab, DbMeasTiaStatusText, attached, binding, "DB MEAS");
@@ -2015,7 +2023,7 @@ public partial class MainWindow : Window
             return "NotAttached";
         }
 
-        var sections = new[] { "HW DI", "HW DO", "HW AI", "HW RTD", "HW COUNTER", "DB DI", "DB DO", "DB MEAS", "DB AO", "DB ALM", "DB PAR" };
+        var sections = new[] { "HW DI", "HW DO", "HW AI", "HW RTD", "HW COUNTER", "HW AO", "DB DI", "DB DO", "DB MEAS", "DB AO", "DB ALM", "DB PAR" };
         var states = sections
             .Select(section => GetSectionVisualState(binding, section))
             .Where(state => state != "NotAttached")
@@ -3280,6 +3288,10 @@ public partial class MainWindow : Window
             case "COUNTER":
                 _counterView?.Refresh();
                 CounterGrid.Items.Refresh();
+                break;
+            case "AO":
+                _aoView?.Refresh();
+                AoGrid.Items.Refresh();
                 break;
         }
     }
@@ -9969,7 +9981,7 @@ public partial class MainWindow : Window
 
     private void MarkImportedSectionDiffers(string section)
     {
-        if (section is "DI" or "DO" or "AI" or "RTD" or "COUNTER")
+        if (section is "DI" or "DO" or "AI" or "RTD" or "COUNTER" or "AO")
         {
             MarkTiaSectionState("HW " + section, "Differs", $"{section} imported from Excel; TIA check required.");
             return;

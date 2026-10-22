@@ -647,6 +647,9 @@ public sealed class TiaPortalExportImporter
                 case "COUNTER":
                     imported += ApplyCounterHwValue(project.Counters, module, field, value);
                     break;
+                case "AO":
+                    imported += ApplyAnalogOutputHwValue(project.AnalogOutputs, module, port, field, value);
+                    break;
             }
         }
 
@@ -659,6 +662,28 @@ public sealed class TiaPortalExportImporter
         if (row is null)
         {
             row = new DigitalSignalConfig { ModuleNumber = module, Port = port };
+            rows.Add(row);
+        }
+
+        switch (field)
+        {
+            case "ID":
+                row.Id = ToInt(value);
+                return 1;
+            case "CONFIG":
+                row.Config = ToConfigState(value);
+                return 1;
+            default:
+                return 0;
+        }
+    }
+
+    private static int ApplyAnalogOutputHwValue(List<AnalogOutputConfig> rows, int module, int port, string field, string value)
+    {
+        var row = rows.FirstOrDefault(item => item.ModuleNumber == module && item.Port == port);
+        if (row is null)
+        {
+            row = new AnalogOutputConfig { ModuleNumber = module, Port = port };
             rows.Add(row);
         }
 

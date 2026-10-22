@@ -1051,10 +1051,16 @@
                                     <ColumnDefinition Width="110"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Module number" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                 <ListBox x:Name="AoModuleFilter" Grid.Column="1" Style="{StaticResource ModuleSlicer}" SelectionChanged="AoModuleFilter_SelectionChanged"/>
                                 <Button Grid.Column="2" Content="Clear" Click="ClearAoModuleFilter_Click"/>
+                                <TextBlock x:Name="AoHwTiaStatusText" Grid.Column="3" Text="HW_ID_s: not checked" VerticalAlignment="Center" Margin="12,0,4,0" Foreground="#57606A"/>
+                                <Button x:Name="AoHwTiaPullButton" Grid.Column="4" Content="Pull HW AO" Margin="4,0,0,0" Click="AoHwTiaPull_Click"/>
+                                <Button x:Name="AoHwTiaPushButton" Grid.Column="5" Content="Push HW AO" Margin="4,0,0,0" Click="AoHwTiaPush_Click"/>
                             </Grid>
                         </Border>
                         <DataGrid x:Name="AoGrid" AutoGenerateColumns="False" CanUserSortColumns="False" CellEditEnding="AoGrid_CellEditEnding" SizeChanged="SignalGrid_SizeChanged" RowStyle="{StaticResource SignalConfigRowStyle}">
