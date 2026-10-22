@@ -36,7 +36,8 @@ public sealed class SimulatorS7Client : IDisposable
             await ReadBytesAsync(dbNumber, length - 1, 1, cancellationToken);
             return true;
         }
-        catch (PlcException)
+        // S7netplus reports "Address out of range" as a plain Exception; the connection stays usable.
+        catch (Exception ex) when (ex is PlcException || ex.Message.Contains("out of range", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
