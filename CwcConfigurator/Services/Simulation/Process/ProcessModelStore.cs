@@ -5,32 +5,37 @@ using YamlDotNet.Serialization.NamingConventions;
 namespace CwcConfigurator.Services.Simulation.Process;
 
 /// <summary>
-/// Reads and writes the plant model of a project: "&lt;project&gt;.simulator.yaml" next to the .plantcfg, one model per
-/// PLC database. YAML so it stays readable and can be edited by hand (or in a chat with Claude).
+/// Reads and writes the plant model: YAML (one model per PLC database) so it stays readable and can be edited by
+/// hand (or in a chat with Claude). Stored as a ".simulator.yaml" file or inside a ".plantsim" simulation package.
 /// </summary>
 public static class ProcessModelStore
 {
     private const string Header =
         "# Plant Configurator - Simulator plant model\n" +
         "# plcs: <PLC database>: objects: name, type, options, params, tables, ports, x/y (SCADA position)\n" +
-        "# ports: DI:23 / DO:188 / AI:4 / RTD:27 / COUNTER:30 / AO:2 = signal ID, @Object.Port or @PLC/Object.Port = link, =value = constant\n";
+        "# ports: DI:23 / DO:188 / AI:4 / RTD:27 / COUNTER:30 / AO:2 / DEV:61 = signal ID, @Object.Port or @PLC/Object.Port = link, =value = constant\n";
 
     public static string PathFor(string projectPath) =>
         Path.Combine(Path.GetDirectoryName(projectPath) ?? "", Path.GetFileNameWithoutExtension(projectPath) + ".simulator.yaml");
 
-    public static Dictionary<string, ProcessModel> Load(string path)
+    public static Dictionary<string, ProcessModel> Load(string path) =>
+        File.Exists(path) ? FromYaml(File.ReadAllText(path)) : new(StringComparer.OrdinalIgnoreCase);
+
+    public static void Save(string path, IReadOnlyDictionary<string, ProcessModel> models)
+    {
+        var temp = path + ".tmp";
+        File.WriteAllText(temp, ToYaml(models));
+        File.Move(temp, path, overwrite: true);
+    }
+
+    public static Dictionary<string, ProcessModel> FromYaml(string text)
     {
         var models = new Dictionary<string, ProcessModel>(StringComparer.OrdinalIgnoreCase);
-        if (!File.Exists(path))
-        {
-            return models;
-        }
-
         var deserializer = new DeserializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
             .IgnoreUnmatchedProperties()
             .Build();
-        var file = deserializer.Deserialize<ModelFile>(File.ReadAllText(path)) ?? new ModelFile();
+        var file = deserializer.Deserialize<ModelFile>(text) ?? new ModelFile();
         foreach (var (plc, model) in file.Plcs ?? [])
         {
             models[plc] = Normalize(model ?? new ProcessModel());
@@ -39,7 +44,7 @@ public static class ProcessModelStore
         return models;
     }
 
-    public static void Save(string path, IReadOnlyDictionary<string, ProcessModel> models)
+    public static string ToYaml(IReadOnlyDictionary<string, ProcessModel> models)
     {
         var serializer = new SerializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
@@ -49,10 +54,7 @@ public static class ProcessModelStore
         {
             Plcs = models.Where(pair => pair.Value.Objects.Count > 0 || pair.Value.Forces.Count > 0).ToDictionary(pair => pair.Key, pair => pair.Value)
         };
-        var text = Header + serializer.Serialize(file);
-        var temp = path + ".tmp";
-        File.WriteAllText(temp, text);
-        File.Move(temp, path, overwrite: true);
+        return Header + serializer.Serialize(file);
     }
 
     private static ProcessModel Normalize(ProcessModel model)

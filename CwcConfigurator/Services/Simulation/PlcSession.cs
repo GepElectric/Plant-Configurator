@@ -17,12 +17,13 @@ public sealed class PlcSession : ISignalIo, IDisposable
     private byte[]? _output;
     private byte[]? _deviceOutput;
 
-    public PlcSession(string name, CwcProject project, string settingsKey)
+    /// <param name="settings">Connection settings from a .plantsim package; null = the settings stored on this PC.</param>
+    public PlcSession(string name, CwcProject project, string settingsKey, SimulatorConnectionSettings? settings = null)
     {
         Name = name;
         Project = project;
         SettingsKey = settingsKey;
-        Settings = SimulatorSettingsStore.Load(settingsKey);
+        Settings = settings ?? SimulatorSettingsStore.Load(settingsKey);
         Devices = Settings.Devices?.Select(device => device.Clone()).ToList() ?? DeviceLayout.UnitTemplate();
         var layout = SimulatorLayout.FromProject(project);
         if (Settings.Constants is { } constants)

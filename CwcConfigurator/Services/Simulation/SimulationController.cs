@@ -9,11 +9,14 @@ namespace CwcConfigurator.Services.Simulation;
 /// </summary>
 public sealed class SimulationController
 {
-    public SimulationController(IReadOnlyList<PlcSession> sessions, string? modelPath)
+    /// <param name="models">Models already loaded (from a .plantsim package); null = read <paramref name="modelPath"/>.</param>
+    public SimulationController(IReadOnlyList<PlcSession> sessions, string? modelPath, Dictionary<string, ProcessModel>? models = null)
     {
         Sessions = sessions;
         ModelPath = modelPath;
-        Models = modelPath is null ? new(StringComparer.OrdinalIgnoreCase) : ProcessModelStore.Load(modelPath);
+        Models = models is not null
+            ? new Dictionary<string, ProcessModel>(models, StringComparer.OrdinalIgnoreCase)
+            : modelPath is null || SimulationPackage.IsPackage(modelPath) ? new(StringComparer.OrdinalIgnoreCase) : ProcessModelStore.Load(modelPath);
         foreach (var session in sessions)
         {
             Models.TryAdd(session.Name, new ProcessModel());
@@ -33,6 +36,9 @@ public sealed class SimulationController
     public Dictionary<string, ProcessModel> Models { get; }
 
     public ProcessEngine Engine { get; private set; }
+
+    /// <summary>Writes a ".plantsim" package (project + model + connection settings); set by the window.</summary>
+    public Action<string>? PackageWriter { get; set; }
 
     public bool Running { get; set; }
 
@@ -76,7 +82,7 @@ public sealed class SimulationController
             throw new InvalidOperationException("Save the Plant Configurator project first; the plant model is stored next to it.");
         }
 
-        ProcessModelStore.Save(ModelPath, Models);
+        Write(ModelPath);
         Dirty = false;
         FileStateChanged?.Invoke();
     }
@@ -84,10 +90,22 @@ public sealed class SimulationController
     /// <summary>Saves the model to another file and keeps working on that file.</summary>
     public void SaveAs(string path)
     {
-        ProcessModelStore.Save(path, Models);
+        Write(path);
         ModelPath = path;
         Dirty = false;
         FileStateChanged?.Invoke();
+    }
+
+    private void Write(string path)
+    {
+        if (SimulationPackage.IsPackage(path))
+        {
+            (PackageWriter ?? throw new InvalidOperationException("Saving a simulation package is not available here."))(path);
+        }
+        else
+        {
+            ProcessModelStore.Save(path, Models);
+        }
     }
 
     /// <summary>
@@ -96,7 +114,7 @@ public sealed class SimulationController
     /// </summary>
     public List<string> Open(string path)
     {
-        var loaded = ProcessModelStore.Load(path);
+        var loaded = SimulationPackage.IsPackage(path) ? SimulationPackage.Load(path).Models : ProcessModelStore.Load(path);
         Models.Clear();
         foreach (var (plc, model) in loaded)
         {
@@ -123,7 +141,7 @@ public sealed class SimulationController
             return false;
         }
 
-        var loaded = ProcessModelStore.Load(ModelPath);
+        var loaded = SimulationPackage.IsPackage(ModelPath) ? SimulationPackage.Load(ModelPath).Models : ProcessModelStore.Load(ModelPath);
         Models.Clear();
         foreach (var (plc, model) in loaded)
         {

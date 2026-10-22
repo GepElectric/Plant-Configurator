@@ -224,6 +224,47 @@ public class ProcessModelTests
     }
 
     [Fact]
+    public void Package_KeepsProjectModelAndConnections()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"sim_{Guid.NewGuid():N}.plantsim");
+        try
+        {
+            var models = new Dictionary<string, ProcessModel>
+            {
+                ["Intake"] = new() { Objects = [Obj("Lake", "Reservoir", new() { ["Level"] = "AI:4" }, new(), new())], Forces = ["DI:23:x|TRUE"] }
+            };
+            var connections = new Dictionary<string, SimulatorConnectionSettings>
+            {
+                ["Intake"] = new() { IpAddress = "10.25.4.14", DbNumber = 30 }
+            };
+            var project = new byte[] { 1, 2, 3, 4 };
+
+            SimulationPackage.Save(path, new SimulationPackage.Content { Project = project, Models = models, Connections = connections, ProjectName = "HPP" });
+            var loaded = SimulationPackage.Load(path);
+
+            Assert.Equal(project, loaded.Project);
+            Assert.Equal("AI:4", loaded.Models["intake"].Find("Lake")!.Ports["Level"]);
+            Assert.Equal("DI:23:x|TRUE", Assert.Single(loaded.Models["intake"].Forces));
+            Assert.Equal("10.25.4.14", loaded.Connections["INTAKE"].IpAddress);
+            Assert.Equal("HPP", loaded.ProjectName);
+            Assert.Equal(SimulationPackage.PathFor(@"C:\x\HPP.plantcfg"), @"C:\x\HPP.plantsim");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Theory]
+    [InlineData("DO:0  —  Intake · Gate open", "DO:0")]
+    [InlineData("DO:0  —  Intake · Gate 1, open, DO:1  —  Intake · Gate 2", "DO:0, DO:1")]
+    [InlineData("DO:0, DO:1", "DO:0, DO:1")]
+    [InlineData("@Lake.Level  —  Reservoir: level, m", "@Lake.Level")]
+    [InlineData("=5", "=5")]
+    public void PortBindingText_DropsDescriptions(string text, string expected) =>
+        Assert.Equal(expected, CwcConfigurator.App.Simulation.PortRow.StripDescriptions(text));
+
+    [Fact]
     public void Model_RoundTripsThroughYaml()
     {
         var path = Path.Combine(Path.GetTempPath(), $"model_{Guid.NewGuid():N}.simulator.yaml");

@@ -68,19 +68,49 @@ public sealed class PortRow(PortDef def, ObjectConfig config, IReadOnlyList<stri
     public string Description => def.Description;
     public IReadOnlyList<string> Suggestions => suggestions;
 
-    public string Binding
+    /// <summary>
+    /// "DO:0  —  text, DO:1  —  text" → "DO:0, DO:1". A comma inside a description is skipped: only pieces that look
+    /// like a binding (signal, link or constant) start a new one.
+    /// </summary>
+    public static string StripDescriptions(string value)
     {
-        get => config.Ports.TryGetValue(def.Name, out var text) ? text : "";
-        set
+        var parts = new List<string>();
+        var inDescription = false;
+        foreach (var piece in value.Split(','))
         {
-            var text = (value ?? "").Trim();
-            var separator = text.IndexOf(Separator.Trim(), StringComparison.Ordinal);
-            if (separator > 0)
+            var dash = piece.IndexOf(Separator.Trim(), StringComparison.Ordinal);
+            var code = (dash >= 0 ? piece[..dash] : piece).Trim();
+            if (inDescription && dash < 0 && !BindingToken.IsMatch(code))
             {
-                text = text[..separator].Trim();
+                continue;
             }
 
-            if (text == Binding)
+            if (code.Length > 0)
+            {
+                parts.Add(code);
+            }
+
+            inDescription = dash >= 0;
+        }
+
+        return string.Join(", ", parts);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex BindingToken = new(
+        @"^((DI|DO|AI|AO|RTD|COUNTER|DEV|DEVBIT)(:\d+)?|@\S+|=\S+)$",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    private string Stored => config.Ports.TryGetValue(def.Name, out var text) ? text : "";
+
+    /// <summary>The binding with the full signal text, e.g. "DO:0  —  PLC · Name" (several separated by ", ").</summary>
+    public string Binding
+    {
+        get => string.Join(", ", Stored.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => suggestions.FirstOrDefault(item => item.StartsWith(part + Separator, StringComparison.OrdinalIgnoreCase)) ?? part));
+        set
+        {
+            var text = StripDescriptions(value ?? "");
+            if (text == Stored)
             {
                 return;
             }

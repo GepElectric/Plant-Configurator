@@ -65,12 +65,14 @@
                 </WrapPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock x:Name="ModelFileText" VerticalAlignment="Center" Foreground="#57606A" Margin="0,0,6,0" MaxWidth="260" TextTrimming="CharacterEllipsis"/>
-                    <Button Content="Open model…" MinWidth="90" Height="28" Click="OpenModel_Click"
-                            ToolTip="Open a saved plant model (.simulator.yaml) and continue working on it."/>
-                    <Button Content="Save model" MinWidth="80" Height="28" Margin="4,0,0,0" Click="SaveModel_Click"
-                            ToolTip="Save the plant model (objects, parameters, bindings, SCADA layout, saved forces) to the open file."/>
-                    <Button Content="Save as…" MinWidth="70" Height="28" Margin="4,0,16,0" Click="SaveModelAs_Click"
-                            ToolTip="Save the plant model to another file, e.g. a shared folder, and continue working on that file."/>
+                    <Button Content="Open…" MinWidth="60" Height="28" Click="OpenModel_Click"
+                            ToolTip="Open a simulation (.plantsim: database, model and PLC connections inside), a Plant Configurator project, or a model file."/>
+                    <Button Content="Save" MinWidth="55" Height="28" Margin="4,0,0,0" Click="SaveModel_Click"
+                            ToolTip="Save the simulation: copy of the database, plant model, forces and PLC connection settings."/>
+                    <Button Content="Save as…" MinWidth="65" Height="28" Margin="4,0,0,0" Click="SaveModelAs_Click"
+                            ToolTip="Save the simulation to another file, e.g. a shared folder, and continue working on that file."/>
+                    <Button Content="Update database…" MinWidth="110" Height="28" Margin="4,0,16,0" Click="UpdateDatabase_Click"
+                            ToolTip="Load the signals from a newer Plant Configurator project (.plantcfg); the model, forces and connections stay."/>
                     <TextBlock x:Name="PlcStatusText" VerticalAlignment="Center" Foreground="#57606A" Margin="0,0,14,0" MaxWidth="320" TextTrimming="CharacterEllipsis"/>
                     <Button x:Name="RunButton" Content="▶ Run model" MinWidth="110" Height="28" FontWeight="SemiBold" Click="RunButton_Click"
                             ToolTip="Run the plant model: it reads the PLC outputs (DO/AO) and writes the simulated inputs (DI/AI/RTD/COUNTER). Runs also without a PLC connection."/>

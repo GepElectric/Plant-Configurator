@@ -88,7 +88,7 @@
                         <DataGridTextColumn Header="PORT" Width="150" Binding="{Binding Name}" IsReadOnly="True"/>
                         <DataGridTextColumn Header="DIR" Width="40" Binding="{Binding Direction}" IsReadOnly="True"/>
                         <DataGridTextColumn Header="TYPE" Width="60" Binding="{Binding Kind}" IsReadOnly="True"/>
-                        <DataGridTemplateColumn Header="BINDING" Width="330">
+                        <DataGridTemplateColumn Header="BINDING" Width="420">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <ComboBox IsEditable="True" ItemsSource="{Binding Suggestions}" Text="{Binding Binding, UpdateSourceTrigger=LostFocus}"

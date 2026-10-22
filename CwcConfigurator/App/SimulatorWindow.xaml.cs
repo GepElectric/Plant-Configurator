@@ -23,6 +23,9 @@ public sealed class SimulatorPlcOption
     /// <summary>Identifies the project (its file path) for remembering the last model file.</summary>
     public string ProjectKey { get; init; } = "";
 
+    /// <summary>Connection settings from a .plantsim package; null = the settings stored on this PC.</summary>
+    public SimulatorConnectionSettings? Settings { get; init; }
+
     public override string ToString() => Name;
 }
 
@@ -46,11 +49,17 @@ public partial class SimulatorWindow : Window
     private readonly List<TextBox> _constantBoxes = [];
     private PlcSession? _session;
     private readonly string _projectKey;
+    private Func<byte[]>? _projectBytes;
+    private readonly string _projectName;
+    private bool _skipClosePrompt;
     private ICollectionView? _view;
     private bool _cycleRunning;
     private int _tick;
 
-    public SimulatorWindow(IReadOnlyList<SimulatorPlcOption> options, string? activeName, string? modelPath)
+    /// <param name="models">Models from a .plantsim package (null = read <paramref name="modelPath"/>).</param>
+    /// <param name="projectBytes">The project file content for saving a .plantsim package.</param>
+    public SimulatorWindow(IReadOnlyList<SimulatorPlcOption> options, string? activeName, string? modelPath,
+        Dictionary<string, ProcessModel>? models = null, Func<byte[]>? projectBytes = null, string projectName = "")
     {
         InitializeComponent();
         foreach (var name in SimulatorLayout.ConstantNames)
@@ -66,16 +75,22 @@ public partial class SimulatorWindow : Window
         DeviceTypeColumn.ItemsSource = Enum.GetValues<DeviceType>();
         DevicePresetBox.ItemsSource = DevicePresets;
         DevicePresetBox.SelectedIndex = 0;
-        _sessions = options.Select(option => new PlcSession(option.Name, option.Project, option.SettingsKey)).ToList();
+        _sessions = options.Select(option => new PlcSession(option.Name, option.Project, option.SettingsKey, option.Settings)).ToList();
         _projectKey = options.FirstOrDefault()?.ProjectKey ?? "";
-        // Continue with the model file used last time for this project (it may be elsewhere than next to the project).
-        var remembered = _projectKey.Length > 0 ? SimulatorSettingsStore.LoadModelPath(_projectKey) : null;
-        if (remembered is not null && System.IO.File.Exists(remembered))
+        _projectBytes = projectBytes;
+        _projectName = projectName;
+        if (models is null)
         {
-            modelPath = remembered;
+            // Continue with the model file used last time for this project (it may be elsewhere than next to the project).
+            var remembered = _projectKey.Length > 0 ? SimulatorSettingsStore.LoadModelPath(_projectKey) : null;
+            if (remembered is not null && System.IO.File.Exists(remembered))
+            {
+                modelPath = remembered;
+            }
         }
 
-        _controller = new SimulationController(_sessions, modelPath);
+        _controller = new SimulationController(_sessions, modelPath, models);
+        _controller.PackageWriter = WritePackage;
         _controller.FileStateChanged += UpdateModelFileText;
         UpdateModelFileText();
         ProgramPanel.Attach(_controller);
@@ -116,36 +131,133 @@ public partial class SimulatorWindow : Window
     }
 
     /// <summary>
-    /// Stand-alone start (PlantConfigurator.exe --simulator [project.plantcfg]): only the simulator window,
-    /// for the given project or one picked in a file dialog. Returns null when no project was chosen.
+    /// Stand-alone start: a ".plantsim" package (database, model and connections inside), or a ".plantcfg" project
+    /// (the database is read fresh from the project; the model and connections come from "&lt;project&gt;.plantsim" next
+    /// to it when it exists). Without a path a file dialog asks. Returns null when nothing was chosen.
     /// </summary>
-    public static SimulatorWindow? CreateStandalone(string? projectPath)
+    public static SimulatorWindow? CreateStandalone(string? path)
     {
-        if (string.IsNullOrWhiteSpace(projectPath))
+        if (string.IsNullOrWhiteSpace(path))
         {
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
-                Title = "Simulator – open Plant Configurator project",
-                Filter = "Plant Configurator project (*.plantcfg)|*.plantcfg|All files (*.*)|*.*"
+                Title = "Plant Simulator – open a simulation or a Plant Configurator project",
+                Filter = "Simulation or project (*.plantsim;*.plantcfg)|*.plantsim;*.plantcfg|Simulation (*.plantsim)|*.plantsim|Plant Configurator project (*.plantcfg)|*.plantcfg"
             };
             if (dialog.ShowDialog() != true)
             {
                 return null;
             }
 
-            projectPath = dialog.FileName;
+            path = dialog.FileName;
         }
 
-        var fullPath = System.IO.Path.GetFullPath(projectPath);
-        var project = new Services.ProjectFileService().Load(fullPath);
-        var active = project.PlcDatabases.FirstOrDefault(database => database.Id == project.ActivePlcDatabaseId)?.Name;
-        var window = new SimulatorWindow(CreateOptions(project, fullPath), active, ProcessModelStore.PathFor(fullPath))
+        var fullPath = System.IO.Path.GetFullPath(path);
+        SimulatorWindow window;
+        if (SimulationPackage.IsPackage(fullPath))
         {
-            WindowStartupLocation = WindowStartupLocation.CenterScreen
-        };
-        window.Title = $"Plant Simulator – {System.IO.Path.GetFileName(fullPath)}";
+            var content = SimulationPackage.Load(fullPath);
+            window = Create(content.Project, content.ProjectName.Length > 0 ? content.ProjectName : System.IO.Path.GetFileNameWithoutExtension(fullPath),
+                fullPath, fullPath, content.Models, content.Connections);
+        }
+        else
+        {
+            var packagePath = SimulationPackage.PathFor(fullPath);
+            Dictionary<string, ProcessModel>? models = null;
+            Dictionary<string, SimulatorConnectionSettings>? connections = null;
+            if (System.IO.File.Exists(packagePath))
+            {
+                var content = SimulationPackage.Load(packagePath);
+                models = content.Models;
+                connections = content.Connections;
+            }
+            else if (System.IO.File.Exists(ProcessModelStore.PathFor(fullPath)))
+            {
+                models = ProcessModelStore.Load(ProcessModelStore.PathFor(fullPath));   // earlier model file of this project
+            }
+
+            var bytes = System.IO.File.ReadAllBytes(fullPath);
+            window = Create(bytes, System.IO.Path.GetFileNameWithoutExtension(fullPath), fullPath, packagePath, models ?? new(StringComparer.OrdinalIgnoreCase), connections,
+                () => System.IO.File.ReadAllBytes(fullPath));
+        }
+
         SimulatorSettingsStore.SaveLastProject(fullPath);
         return window;
+    }
+
+    private static SimulatorWindow Create(byte[] projectBytes, string projectName, string key, string modelPath,
+        Dictionary<string, ProcessModel> models, Dictionary<string, SimulatorConnectionSettings>? connections, Func<byte[]>? readProject = null)
+    {
+        var temp = SimulationPackage.ExtractProject(projectBytes, projectName);
+        CwcProject project;
+        try
+        {
+            project = new Services.ProjectFileService().Load(temp);
+        }
+        finally
+        {
+            try
+            {
+                System.IO.File.Delete(temp);
+            }
+            catch (System.IO.IOException)
+            {
+            }
+        }
+
+        var options = CreateOptions(project, key).Select(option => new SimulatorPlcOption
+        {
+            Name = option.Name,
+            Project = option.Project,
+            SettingsKey = option.SettingsKey,
+            ProjectKey = option.ProjectKey,
+            Settings = connections is not null && connections.TryGetValue(option.Name, out var settings) ? settings : null
+        }).ToList();
+        var active = project.PlcDatabases.FirstOrDefault(database => database.Id == project.ActivePlcDatabaseId)?.Name;
+        return new SimulatorWindow(options, active, modelPath, models, readProject ?? (() => projectBytes), projectName)
+        {
+            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+            Title = $"Plant Simulator – {System.IO.Path.GetFileName(modelPath)}"
+        };
+    }
+
+    /// <summary>Writes the .plantsim package: project copy, model and the connection settings of every PLC.</summary>
+    private void WritePackage(string path)
+    {
+        var project = _projectBytes?.Invoke() ?? throw new InvalidOperationException("The project of this simulation is not available.");
+        foreach (var session in _sessions)
+        {
+            session.SaveSettings();
+        }
+
+        SimulationPackage.Save(path, new SimulationPackage.Content
+        {
+            Project = project,
+            Models = _controller.Models,
+            Connections = _sessions.ToDictionary(session => session.Name, session => session.Settings, StringComparer.OrdinalIgnoreCase),
+            ProjectName = _projectName,
+            SourceProject = _projectKey
+        });
+        Title = $"Plant Simulator – {System.IO.Path.GetFileName(path)}";
+    }
+
+    /// <summary>Replaces this window by a simulator for another file (package or project).</summary>
+    private void SwitchTo(SimulatorWindow? next)
+    {
+        if (next is null)
+        {
+            return;
+        }
+
+        next.Icon = Icon;
+        next.Show();
+        if (Application.Current.MainWindow == this)
+        {
+            Application.Current.MainWindow = next;
+        }
+
+        _skipClosePrompt = true;
+        Close();
     }
 
     private void PlcSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -484,12 +596,27 @@ public partial class SimulatorWindow : Window
 
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "Open plant model",
-            Filter = "Plant model (*.simulator.yaml)|*.simulator.yaml|YAML (*.yaml;*.yml)|*.yaml;*.yml|All files (*.*)|*.*",
+            Title = "Open a simulation, a project or a model",
+            Filter = "Simulation (*.plantsim)|*.plantsim|Plant Configurator project (*.plantcfg)|*.plantcfg|Plant model only (*.simulator.yaml)|*.simulator.yaml|All files (*.*)|*.*",
             InitialDirectory = _controller.ModelPath is null ? null : System.IO.Path.GetDirectoryName(_controller.ModelPath)
         };
         if (dialog.ShowDialog(this) != true)
         {
+            return;
+        }
+
+        if (SimulationPackage.IsPackage(dialog.FileName) || dialog.FileName.EndsWith(".plantcfg", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                SwitchTo(CreateStandalone(dialog.FileName));
+            }
+            catch (Exception ex)
+            {
+                CwcApplication.LogException("Simulator.Open", ex);
+                StatusText.Text = "Could not open: " + ex.Message;
+            }
+
             return;
         }
 
@@ -513,6 +640,47 @@ public partial class SimulatorWindow : Window
         {
             CwcApplication.LogException("Simulator.OpenModel", ex);
             StatusText.Text = "Could not open the model: " + ex.Message;
+        }
+    }
+
+    /// <summary>Loads the database from a (newer) .plantcfg; the model, forces and connection settings stay.</summary>
+    private void UpdateDatabase_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Update the database from a Plant Configurator project",
+            Filter = "Plant Configurator project (*.plantcfg)|*.plantcfg"
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var session in _sessions)
+            {
+                session.SaveSettings();
+                if (_controller.Models.TryGetValue(session.Name, out var model))
+                {
+                    model.Forces = session.Signals.Where(signal => signal.IsForced).SelectMany(DescribeForces).ToList();
+                }
+            }
+
+            var projectPath = dialog.FileName;
+            var bytes = System.IO.File.ReadAllBytes(projectPath);
+            var connections = _sessions.ToDictionary(session => session.Name, session => session.Settings, StringComparer.OrdinalIgnoreCase);
+            var modelPath = _controller.ModelPath ?? SimulationPackage.PathFor(projectPath);
+            var next = Create(bytes, System.IO.Path.GetFileNameWithoutExtension(projectPath), _projectKey.Length > 0 ? _projectKey : projectPath,
+                modelPath, _controller.Models, connections, SimulationPackage.IsPackage(modelPath) ? () => bytes : () => System.IO.File.ReadAllBytes(projectPath));
+            next._controller.MarkDirty();
+            next.StatusText.Text = $"Database updated from {projectPath}. Save to keep it in the simulation.";
+            SwitchTo(next);
+        }
+        catch (Exception ex)
+        {
+            CwcApplication.LogException("Simulator.UpdateDatabase", ex);
+            StatusText.Text = "Could not update the database: " + ex.Message;
         }
     }
 
@@ -540,9 +708,10 @@ public partial class SimulatorWindow : Window
     {
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            Title = "Save plant model as",
-            Filter = "Plant model (*.simulator.yaml)|*.simulator.yaml|All files (*.*)|*.*",
-            FileName = _controller.ModelPath is null ? "Plant.simulator.yaml" : System.IO.Path.GetFileName(_controller.ModelPath),
+            Title = "Save simulation as",
+            Filter = "Simulation with its database (*.plantsim)|*.plantsim|Plant model only (*.simulator.yaml)|*.simulator.yaml",
+            FileName = _controller.ModelPath is null ? (_projectName.Length > 0 ? _projectName : "Plant") + SimulationPackage.Extension
+                : System.IO.Path.GetFileName(_controller.ModelPath),
             InitialDirectory = _controller.ModelPath is null ? null : System.IO.Path.GetDirectoryName(_controller.ModelPath)
         };
         if (dialog.ShowDialog(this) != true)
@@ -550,9 +719,11 @@ public partial class SimulatorWindow : Window
             return;
         }
 
-        var path = dialog.FileName.EndsWith(".simulator.yaml", StringComparison.OrdinalIgnoreCase) || System.IO.Path.HasExtension(System.IO.Path.GetFileNameWithoutExtension(dialog.FileName))
-            ? dialog.FileName
-            : System.IO.Path.ChangeExtension(dialog.FileName, null) + ".simulator.yaml";
+        var path = dialog.FileName;
+        if (!SimulationPackage.IsPackage(path) && !path.EndsWith(".simulator.yaml", StringComparison.OrdinalIgnoreCase))
+        {
+            path = System.IO.Path.ChangeExtension(path, null) + (dialog.FilterIndex == 2 ? ".simulator.yaml" : SimulationPackage.Extension);
+        }
         try
         {
             _controller.SaveAs(path);
@@ -796,12 +967,12 @@ public partial class SimulatorWindow : Window
 
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
-        if (!_controller.Dirty)
+        if (!_controller.Dirty || _skipClosePrompt)
         {
             return;
         }
 
-        var answer = MessageBox.Show(this, "The plant model has unsaved changes. Save them?", "Simulator",
+        var answer = MessageBox.Show(this, "The simulation has unsaved changes. Save them?", "Plant Simulator",
             MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
         if (answer == MessageBoxResult.Cancel)
         {
