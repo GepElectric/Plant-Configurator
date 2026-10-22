@@ -563,7 +563,49 @@ public partial class ScadaView : UserControl
         var targets = _selection.Contains(name) && _selection.Count > 1
             ? _selection.Select(selected => _items[selected].Config).ToList()
             : [item.Config];
-        var delete = new MenuItem { Header = targets.Count > 1 ? $"Delete {targets.Count} selected objects" : $"Delete object {name}" };
+        if (targets.Count > 1)
+        {
+            // Several selected: group them (deleting is one object at a time).
+            var group = new MenuItem { Header = $"Group {targets.Count} objects…" };
+            group.Click += (_, _) =>
+            {
+                var existing = targets.Select(config => config.Group).FirstOrDefault(value => value is not null) ?? "";
+                var title = TextPrompt.Ask(Window.GetWindow(this)!, "Group", $"Name of the group for {string.Join(", ", targets.Select(config => config.Name))}:", existing);
+                if (!string.IsNullOrWhiteSpace(title))
+                {
+                    SetGroup(targets, title);
+                }
+            };
+            menu.Items.Add(group);
+            if (targets.Any(config => config.Group is not null))
+            {
+                var ungroup = new MenuItem { Header = "Ungroup the selected objects" };
+                ungroup.Click += (_, _) => SetGroup(targets, null);
+                menu.Items.Add(ungroup);
+            }
+
+            return menu;
+        }
+
+        if (item.Config.Group is { } current)
+        {
+            var leave = new MenuItem { Header = $"Remove {name} from group {current}" };
+            leave.Click += (_, _) => SetGroup([item.Config], null);
+            menu.Items.Add(leave);
+            var rename = new MenuItem { Header = $"Rename group {current}…" };
+            rename.Click += (_, _) =>
+            {
+                var title = TextPrompt.Ask(Window.GetWindow(this)!, "Rename group", $"New name of the group '{current}':", current);
+                if (!string.IsNullOrWhiteSpace(title))
+                {
+                    SetGroup(model.Objects.Where(config => string.Equals(config.Group, current, StringComparison.OrdinalIgnoreCase)).ToList(), title);
+                }
+            };
+            menu.Items.Add(rename);
+            menu.Items.Add(new Separator());
+        }
+
+        var delete = new MenuItem { Header = $"Delete object {name}" };
         delete.Click += (_, _) => DeleteObjects(model, targets);
         menu.Items.Add(delete);
 
@@ -586,6 +628,18 @@ public partial class ScadaView : UserControl
         }
 
         return menu;
+    }
+
+    private void SetGroup(IReadOnlyList<ObjectConfig> objects, string? group)
+    {
+        group = string.IsNullOrWhiteSpace(group) ? null : group.Trim();
+        foreach (var config in objects)
+        {
+            config.Group = group;
+        }
+
+        _controller?.MarkDirty();
+        _controller?.NotifyLayoutChanged();
     }
 
     /// <summary>Deletes objects from the model (with their links from other objects) after a confirmation.</summary>
