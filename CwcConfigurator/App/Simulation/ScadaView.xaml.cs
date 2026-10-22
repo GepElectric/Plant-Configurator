@@ -291,6 +291,7 @@ public partial class ScadaView : UserControl
             title.MouseLeftButtonDown += (_, e) => StartGroupDrag(name, e, title);
             title.MouseMove += (_, e) => DragGroup(e);
             title.MouseLeftButtonUp += (_, _) => EndGroupDrag(title);
+            frame.ContextMenu = GroupMenu(name);
             Panel.SetZIndex(frame, -1);
             Sheet.Children.Add(frame);
             _frames.Add((frame, group));
@@ -628,6 +629,24 @@ public partial class ScadaView : UserControl
         }
 
         return menu;
+    }
+
+    /// <summary>Right-click on a group frame: ungroup or rename it.</summary>
+    private ContextMenu GroupMenu(string group)
+    {
+        List<ObjectConfig> Members() => Model?.Objects.Where(config => string.Equals(config.Group, group, StringComparison.OrdinalIgnoreCase)).ToList() ?? [];
+        var ungroup = new MenuItem { Header = $"Ungroup {group}" };
+        ungroup.Click += (_, _) => SetGroup(Members(), null);
+        var rename = new MenuItem { Header = $"Rename group {group}…" };
+        rename.Click += (_, _) =>
+        {
+            var title = TextPrompt.Ask(Window.GetWindow(this)!, "Rename group", $"New name of the group '{group}':", group);
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                SetGroup(Members(), title);
+            }
+        };
+        return new ContextMenu { Items = { ungroup, rename } };
     }
 
     private void SetGroup(IReadOnlyList<ObjectConfig> objects, string? group)
