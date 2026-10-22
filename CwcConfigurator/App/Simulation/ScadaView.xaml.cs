@@ -152,6 +152,8 @@ public partial class ScadaView : UserControl
             item.Element.MouseLeftButtonDown += (_, e) => StartDrag(item, e);
             item.Element.MouseMove += (_, e) => Drag(e);
             item.Element.MouseLeftButtonUp += (_, _) => EndDrag();
+            item.Element.ContextMenu = new ContextMenu();
+            item.Element.ContextMenuOpening += (_, _) => item.Element.ContextMenu = ObjectMenu(item);
             foreach (var (port, pin) in item.Pins)
             {
                 pin.MouseLeftButtonDown += (_, e) => StartWire(item, port, e);
@@ -474,6 +476,72 @@ public partial class ScadaView : UserControl
         }
 
         return menu;
+    }
+
+    /// <summary>Right-click on an object: delete it (or the selection), or remove it from this screen.</summary>
+    private ContextMenu ObjectMenu(SheetItem item)
+    {
+        var menu = new ContextMenu();
+        if (Model is not { } model)
+        {
+            return menu;
+        }
+
+        var name = item.Config.Name;
+        var targets = _selection.Contains(name) && _selection.Count > 1
+            ? _selection.Select(selected => _items[selected].Config).ToList()
+            : [item.Config];
+        var delete = new MenuItem { Header = targets.Count > 1 ? $"Delete {targets.Count} selected objects" : $"Delete object {name}" };
+        delete.Click += (_, _) => DeleteObjects(model, targets);
+        menu.Items.Add(delete);
+
+        if (targets.Count == 1 && !model.ScreenOf(item.Config).Equals(_screen, StringComparison.OrdinalIgnoreCase))
+        {
+            // Shown here as an extra view: only take it off this screen.
+            var remove = new MenuItem { Header = $"Remove {name} from this screen (stays on {model.ScreenOf(item.Config)})" };
+            remove.Click += (_, _) =>
+            {
+                item.Config.Views?.RemoveAll(view => view.Screen.Equals(_screen, StringComparison.OrdinalIgnoreCase));
+                if (item.Config.Views is { Count: 0 })
+                {
+                    item.Config.Views = null;
+                }
+
+                _controller?.MarkDirty();
+                Rebuild();
+            };
+            menu.Items.Add(remove);
+        }
+
+        return menu;
+    }
+
+    /// <summary>Deletes objects from the model (with their links from other objects) after a confirmation.</summary>
+    private void DeleteObjects(ProcessModel model, IReadOnlyList<ObjectConfig> targets)
+    {
+        var names = string.Join(", ", targets.Select(config => config.Name));
+        if (MessageBox.Show(Window.GetWindow(this)!, $"Delete {names}?\nLinks from other objects to {(targets.Count > 1 ? "them" : "it")} are removed too.",
+                "Simulator", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        foreach (var config in targets)
+        {
+            model.Objects.Remove(config);
+            var prefix = $"@{config.Name}.";
+            foreach (var other in model.Objects)
+            {
+                foreach (var key in other.Ports.Where(pair => pair.Value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).Select(pair => pair.Key).ToList())
+                {
+                    other.Ports.Remove(key);
+                }
+            }
+        }
+
+        _selection.Clear();
+        _selected = null;
+        _controller?.Rebuild();
     }
 
     private ContextMenu LinkMenu(SheetItem target, PortDef port, string text)
