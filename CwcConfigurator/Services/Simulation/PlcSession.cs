@@ -16,6 +16,9 @@ public sealed class PlcSession : ISignalIo, IDisposable
     private byte[] _deviceData = [];
     private byte[]? _output;
     private byte[]? _deviceOutput;
+    // Byte ranges the model or a force wrote this cycle; only these are sent, so nothing else in the DB is overwritten.
+    private readonly List<(int Start, int Length)> _written = [];
+    private readonly List<(int Start, int Length)> _deviceWritten = [];
 
     /// <param name="settings">Connection settings from a .plantsim package; null = the settings stored on this PC.</param>
     public PlcSession(string name, CwcProject project, string settingsKey, SimulatorConnectionSettings? settings = null)
@@ -154,6 +157,8 @@ public sealed class PlcSession : ISignalIo, IDisposable
         _deviceData = DevicesActive ? await _client.ReadBytesAsync(DevicesDbNumber, 0, DeviceLayout.TotalBytes(Devices)) : [];
         _output = null;
         _deviceOutput = null;
+        _written.Clear();
+        _deviceWritten.Clear();
         foreach (var signal in Signals)
         {
             signal.UpdateFrom(_data, _deviceData);
@@ -170,16 +175,48 @@ public sealed class PlcSession : ISignalIo, IDisposable
 
         if (_output is not null)
         {
-            var bytes = _output.AsSpan(0, Math.Min(Layout.DoStart, _output.Length)).ToArray();
+            var image = _output;
             _output = null;
-            await _client.WriteBytesAsync(DbNumber, 0, bytes);
+            await WriteChangedAsync(DbNumber, image, _data, _written);
         }
 
         if (_deviceOutput is not null && DevicesActive)
         {
-            var bytes = _deviceOutput;
+            var image = _deviceOutput;
             _deviceOutput = null;
-            await _client.WriteBytesAsync(DevicesDbNumber, 0, bytes);
+            await WriteChangedAsync(DevicesDbNumber, image, _deviceData, _deviceWritten);
+        }
+    }
+
+    /// <summary>
+    /// Sends only the variables written this cycle whose value differs from what was read, so a variable that the
+    /// simulator does not drive (e.g. a COUNTER changed in TIA) is never overwritten with an old value.
+    /// </summary>
+    private async Task WriteChangedAsync(int dbNumber, byte[] image, byte[] read, List<(int Start, int Length)> written)
+    {
+        var ranges = written
+            .Where(range => range.Start + range.Length <= image.Length && range.Start + range.Length <= read.Length
+                            && !image.AsSpan(range.Start, range.Length).SequenceEqual(read.AsSpan(range.Start, range.Length)))
+            .OrderBy(range => range.Start)
+            .ToList();
+        written.Clear();
+        var merged = new List<(int Start, int End)>();
+        foreach (var (start, length) in ranges)
+        {
+            if (merged.Count > 0 && start <= merged[^1].End)
+            {
+                merged[^1] = (merged[^1].Start, Math.Max(merged[^1].End, start + length));
+            }
+            else
+            {
+                merged.Add((start, start + length));
+            }
+        }
+
+        foreach (var (start, end) in merged)
+        {
+            await _client.WriteBytesAsync(dbNumber, start, image[start..end]);
+            Array.Copy(image, start, read, start, end - start);
         }
     }
 
@@ -267,6 +304,7 @@ public sealed class PlcSession : ISignalIo, IDisposable
                 }
 
                 target = _deviceOutput ??= (byte[])_deviceData.Clone();
+                _deviceWritten.Add((signal.ByteOffset, Width(signal)));
             }
             else
             {
@@ -276,6 +314,7 @@ public sealed class PlcSession : ISignalIo, IDisposable
                 }
 
                 target = _output ??= (byte[])_data.Clone();
+                _written.Add((signal.ByteOffset, Width(signal)));
             }
 
             if (signal.IsDigital)
@@ -302,6 +341,8 @@ public sealed class PlcSession : ISignalIo, IDisposable
             }
         }
     }
+
+    private static int Width(SimulatorSignal signal) => signal.IsDigital ? 1 : signal.IsReal ? 4 : 2;
 
     public void Dispose() => _client.Dispose();
 

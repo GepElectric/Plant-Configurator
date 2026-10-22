@@ -66,7 +66,7 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
 
     public bool CanSetBool => IsDigital;
     public bool CanSetAnalog => !IsDigital;
-    public bool CanWireBreak => IsWritable && !IsDigital;
+    public bool CanWireBreak => IsWritable && !IsDigital && Kind != SimulatorSignalKind.COUNTER;
 
     /// <summary>SET TRUE pressed: the signal is TRUE whatever the PLC or the model says (wins over SET FALSE).</summary>
     public bool ForceTrue

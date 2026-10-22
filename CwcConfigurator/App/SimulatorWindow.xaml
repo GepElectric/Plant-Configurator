@@ -247,7 +247,7 @@
                                                               Click="SetAnalogToggle_Click" ToolTip="Hold the typed value; while held, the typed value goes to the PLC as you type."/>
                                                 <ToggleButton Content="WIRE BREAK" Style="{StaticResource ForceButton}" MinWidth="80" IsChecked="{Binding WireBreak, UpdateSourceTrigger=PropertyChanged}"
                                                               Visibility="{Binding CanWireBreak, Converter={StaticResource BoolToVisibility}}"
-                                                              ToolTip="Wire break: AI/RTD 32767, COUNTER/device NaN. Wins over SET."/>
+                                                              ToolTip="Wire break: AI/RTD 32767, device value NaN. Wins over SET."/>
                                                 <TextBlock Text="{Binding Unit}" VerticalAlignment="Center" Foreground="#57606A"/>
                                             </StackPanel>
                                         </Grid>
