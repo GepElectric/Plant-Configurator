@@ -3332,6 +3332,7 @@ public partial class MainWindow : Window
                 "AI",
                 "RTD",
                 "COUNTER",
+                "AO",
                 "DEVICES",
                 "DB DI",
                 "DB DO",
