@@ -28,7 +28,10 @@ param(
 
     [string]$PublishDir = "$PSScriptRoot\publish_output",
 
-    [switch]$Clean
+    [switch]$Clean,
+
+    # Version written into the assemblies (Release.ps1 passes the release version).
+    [string]$Version = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -63,7 +66,9 @@ Invoke-Step 'Restore (solution)' @('restore', $sln)
 Invoke-Step 'Restore (TiaHelper.V21 -- nije u .sln)' @('restore', $v21)
 
 # Korak 3: build bez restorea
-Invoke-Step "Build ($Configuration)" @('build', $sln, '-c', $Configuration, '--no-restore', '-v', 'minimal', '--nologo')
+$versionArgs = @()
+if ($Version) { $versionArgs = @("-p:Version=$Version") }
+Invoke-Step "Build ($Configuration)" (@('build', $sln, '-c', $Configuration, '--no-restore', '-v', 'minimal', '--nologo') + $versionArgs)
 
 if ($Test) {
     Invoke-Step 'Testovi' @('test', $tests, '-c', $Configuration, '--no-build', '-v', 'minimal', '--nologo')

@@ -402,6 +402,14 @@
                 <MenuItem x:Name="MultilingualMenuItem" Header="Bilingual (validate *Other text fields)" IsCheckable="True" Click="MultilingualMenuItem_Click"
                           ToolTip="When unchecked, repair/validation warnings skip every *Other field (NameOther, DescriptionOther, SystemNameOther)."/>
             </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="Report a _bug..." Click="ReportBug_Click"
+                          ToolTip="Describe a problem and send it to the developers (GitHub issue) with a screenshot, the project and the log."/>
+                <MenuItem Header="Check for _updates..." Click="CheckForUpdates_Click"/>
+                <Separator/>
+                <MenuItem Header="Open _log folder" Click="OpenLogFolder_Click"/>
+                <MenuItem Header="_About Plant Configurator" Click="About_Click"/>
+            </MenuItem>
         </Menu>
 
         <Border x:Name="MainToolbar"

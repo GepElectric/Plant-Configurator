@@ -777,6 +777,7 @@ public partial class MainWindow : Window
         ShowMessage("Ready.");
         ShowWelcomeScreen();
         InitializeAutosave();
+        InitializeUpdates();
         Dispatcher.BeginInvoke(OfferAutosaveRecovery, DispatcherPriority.Loaded);
     }
 
@@ -12536,7 +12537,7 @@ public partial class MainWindow : Window
             StatusActiveDbText.Text = "";
             StatusRowCountsText.Text = "";
             StatusDirtyText.Text = "";
-            Title = "Plant Configurator";
+            Title = AppTitle;
             UpdateToolbarButtonStates(isDirty: false);
             return;
         }
@@ -12566,7 +12567,7 @@ public partial class MainWindow : Window
     private void ApplyDirtyIndicator(bool dirty)
     {
         StatusDirtyText.Text = dirty ? "● Unsaved changes" : "";
-        Title = (dirty ? "● " : string.Empty) + GetCurrentProjectFileName() + " — Plant Configurator";
+        Title = (dirty ? "● " : string.Empty) + GetCurrentProjectFileName() + " — " + AppTitle;
         UpdateToolbarButtonStates(dirty);
     }
 
