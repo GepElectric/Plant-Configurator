@@ -339,11 +339,13 @@ public sealed class BreakerObject : SimObject
             BoolIn("UvCoil", "Undervoltage coil supplied (DO). Not connected = supplied.", true),
             BoolIn("SyncOk", "Synchronising OK (link from the synchroniser)."),
             BoolIn("Ready", "External close-ready condition. Not connected = ready.", true),
+            PowerIn("Supply", "Voltage on the grid side (link, e.g. @T1.Secondary) for the SLD."),
             BoolOut("Closed", "Breaker closed."),
             BoolOut("Open", "Breaker open."),
             BoolOut("Tripped", "Opened by a trip (until the next close)."),
             BoolOut("SpringCharged", "Closing spring charged."),
-            BoolOut("ReadyToClose", "All close conditions present.")
+            BoolOut("ReadyToClose", "All close conditions present."),
+            PowerOut("Live", "Voltage after the breaker (link to the generator Grid input or the next object).")
         ],
         [],
         ["Closed"],
@@ -414,6 +416,7 @@ public sealed class BreakerObject : SimObject
         Out("Tripped", _tripped);
         Out("SpringCharged", P("SpringChargeTime") <= 0 || _spring >= P("SpringChargeTime"));
         Out("ReadyToClose", ready && !_closed);
+        Out("Live", _closed ? In("Supply") : 0);
     }
 }
 
@@ -508,7 +511,8 @@ public sealed class GeneratorObject : SimObject
 
     public static ObjectTypeInfo TypeInfo { get; } = new(
         "Generator", "Generator (electrical)", "Generator",
-        "P, Q, S, PF, currents, voltages, frequencies and energy counters of the generator.",
+        "Generator: takes the shaft power of the turbine and delivers it to the grid while connected (Grid = @GCB.Live). " +
+        "P, Q, S, PF, currents, voltages, frequencies and energy counters.",
         [],
         [
             Param("RatedPower", 2070, "kW", "Rated active power."),
@@ -529,8 +533,9 @@ public sealed class GeneratorObject : SimObject
             AnalogIn("ReactivePower", "kvar", "Reactive power (link from the excitation)."),
             AnalogIn("Voltage", "V", "Terminal voltage off the grid (link from the excitation)."),
             AnalogIn("Frequency", "Hz", "Generator frequency (link from the rotor)."),
-            BoolIn("BreakerClosed", "Generator breaker closed (link)."),
-            AnalogIn("GridVoltage", "V", "Grid voltage. Not connected = parameter."),
+            PowerIn("Grid", "Grid voltage at the generator breaker (link, e.g. @GCB.Live): connected to the grid while it is live."),
+            BoolIn("BreakerClosed", "Generator breaker closed (link). Not needed when Grid is connected."),
+            AnalogIn("GridVoltage", "V", "Grid voltage. Not connected = parameter (or the Grid input)."),
             AnalogIn("GridFrequency", "Hz", "Grid frequency. Not connected = parameter."),
             AnalogOut("P", "kW", "Active power."),
             AnalogOut("Q", "kvar", "Reactive power."),
@@ -553,7 +558,8 @@ public sealed class GeneratorObject : SimObject
             AnalogOut("CurrentPercent", "%", "I in % of rated."),
             AnalogOut("EnergyExport", "kWh", "Active energy delivered."),
             AnalogOut("EnergyImport", "kWh", "Active energy taken (motoring)."),
-            AnalogOut("EnergyReactive", "kvarh", "Reactive energy.")
+            AnalogOut("EnergyReactive", "kvarh", "Reactive energy."),
+            PowerOut("Terminal", "Generator terminal voltage (link, e.g. to a measuring point).")
         ],
         [],
         ["P", "Q", "I", "U12", "FGen"],
@@ -566,8 +572,10 @@ public sealed class GeneratorObject : SimObject
 
     public override void Step(double dt)
     {
-        var closed = InB("BreakerClosed");
-        var gridU = Connected("GridVoltage") ? In("GridVoltage") : P("GridVoltage");
+        // With the Grid input linked, the breaker state and the grid voltage come from the network itself.
+        var onGrid = Connected("Grid");
+        var closed = onGrid ? In("Grid") >= 1 : InB("BreakerClosed");
+        var gridU = onGrid ? In("Grid") : Connected("GridVoltage") ? In("GridVoltage") : P("GridVoltage");
         var gridF = Connected("GridFrequency") ? In("GridFrequency") : P("GridFrequency");
         var target = closed ? In("ShaftPower") * P("Efficiency") / 100 : 0;
         _power = closed ? SimMath.Lag(_power, target, P("PowerTimeConstant"), dt) : 0;
@@ -609,5 +617,41 @@ public sealed class GeneratorObject : SimObject
         Out("EnergyExport", _energyP);
         Out("EnergyImport", _energyPImport);
         Out("EnergyReactive", _energyQ);
+        Out("Terminal", u);
+    }
+}
+
+/// <summary>
+/// External grid (network): the voltage source of the plant's SLD. Shows the power the plant delivers; Blackout tests
+/// the loss of the grid.
+/// </summary>
+public sealed class GridObject : SimObject
+{
+    public static ObjectTypeInfo TypeInfo { get; } = new(
+        "Grid", "Grid (external network)", "Electrical",
+        "External network: voltage and frequency source of the plant. Export shows the power the plant delivers. Blackout = grid lost.",
+        [
+            Option("State", "Normal, or Blackout to test the loss of the grid.", "Normal", "Blackout")
+        ],
+        [
+            Param("Voltage", 10000, "V", "Grid voltage at the connection point."),
+            Param("Frequency", 50, "Hz", "Grid frequency.")
+        ],
+        [
+            AnalogIn("Export", "kW", "Power delivered by the plant (link, e.g. @G1.P)."),
+            PowerOut("Live", "Grid voltage (link to the connection busbar / transformer)."),
+            AnalogOut("Frequency", "Hz", "Grid frequency (link to the rotor / generator)."),
+            AnalogOut("P", "kW", "Power delivered to the grid.")
+        ],
+        [],
+        ["P", "Frequency"],
+        () => new GridObject());
+
+    public override void Step(double dt)
+    {
+        var live = OptIs("State", "Normal");
+        Out("Live", live ? P("Voltage") : 0);
+        Out("Frequency", live ? P("Frequency") : 0);
+        Out("P", live ? In("Export") : 0);
     }
 }

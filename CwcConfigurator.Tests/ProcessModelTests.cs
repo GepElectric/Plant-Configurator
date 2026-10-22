@@ -473,6 +473,26 @@ public class ProcessModelTests
     }
 
     [Fact]
+    public void Generator_DeliversShaftPowerToTheGridThroughTheBreaker()
+    {
+        var engine = Engine(
+            Obj("Net", "Grid", new() { ["Export"] = "@G1.P" }),
+            Obj("T1", "Transformer", new() { ["Primary"] = "@Net.Live" }, new() { ["PrimaryVoltage"] = 10000, ["SecondaryVoltage"] = 690 }),
+            Obj("GCB", "Breaker", new() { ["Supply"] = "@T1.Secondary", ["CloseCmd"] = "=1" }, new() { ["SpringChargeTime"] = 0 }, new() { ["Command"] = "Maintained" }),
+            Obj("G1", "Generator", new() { ["Grid"] = "@GCB.Live", ["ShaftPower"] = "=1000" }, new() { ["NoisePower"] = 0, ["NoiseVoltage"] = 0 }),
+            Obj("PM", "AuxSupply", new() { ["Supply"] = "@G1.Terminal", ["PIn"] = "@G1.P", ["QIn"] = "@G1.Q" }, options: new() { ["MeasuredPower"] = "Yes" }));
+        Run(engine, 20);
+        var g1 = engine.Find("Unit", "G1")!;
+        Assert.InRange(g1.Value("P"), 950, 970);                          // 1000 kW shaft × 96 %
+        Assert.InRange(engine.Find("Unit", "Net")!.Value("P"), 950, 970);  // delivered to the grid
+        Assert.InRange(engine.Find("Unit", "PM")!.Value("P"), 950, 970);   // measured in the generator feeder
+
+        engine.Find("Unit", "Net")!.Config.Options["State"] = "Blackout";
+        Run(engine, 1);
+        Assert.Equal(0, g1.Value("P"));
+    }
+
+    [Fact]
     public void Model_RoundTripsThroughYaml()
     {
         var path = Path.Combine(Path.GetTempPath(), $"model_{Guid.NewGuid():N}.simulator.yaml");

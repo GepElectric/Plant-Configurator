@@ -47,8 +47,11 @@ public partial class ScadaView : UserControl
     private List<ForceRow> _forces = [];
     private SheetItem? _drag;
     private Point _dragStart;
-    private Point _itemStart;
+    private List<(SheetItem Item, Point Start)> _dragItems = [];
     private bool _dragMoved;
+    private readonly HashSet<string> _selection = new(StringComparer.OrdinalIgnoreCase);
+    private Point? _bandStart;
+    private Rectangle? _band;
     private (SheetItem Item, PortDef Port)? _wireFrom;
     private Line? _wireLine;
 
@@ -108,6 +111,8 @@ public partial class ScadaView : UserControl
     private void Rebuild()
     {
         CancelWire();
+        _band = null;
+        _bandStart = null;
         Sheet.Children.Clear();
         _items.Clear();
         _links.Clear();
@@ -220,6 +225,7 @@ public partial class ScadaView : UserControl
         Sheet.Width = Math.Max(1600, maxX + 200);
         Sheet.Height = Math.Max(1000, maxY + 200);
         Dispatcher.BeginInvoke(UpdateLines, System.Windows.Threading.DispatcherPriority.Loaded);
+        _selection.RemoveWhere(name => !_items.ContainsKey(name));
         ShowDetails(_selected is not null && _items.ContainsKey(_selected) ? _selected : null);
         RefreshLive();
     }
@@ -297,18 +303,83 @@ public partial class ScadaView : UserControl
 
     private void Sheet_MouseMove(object sender, MouseEventArgs e)
     {
+        var position = e.GetPosition(Sheet);
+        if (_bandStart is { } start)
+        {
+            _band ??= AddBand();
+            Canvas.SetLeft(_band, Math.Min(start.X, position.X));
+            Canvas.SetTop(_band, Math.Min(start.Y, position.Y));
+            _band.Width = Math.Abs(position.X - start.X);
+            _band.Height = Math.Abs(position.Y - start.Y);
+            return;
+        }
+
         if (_wireLine is null)
         {
             return;
         }
 
-        var position = e.GetPosition(Sheet);
         _wireLine.X2 = position.X;
         _wireLine.Y2 = position.Y;
     }
 
+    private Rectangle AddBand()
+    {
+        var band = new Rectangle
+        {
+            Stroke = HighlightBrush,
+            StrokeThickness = 1,
+            StrokeDashArray = [4, 2],
+            Fill = new SolidColorBrush(Color.FromArgb(0x22, 0x25, 0x63, 0xEB)),
+            IsHitTestVisible = false
+        };
+        Panel.SetZIndex(band, 20);
+        Sheet.Children.Add(band);
+        return band;
+    }
+
+    /// <summary>End of a selection band: every object it touches is selected (Ctrl adds to the selection).</summary>
+    private void EndBand(Point end)
+    {
+        var start = _bandStart!.Value;
+        _bandStart = null;
+        Sheet.ReleaseMouseCapture();
+        if (_band is not null)
+        {
+            Sheet.Children.Remove(_band);
+            _band = null;
+        }
+
+        var area = new Rect(start, end);
+        if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            _selection.Clear();
+        }
+
+        if (area.Width > 4 || area.Height > 4)
+        {
+            foreach (var item in _items.Values)
+            {
+                var bounds = new Rect(Canvas.GetLeft(item.Element), Canvas.GetTop(item.Element), item.Element.ActualWidth, item.Element.ActualHeight);
+                if (area.IntersectsWith(bounds))
+                {
+                    _selection.Add(item.Config.Name);
+                }
+            }
+        }
+
+        ShowDetails(_selection.Count == 1 ? _selection.First() : null);
+        UpdateLines();
+    }
+
     private void Sheet_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        if (_bandStart is not null)
+        {
+            EndBand(e.GetPosition(Sheet));
+            return;
+        }
+
         if (_wireFrom is not { } from)
         {
             return;
@@ -657,7 +728,9 @@ public partial class ScadaView : UserControl
         _drag = item;
         _dragMoved = false;
         _dragStart = e.GetPosition(Sheet);
-        _itemStart = new Point(Canvas.GetLeft(item.Element), Canvas.GetTop(item.Element));
+        // Dragging a selected object moves the whole selection.
+        var group = _selection.Contains(item.Config.Name) ? _selection.Select(name => _items[name]).ToList() : [item];
+        _dragItems = group.Select(member => (member, new Point(Canvas.GetLeft(member.Element), Canvas.GetTop(member.Element)))).ToList();
         item.Element.CaptureMouse();
         e.Handled = true;
     }
@@ -678,8 +751,14 @@ public partial class ScadaView : UserControl
         }
 
         _dragMoved = true;
-        Canvas.SetLeft(_drag.Element, Math.Max(0, Math.Round((_itemStart.X + dx) / 10) * 10));
-        Canvas.SetTop(_drag.Element, Math.Max(0, Math.Round((_itemStart.Y + dy) / 10) * 10));
+        dx = Math.Max(Math.Round(dx / 10) * 10, -_dragItems.Min(member => member.Start.X));
+        dy = Math.Max(Math.Round(dy / 10) * 10, -_dragItems.Min(member => member.Start.Y));
+        foreach (var (member, start) in _dragItems)
+        {
+            Canvas.SetLeft(member.Element, start.X + dx);
+            Canvas.SetTop(member.Element, start.Y + dy);
+        }
+
         UpdateLines();
     }
 
@@ -695,22 +774,85 @@ public partial class ScadaView : UserControl
         item.Element.ReleaseMouseCapture();
         if (_dragMoved)
         {
-            Model?.SetPosition(item.Config, _screen, Canvas.GetLeft(item.Element), Canvas.GetTop(item.Element));
+            foreach (var (member, _) in _dragItems)
+            {
+                Model?.SetPosition(member.Config, _screen, Canvas.GetLeft(member.Element), Canvas.GetTop(member.Element));
+            }
+
             _controller?.MarkDirty();
+            return;
+        }
+
+        var name = item.Config.Name;
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            // Ctrl+click adds / removes an object.
+            if (!_selection.Remove(name))
+            {
+                _selection.Add(name);
+            }
+
+            ShowDetails(_selection.Count == 1 ? _selection.First() : null);
         }
         else
         {
-            ShowDetails(item.Config.Name);
-            UpdateLines();
+            _selection.Clear();
+            _selection.Add(name);
+            ShowDetails(name);
+            ShowSwitchMenu(item);
         }
+
+        UpdateLines();
     }
 
+    /// <summary>Objects switched by hand (breakers, disconnectors, earthing switches, the grid): a click offers their states.</summary>
+    private void ShowSwitchMenu(SheetItem item)
+    {
+        var option = item.Info.Type switch
+        {
+            "Mcb" or "Disconnector" or "EarthSwitch" => "Position",
+            "Grid" => "State",
+            _ => null
+        };
+        if (option is null || item.Info.Options.FirstOrDefault(def => def.Name == option) is not { } def)
+        {
+            return;
+        }
+
+        var current = item.Info.OptionValue(item.Config, option);
+        var menu = new ContextMenu { PlacementTarget = item.Element, Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint };
+        menu.Items.Add(new MenuItem { Header = $"{item.Config.Name} — {item.Info.Title}", IsEnabled = false, FontWeight = FontWeights.SemiBold });
+        menu.Items.Add(new Separator());
+        foreach (var value in def.Values)
+        {
+            var entry = new MenuItem { Header = value, IsCheckable = true, IsChecked = value.Equals(current, StringComparison.OrdinalIgnoreCase) };
+            entry.Click += (_, _) =>
+            {
+                if (value == def.Default)
+                {
+                    item.Config.Options.Remove(option);
+                }
+                else
+                {
+                    item.Config.Options[option] = value;
+                }
+
+                _controller?.MarkDirty();
+                ShowDetails(item.Config.Name);
+            };
+            menu.Items.Add(entry);
+        }
+
+        menu.IsOpen = true;
+    }
+
+    /// <summary>On the empty sheet: start a selection band.</summary>
     private void Sheet_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.OriginalSource == Sheet)
+        if (e.OriginalSource == Sheet && _wireFrom is null)
         {
-            ShowDetails(null);
-            UpdateLines();
+            _bandStart = e.GetPosition(Sheet);
+            Sheet.CaptureMouse();
         }
     }
 
@@ -725,17 +867,33 @@ public partial class ScadaView : UserControl
     private void ShowDetails(string? name)
     {
         _selected = name;
+        if (name is not null && !_selection.Contains(name))
+        {
+            _selection.Clear();
+            _selection.Add(name);
+        }
+
         foreach (var item in _items.Values)
         {
-            item.SetSelected(item.Config.Name == name);
+            item.SetSelected(_selection.Contains(item.Config.Name));
+        }
+
+        if (name is null && _selection.Count > 1)
+        {
+            TitleText.Text = $"{_selection.Count} objects selected";
+            SubtitleText.Text = "Drag one of them to move them all. Ctrl+click adds or removes an object; drag on the empty sheet to select with a frame.";
+            ObjectPanel.Visibility = Visibility.Collapsed;
+            _forces = [];
+            return;
         }
 
         var instance = name is null ? null : _controller?.Engine.Find(_plc, name);
         if (instance is null || Model is not { } model)
         {
             TitleText.Text = "Select an object";
-            SubtitleText.Text = "Click an object to set its parameters and force its outputs. Drag objects to arrange the sheet; " +
-                                "drag from a pin to a pin to link them (right-click a pin or a link to remove it).";
+            SubtitleText.Text = "Click an object to set its parameters and force its outputs (breakers, disconnectors and earthing switches " +
+                                "offer their states). Drag objects to arrange the sheet; frame or Ctrl+click to select several. " +
+                                "Drag from a pin to a pin to link them (right-click a pin or a link to remove it).";
             ObjectPanel.Visibility = Visibility.Collapsed;
             _forces = [];
             return;

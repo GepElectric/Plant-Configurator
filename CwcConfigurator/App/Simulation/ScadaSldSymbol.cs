@@ -18,7 +18,7 @@ public partial class ScadaView
         private const double Center = 30;
         private const double MinBusWidth = 260;
         private static readonly Brush TripBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xF5, 0x9E, 0x0B)));
-        private static readonly string[] Types = ["Busbar", "AuxSupply", "Mcb", "Contactor", "Disconnector", "EarthSwitch", "Motor", "Transformer"];
+        private static readonly string[] Types = ["Busbar", "AuxSupply", "Mcb", "Contactor", "Disconnector", "EarthSwitch", "Motor", "Transformer", "Breaker", "Generator", "Grid"];
 
         private readonly Canvas _canvas = new();
         private readonly Canvas _body = new();
@@ -125,13 +125,14 @@ public partial class ScadaView
                 }
 
                 case "Mcb":
+                case "Breaker":
                 case "Contactor":
                 case "Disconnector":
                 {
                     // IEC 60617: switch blade from the lower contact; at the fixed (upper) contact a cross for a
                     // circuit breaker, an arc for a contactor, a bar for a disconnector.
                     var closed = On(Info.Type switch { "Mcb" => "On", "Contactor" => "State", _ => "Closed" });
-                    var tripped = Info.Type == "Mcb" && On("Tripped");
+                    var tripped = Info.Type is "Mcb" or "Breaker" && On("Tripped") && !closed;
                     _body.Children.Add(Segment(Center, 2, Center, 30, Wire("Supply")));
                     _body.Children.Add(Segment(Center, 62, Center, 90, Wire("Live")));
                     _body.Children.Add(Blade(closed, tripped ? TripBrush : closed ? ClosedBrush : OpenBrush));
@@ -139,6 +140,7 @@ public partial class ScadaView
                     switch (Info.Type)
                     {
                         case "Mcb":
+                        case "Breaker":
                             _body.Children.Add(Segment(Center - 5, 25, Center + 5, 35, marker, 2));
                             _body.Children.Add(Segment(Center - 5, 35, Center + 5, 25, marker, 2));
                             break;
@@ -153,6 +155,7 @@ public partial class ScadaView
                     _state.Text = Info.Type switch
                     {
                         "Mcb" => tripped ? "TRIPPED" : closed ? "ON" : "OFF",
+                        "Breaker" => tripped ? "TRIPPED" : closed ? "CLOSED" : "OPEN",
                         _ => closed ? "CLOSED" : "OPEN"
                     };
                     return;
@@ -196,6 +199,41 @@ public partial class ScadaView
                     _body.Children.Add(Shape(new Ellipse { Width = 34, Height = 34, StrokeThickness = 2, Stroke = Brushes.Black, Fill = Brushes.White }, Center - 17, 40));
                     _body.Children.Add(Shape(new TextBlock { Text = "W", FontWeight = FontWeights.Bold, FontSize = 13 }, Center - 6, 48));
                     _state.Text = instance is null ? "" : $"{Value(instance, "U")} V  {Value(instance, "P")} kW";
+                    return;
+                }
+
+                case "Generator":
+                {
+                    // IEC: circle with G and ~, connected from above (generator breaker).
+                    _body.Children.Add(Segment(Center, 2, Center, 40, Wire("Grid")));
+                    var running = instance is not null && instance.Value("Terminal") >= 1;
+                    _body.Children.Add(Shape(new Ellipse
+                    {
+                        Width = 38,
+                        Height = 38,
+                        StrokeThickness = 2.5,
+                        Stroke = running ? ClosedBrush : OpenBrush,
+                        Fill = running ? new SolidColorBrush(Color.FromRgb(0xFE, 0xE2, 0xE2)) : Brushes.White
+                    }, Center - 19, 40));
+                    _body.Children.Add(Shape(new TextBlock { Text = "G", FontWeight = FontWeights.Bold, FontSize = 14 }, Center - 5, 44));
+                    _body.Children.Add(Shape(new TextBlock { Text = "~", FontWeight = FontWeights.Bold, FontSize = 13 }, Center - 4, 58));
+                    _state.Text = instance is null ? "" : $"{Value(instance, "P")} kW  {Value(instance, "Terminal")} V";
+                    return;
+                }
+
+                case "Grid":
+                {
+                    // Network infeed: hatched box, connection downwards.
+                    var live = On("Live");
+                    var brush = live ? LiveBrush : DeadBrush;
+                    _body.Children.Add(Shape(new Rectangle { Width = 40, Height = 30, StrokeThickness = 2, Stroke = brush, Fill = Brushes.White }, Center - 20, 10));
+                    for (var k = 0; k < 4; k++)
+                    {
+                        _body.Children.Add(Segment(Center - 20 + k * 10, 40, Center - 10 + k * 10, 10, brush, 1.2));
+                    }
+
+                    _body.Children.Add(Segment(Center, 40, Center, 90, Wire("Live")));
+                    _state.Text = instance is null ? "" : live ? $"{Value(instance, "Live")} V  export {Value(instance, "P")} kW" : "BLACKOUT";
                     return;
                 }
 

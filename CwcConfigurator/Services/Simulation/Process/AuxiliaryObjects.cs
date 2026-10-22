@@ -113,17 +113,21 @@ public sealed class AuxSupplyObject : SimObject
     public static ObjectTypeInfo TypeInfo { get; } = new(
         "AuxSupply", "Power meter (AUX Sentron)", "Electrical",
         "Measuring device connected to a point of the network (busbar feeder, MCB output …): measures U at that point and " +
-        "I, P, Q, S, PF, f and energy of the load behind it. Without voltage everything is 0.",
-        [],
+        "I, P, Q, S, PF, f and energy of the load behind it (or of a measured flow, e.g. a generator). Without voltage everything is 0.",
         [
-            Param("Load", 50, "kVA", "Average apparent load measured by the device."),
-            Param("PowerFactor", 0.85, "", "Average power factor."),
+            Has("MeasuredPower", "P and Q come from links (e.g. @G1.P, @G1.Q for the generator feeder) instead of the load parameters.")
+        ],
+        [
+            Param("Load", 50, "kVA", "Average apparent load measured by the device.").When("MeasuredPower", "No"),
+            Param("PowerFactor", 0.85, "", "Average power factor.").When("MeasuredPower", "No"),
             Param("Frequency", 50, "Hz", "Frequency."),
-            Param("LoadVariation", 10, "%", "Slow random load variation.")
+            Param("LoadVariation", 10, "%", "Slow random load variation.").When("MeasuredPower", "No")
         ],
         [
             PowerIn("Supply", "Measuring point (link, e.g. @Busbar.Feeder3 or @F5.Live). Not connected = 400 V.", 400),
-            AnalogIn("ExtraLoad", "kVA", "Additional load (e.g. HPU pump running)."),
+            AnalogIn("ExtraLoad", "kVA", "Additional load (e.g. HPU pump running).").When("MeasuredPower", "No"),
+            AnalogIn("PIn", "kW", "Measured active power (link, e.g. @G1.P).").When("MeasuredPower", "Yes"),
+            AnalogIn("QIn", "kvar", "Measured reactive power (link, e.g. @G1.Q).").When("MeasuredPower", "Yes"),
             AnalogOut("U", "V", "Voltage at the measuring point."),
             AnalogOut("I", "A", "Current."),
             AnalogOut("P", "kW", "Active power."),
@@ -142,16 +146,29 @@ public sealed class AuxSupplyObject : SimObject
         var u = Math.Max(0, In("Supply"));
         var supplied = u >= 1;
         _wander = SimMath.Lag(_wander, Noise(1), 20, dt);
-        var s = supplied ? Math.Max(0, P("Load") * (1 + P("LoadVariation") / 100 * _wander * 2) + In("ExtraLoad")) : 0;
-        var pf = SimMath.Clamp(P("PowerFactor"), 0, 1);
-        var p = s * pf;
+        double s, p, q;
+        if (OptIs("MeasuredPower", "Yes"))
+        {
+            p = supplied ? In("PIn") : 0;
+            q = supplied ? In("QIn") : 0;
+            s = Math.Sqrt(p * p + q * q);
+        }
+        else
+        {
+            s = supplied ? Math.Max(0, P("Load") * (1 + P("LoadVariation") / 100 * _wander * 2) + In("ExtraLoad")) : 0;
+            var factor = SimMath.Clamp(P("PowerFactor"), 0, 1);
+            p = s * factor;
+            q = s * Math.Sqrt(1 - factor * factor);
+        }
+
+        var pf = s > 0.001 ? p / s : 0;
         // Small measuring noise on the voltage of the point.
         u = supplied ? u * (1 + Noise(0.0025)) : 0;
-        _energy += p * dt / 3600;
+        _energy += Math.Max(0, p) * dt / 3600;
         Out("U", u);
         Out("I", supplied ? s * 1000 / (Math.Sqrt(3) * u) : 0);
         Out("P", p);
-        Out("Q", s * Math.Sqrt(1 - pf * pf));
+        Out("Q", q);
         Out("S", s);
         Out("PF", supplied ? pf : 0);
         Out("F", supplied ? P("Frequency") : 0);
@@ -487,6 +504,7 @@ public static class ObjectCatalog
         BreakerObject.TypeInfo,
         SynchroniserObject.TypeInfo,
         GeneratorObject.TypeInfo,
+        GridObject.TypeInfo,
         TemperatureObject.TypeInfo.WithSwitches("Temperature"),
         VibrationObject.TypeInfo.WithSwitches("Vibration"),
         AuxSupplyObject.TypeInfo.WithSwitches("U"),
