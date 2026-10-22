@@ -28,6 +28,8 @@ public sealed class SimulatorPlcOption
 /// </summary>
 public partial class SimulatorWindow : Window
 {
+    public const string CommandLineSwitch = "--simulator";
+
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(500);
     private static readonly Brush ConnectedBrush = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E));
     private static readonly Brush DisconnectedBrush = new SolidColorBrush(Color.FromRgb(0xC9, 0xCE, 0xD6));
@@ -62,6 +64,55 @@ public partial class SimulatorWindow : Window
         }
 
         PlcSelector.SelectedItem = options.FirstOrDefault(option => option.Name == activeName) ?? options.FirstOrDefault();
+    }
+
+    /// <summary>One option per PLC database: each PLC has its own hardware tables and simulator DB.</summary>
+    public static List<SimulatorPlcOption> CreateOptions(CwcProject project, string projectKey)
+    {
+        var options = project.PlcDatabases.Select(database =>
+        {
+            var scoped = new CwcProject();
+            database.ApplyTo(scoped);
+            return new SimulatorPlcOption { Name = database.Name, Project = scoped, SettingsKey = projectKey + "|" + database.Name };
+        }).ToList();
+        if (options.Count == 0)
+        {
+            options.Add(new SimulatorPlcOption { Name = "PLC", Project = project, SettingsKey = projectKey + "|PLC" });
+        }
+
+        return options;
+    }
+
+    /// <summary>
+    /// Stand-alone start (PlantConfigurator.exe --simulator [project.plantcfg]): only the simulator window,
+    /// for the given project or one picked in a file dialog. Returns null when no project was chosen.
+    /// </summary>
+    public static SimulatorWindow? CreateStandalone(string? projectPath)
+    {
+        if (string.IsNullOrWhiteSpace(projectPath))
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Simulator – open Plant Configurator project",
+                Filter = "Plant Configurator project (*.plantcfg)|*.plantcfg|All files (*.*)|*.*"
+            };
+            if (dialog.ShowDialog() != true)
+            {
+                return null;
+            }
+
+            projectPath = dialog.FileName;
+        }
+
+        var fullPath = System.IO.Path.GetFullPath(projectPath);
+        var project = new CwcConfigurator.Services.ProjectFileService().Load(fullPath);
+        var active = project.PlcDatabases.FirstOrDefault(database => database.Id == project.ActivePlcDatabaseId)?.Name;
+        var window = new SimulatorWindow(CreateOptions(project, fullPath), active)
+        {
+            WindowStartupLocation = WindowStartupLocation.CenterScreen
+        };
+        window.Title = $"Simulator – {System.IO.Path.GetFileName(fullPath)}";
+        return window;
     }
 
     private void PlcSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)

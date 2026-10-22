@@ -9315,19 +9315,7 @@ public partial class MainWindow : Window
         {
             SaveActivePlcDatabase();
 
-            // One option per PLC database: each PLC has its own hardware tables and simulator DB.
-            var projectKey = _projectPath ?? _project.ProjectName;
-            var options = _project.PlcDatabases.Select(database =>
-            {
-                var scoped = new CwcProject();
-                database.ApplyTo(scoped);
-                return new SimulatorPlcOption { Name = database.Name, Project = scoped, SettingsKey = projectKey + "|" + database.Name };
-            }).ToList();
-            if (options.Count == 0)
-            {
-                options.Add(new SimulatorPlcOption { Name = "PLC", Project = _project, SettingsKey = projectKey + "|PLC" });
-            }
-
+            var options = SimulatorWindow.CreateOptions(_project, _projectPath ?? _project.ProjectName);
             var window = new SimulatorWindow(options, GetActivePlcDatabase()?.Name) { Owner = this };
             window.Show();
         }
