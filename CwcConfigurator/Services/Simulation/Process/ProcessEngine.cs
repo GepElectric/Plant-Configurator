@@ -168,7 +168,8 @@ public sealed class ProcessEngine
             var outputs = new List<(PortDef, List<PortBinding>)>();
             foreach (var port in instance.Info.Ports)
             {
-                instance.Config.Ports.TryGetValue(port.Name, out var text);
+                // A port that the chosen variant does not have works as not connected (its default value).
+                var text = instance.Info.IsActive(port.ShownWhen, instance.Config) && instance.Config.Ports.TryGetValue(port.Name, out var bound) ? bound : null;
                 if (port.Direction == PortDirection.Output)
                 {
                     // An output can drive several signals: "DI:13, DI:46".

@@ -69,13 +69,15 @@ public class ProcessModelTests
     {
         var engine = Engine(
             Obj("Pressure", "Signal", parameters: new() { ["Value"] = 5 }),
-            Obj("Deflector", "Actuator", new() { ["OpenCmd"] = "=1", ["OilPressure"] = "@Pressure.Out" }, new() { ["InitialPosition"] = 50 }));
+            Obj("Deflector", "Actuator", new() { ["OpenCmd"] = "=1", ["OilPressure"] = "@Pressure.Out" }, new() { ["InitialPosition"] = 50 },
+                new() { ["OilPressureInput"] = "Yes" }));
         var deflector = engine.Find("Unit", "Deflector")!;
 
         Run(engine, 5);
         Assert.Equal(50, deflector.Value("Position"), 1); // 5 bar < MinPressure 20 bar
 
         deflector.Config.Ports["Esd"] = "=0";              // ESD valve de-energised (active low)
+        deflector.Config.Options["EsdValve"] = "Yes";
         engine = new ProcessEngine(engine.Models, engine);
         Run(engine, 6);
         Assert.Equal(0, engine.Find("Unit", "Deflector")!.Value("Position"), 1);
@@ -247,7 +249,7 @@ public class ProcessModelTests
             Assert.Equal("DI:23:x|TRUE", Assert.Single(loaded.Models["intake"].Forces));
             Assert.Equal("10.25.4.14", loaded.Connections["INTAKE"].IpAddress);
             Assert.Equal("HPP", loaded.ProjectName);
-            Assert.Equal(SimulationPackage.PathFor(@"C:\x\HPP.plantcfg"), @"C:\x\HPP.plantsim");
+            Assert.Equal(@"C:\x\HPP.plantsim", SimulationPackage.PathFor(@"C:\x\HPP.plantcfg"));
         }
         finally
         {
@@ -263,6 +265,24 @@ public class ProcessModelTests
     [InlineData("=5", "=5")]
     public void PortBindingText_DropsDescriptions(string text, string expected) =>
         Assert.Equal(expected, CwcConfigurator.App.Simulation.PortRow.StripDescriptions(text));
+
+    [Fact]
+    public void Actuator_VariantHidesPortsAndOldModelsKeepTheirEquipment()
+    {
+        var info = ObjectCatalog.Find("Actuator")!;
+        var gate = Obj("Gate", "Actuator", new() { ["OpenCmd"] = "=1", ["Esd"] = "=0" }, new() { ["OpenTime"] = 10 });
+        Assert.DoesNotContain(info.Ports, port => port.Name == "Setpoint" && info.IsActive(port.ShownWhen, gate));   // Discrete: no AO
+        Assert.DoesNotContain(info.Ports, port => port.Name == "PowerOn" && info.IsActive(port.ShownWhen, gate));
+        Assert.DoesNotContain(info.Options, option => option.Name == "EsdActive" && info.IsActive(option.ShownWhen, gate));
+
+        var engine = Engine(gate);
+        Run(engine, 5);
+        Assert.InRange(engine.Find("Unit", "Gate")!.Value("Position"), 40, 55);   // opening; no ESD valve, so Esd "=0" is ignored
+
+        info.UpgradeSwitches(gate);                         // an older model with Esd connected keeps its ESD valve
+        Assert.Equal("Yes", gate.Options["EsdValve"]);
+        Assert.False(gate.Options.ContainsKey("PowerSupply"));
+    }
 
     [Fact]
     public void Model_RoundTripsThroughYaml()

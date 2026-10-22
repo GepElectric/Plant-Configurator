@@ -70,6 +70,7 @@ public static class ProcessModelStore
             item.Params = new Dictionary<string, double>(item.Params ?? [], StringComparer.OrdinalIgnoreCase);
             item.Tables = new Dictionary<string, List<double>>(item.Tables ?? [], StringComparer.OrdinalIgnoreCase);
             item.Ports = new Dictionary<string, string>((item.Ports ?? []).Where(pair => !string.IsNullOrWhiteSpace(pair.Value)), StringComparer.OrdinalIgnoreCase);
+            ObjectCatalog.Find(item.Type)?.UpgradeSwitches(item);
         }
 
         return model;

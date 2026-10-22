@@ -84,9 +84,34 @@
                            FontWeight="SemiBold" Margin="0,12,0,4" TextWrapping="Wrap"/>
                 <DataGrid x:Name="PortsGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="False"
                           HeadersVisibility="Column" GridLinesVisibility="Horizontal" MaxHeight="520">
+                    <DataGrid.RowStyle>
+                        <!-- inputs (from the PLC / other objects) blue, outputs (to the PLC / other objects) green -->
+                        <Style TargetType="DataGridRow">
+                            <Setter Property="Background" Value="#EFF6FF"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Direction}" Value="out">
+                                    <Setter Property="Background" Value="#ECFDF3"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="PORT" Width="150" Binding="{Binding Name}" IsReadOnly="True"/>
-                        <DataGridTextColumn Header="DIR" Width="40" Binding="{Binding Direction}" IsReadOnly="True"/>
+                        <DataGridTemplateColumn Header="DIR" Width="62" IsReadOnly="True">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="DirBadge" CornerRadius="3" Padding="5,1" Margin="2" Background="#1D4ED8" HorizontalAlignment="Left">
+                                        <TextBlock x:Name="DirText" Text="→ IN" Foreground="White" FontWeight="SemiBold" FontSize="11"/>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Direction}" Value="out">
+                                            <Setter TargetName="DirBadge" Property="Background" Value="#15803D"/>
+                                            <Setter TargetName="DirText" Property="Text" Value="OUT →"/>
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTextColumn Header="TYPE" Width="60" Binding="{Binding Kind}" IsReadOnly="True"/>
                         <DataGridTemplateColumn Header="BINDING" Width="420">
                             <DataGridTemplateColumn.CellTemplate>

@@ -121,8 +121,12 @@ public partial class ProgramView : UserControl
         NameBox.Text = config.Name;
         DescriptionBox.Text = config.Description;
         TypeText.Text = $"{info.Title} — {info.Description}";
-        OptionsList.ItemsSource = info.Options.Select(option => new OptionRow(option, config, Changed)).ToList();
+        // Only the options and ports of the chosen variant are shown (e.g. no Setpoint for OPEN/CLOSE control,
+        // no Esd without an ESD valve); hidden ports keep their binding but work as not connected.
+        OptionsList.ItemsSource = info.Options.Where(option => info.IsActive(option.ShownWhen, config))
+            .Select(option => new OptionRow(option, config, VariantChanged)).ToList();
         _ports = info.Ports
+            .Where(port => info.IsActive(port.ShownWhen, config))
             .OrderBy(port => port.Direction)
             .Select(port => new PortRow(port, config, BindingSuggestions.For(port, _plc, _controller), StructureChanged))
             .ToList();
@@ -133,6 +137,19 @@ public partial class ProgramView : UserControl
     }
 
     private void Changed() => _controller?.MarkDirty();
+
+    private void VariantChanged()
+    {
+        StructureChanged();
+        var config = _current;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (ReferenceEquals(config, _current))
+            {
+                ShowObject(config);
+            }
+        });
+    }
 
     private void StructureChanged()
     {

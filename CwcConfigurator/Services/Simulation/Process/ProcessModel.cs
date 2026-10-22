@@ -44,13 +44,26 @@ public enum PortType
     Analog
 }
 
-public sealed record PortDef(string Name, PortDirection Direction, PortType Type, string Description, double Default = 0, string Unit = "");
+public sealed record PortDef(string Name, PortDirection Direction, PortType Type, string Description, double Default = 0, string Unit = "")
+{
+    /// <summary>The port exists only in these variants; otherwise it is hidden and works as not connected (its default).</summary>
+    public ShownWhen? ShownWhen { get; init; }
+}
+
+/// <summary>Variant condition: option <paramref name="Option"/> has one of <paramref name="Values"/>.</summary>
+public sealed record ShownWhen(string Option, IReadOnlyList<string> Values);
 
 public sealed record ParamDef(string Name, double Default, string Unit, string Description);
 
 public sealed record OptionDef(string Name, IReadOnlyList<string> Values, string Description)
 {
     public string Default => Values[0];
+
+    /// <summary>The option is shown only in these variants.</summary>
+    public ShownWhen? ShownWhen { get; init; }
+
+    /// <summary>A "No"/"Yes" option that switches equipment (and its ports) on.</summary>
+    public bool IsSwitch => Values.Count == 2 && Values[0] == "No" && Values[1] == "Yes";
 }
 
 /// <summary>A characteristic given as X/Y points (e.g. nozzle stroke → flow), interpolated linearly between points.</summary>
@@ -69,6 +82,38 @@ public sealed record ObjectTypeInfo(
     IReadOnlyList<string> ScadaValues,
     Func<SimObject> Create)
 {
+    /// <summary>Value of an option of an object (the default when not set or unknown).</summary>
+    public string OptionValue(ObjectConfig config, string name)
+    {
+        var def = Options.FirstOrDefault(option => option.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (def is null)
+        {
+            return config.Options.TryGetValue(name, out var raw) ? raw : "";
+        }
+
+        return config.Options.TryGetValue(name, out var value) && def.Values.Contains(value, StringComparer.OrdinalIgnoreCase) ? value : def.Default;
+    }
+
+    /// <summary>The variant of <paramref name="config"/> has this port / option.</summary>
+    public bool IsActive(ShownWhen? when, ObjectConfig config) =>
+        when is null || when.Values.Contains(OptionValue(config, when.Option), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Older models: equipment switches ("No"/"Yes") that were added later are switched on when a port they show
+    /// is already connected, so the model keeps working the same.
+    /// </summary>
+    public void UpgradeSwitches(ObjectConfig config)
+    {
+        foreach (var option in Options.Where(option => option.IsSwitch && !config.Options.ContainsKey(option.Name)))
+        {
+            if (Ports.Any(port => port.ShownWhen?.Option.Equals(option.Name, StringComparison.OrdinalIgnoreCase) == true
+                                  && config.Ports.TryGetValue(port.Name, out var text) && !string.IsNullOrWhiteSpace(text)))
+            {
+                config.Options[option.Name] = "Yes";
+            }
+        }
+    }
+
     public PortDef? Port(string name) => Ports.FirstOrDefault(port => port.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 }
 

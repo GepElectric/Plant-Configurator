@@ -211,6 +211,14 @@ public partial class ScadaView : UserControl
         }
     }
 
+    /// <summary>A variant changes which inputs/outputs and options the object has: rebuild and show it again.</summary>
+    private void VariantChanged()
+    {
+        _controller?.Rebuild();
+        var name = _selected;
+        Dispatcher.BeginInvoke(() => ShowDetails(name));
+    }
+
     private void ShowDetails(string? name)
     {
         _selected = name;
@@ -232,9 +240,10 @@ public partial class ScadaView : UserControl
         TitleText.Text = instance.Name;
         SubtitleText.Text = string.IsNullOrWhiteSpace(instance.Config.Description) ? instance.Info.Title : $"{instance.Info.Title} — {instance.Config.Description}";
         ObjectPanel.Visibility = Visibility.Visible;
-        OptionsList.ItemsSource = instance.Info.Options.Select(option => new OptionRow(option, instance.Config, () => _controller?.MarkDirty())).ToList();
+        OptionsList.ItemsSource = instance.Info.Options.Where(option => instance.Info.IsActive(option.ShownWhen, instance.Config))
+            .Select(option => new OptionRow(option, instance.Config, VariantChanged)).ToList();
         ParamsGrid.ItemsSource = instance.Info.Params.Select(param => new ParamRow(param, instance.Config, () => _controller?.MarkDirty())).ToList();
-        _forces = instance.Info.Ports.Where(port => port.Direction == PortDirection.Output)
+        _forces = instance.Info.Ports.Where(port => port.Direction == PortDirection.Output && instance.Info.IsActive(port.ShownWhen, instance.Config))
             .Select(port => new ForceRow(port, instance, () => _tiles.GetValueOrDefault(instance.Name)?.Refresh(instance)))
             .ToList();
         ForcesGrid.ItemsSource = _forces;

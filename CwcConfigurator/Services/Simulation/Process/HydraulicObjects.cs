@@ -23,8 +23,12 @@ public sealed class ActuatorObject : SimObject
             Option("Command", "How the PLC commands the servo: OPEN/CLOSE outputs, AO position setpoint, AO speed command, or chosen by the AnalogMode input.",
                 "Discrete", "AnalogPosition", "AnalogSpeed", "Selectable"),
             Option("DiscreteStyle", "Maintained: moves only while OPEN/CLOSE is on. Pulse: a pulse starts the movement to the end position.",
-                "Maintained", "Pulse"),
-            Option("EsdActive", "Level of the Esd input that means ESD (Low = de-energised ESD valve).", "Low", "High")
+                "Maintained", "Pulse").When("Command", "Discrete", "Selectable"),
+            Has("EsdValve", "The servo has an ESD valve (Esd input). No = never ESD."),
+            Option("EsdActive", "Level of the Esd input that means ESD (Low = de-energised ESD valve).", "Low", "High").When("EsdValve", "Yes"),
+            Has("PowerSupply", "The servo has a switched supply / proportional valve enable (PowerOn input). No = always on."),
+            Has("FullyCloseCommand", "The PLC has a separate fully close / lock command (FullyClose input)."),
+            Has("OilPressureInput", "The servo pressure comes from an HPU object (OilPressure input). No = always available.")
         ],
         [
             Param("OpenTime", 30, "s", "Full stroke time when opening at nominal oil pressure."),
@@ -43,14 +47,14 @@ public sealed class ActuatorObject : SimObject
             Param("InitialPosition", 0, "%", "Position after reset.")
         ],
         [
-            BoolIn("OpenCmd", "OPEN command (DO)."),
-            BoolIn("CloseCmd", "CLOSE command (DO)."),
-            AnalogIn("Setpoint", "", "Position setpoint or speed command (AO)."),
-            BoolIn("AnalogMode", "Selectable: TRUE = analog setpoint, FALSE = OPEN/CLOSE."),
-            BoolIn("Esd", "ESD valve (DO). Not connected = no ESD valve."),
-            BoolIn("PowerOn", "Supply / proportional valve enable (DO). Not connected = always on.", true),
-            BoolIn("FullyClose", "Fully close / lock command (DO)."),
-            AnalogIn("OilPressure", "bar", "Hydraulic pressure (link from HPU). Not connected = always available."),
+            BoolIn("OpenCmd", "OPEN command (DO).").When("Command", "Discrete", "Selectable"),
+            BoolIn("CloseCmd", "CLOSE command (DO).").When("Command", "Discrete", "Selectable"),
+            AnalogIn("Setpoint", "", "Position setpoint or speed command (AO).").When("Command", "AnalogPosition", "AnalogSpeed", "Selectable"),
+            BoolIn("AnalogMode", "TRUE = analog setpoint, FALSE = OPEN/CLOSE.").When("Command", "Selectable"),
+            BoolIn("Esd", "ESD valve (DO).").When("EsdValve", "Yes"),
+            BoolIn("PowerOn", "Supply / proportional valve enable (DO).", true).When("PowerSupply", "Yes"),
+            BoolIn("FullyClose", "Fully close / lock command (DO).").When("FullyCloseCommand", "Yes"),
+            AnalogIn("OilPressure", "bar", "Hydraulic pressure (link from HPU).").When("OilPressureInput", "Yes"),
             AnalogOut("Position", "%", "Servo position."),
             BoolOut("Opened", "Fully open limit switch."),
             BoolOut("Closed", "Fully closed limit switch."),
@@ -208,7 +212,8 @@ public sealed class ValveObject : SimObject
                               "Pulse: OPEN/CLOSE pulses start a full movement. OpenClose: moves only while a command is on.",
                 "Maintained", "Pulse", "OpenClose"),
             Option("Characteristic", "Flow opening versus travel.", "Linear", "Butterfly", "Spherical"),
-            Option("EsdActive", "Level of the Esd input that means ESD.", "Low", "High")
+            Has("EsdValve", "The valve has an ESD / hold-open valve (Esd input). No = never ESD."),
+            Option("EsdActive", "Level of the Esd input that means ESD.", "Low", "High").When("EsdValve", "Yes")
         ],
         [
             Param("OpenTime", 90, "s", "Opening time."),
@@ -224,7 +229,7 @@ public sealed class ValveObject : SimObject
         [
             BoolIn("OpenCmd", "OPEN command (DO)."),
             BoolIn("CloseCmd", "CLOSE command (DO)."),
-            BoolIn("Esd", "ESD / hold-open valve (DO). Not connected = healthy."),
+            BoolIn("Esd", "ESD / hold-open valve (DO).").When("EsdValve", "Yes"),
             BoolIn("PumpRunning", "Opening needs the HPU pump running. Not connected = not required.", true),
             AnalogIn("OilPressure", "bar", "Hydraulic pressure (link from HPU)."),
             AnalogIn("UpstreamPressure", "bar", "Pressure before the valve (for the equalised permissive)."),

@@ -27,6 +27,11 @@ public static class ModelGenerator
         Unit(finder, model);
         Devices(finder, model);
         Feedbacks(finder, model);
+        foreach (var item in result.Objects)
+        {
+            ObjectCatalog.Find(item.Type)?.UpgradeSwitches(item);   // found ESD / supply signals switch that equipment on
+        }
+
         Layout(result.Objects, existing);
         if (result.Objects.Count == 0)
         {

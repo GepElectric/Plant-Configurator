@@ -21,6 +21,14 @@ internal static class Def
     public static OptionDef Option(string name, string description, params string[] values) =>
         new(name, values, description);
 
+    /// <summary>Port only in the variants where <paramref name="option"/> is one of <paramref name="values"/>.</summary>
+    public static PortDef When(this PortDef port, string option, params string[] values) => port with { ShownWhen = new(option, values) };
+
+    public static OptionDef When(this OptionDef def, string option, params string[] values) => def with { ShownWhen = new(option, values) };
+
+    /// <summary>"No"/"Yes" option that says whether a piece of equipment exists.</summary>
+    public static OptionDef Has(string name, string description) => new(name, ["No", "Yes"], description);
+
     public static IEnumerable<PortDef> Numbered(int count, Func<int, PortDef> create) =>
         Enumerable.Range(1, count).Select(create);
 }
