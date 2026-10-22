@@ -311,6 +311,16 @@ public static class BindingSuggestions
     public static List<string> For(PortDef port, string plc, SimulationController controller)
     {
         var list = new List<string>();
+        if (port.Direction == PortDirection.Input)
+        {
+            // Constants first, so they are found without scrolling past all signals.
+            list.Add(port.Type == PortType.Bool ? "=1" + PortRow.Separator + "constant TRUE" : "=0" + PortRow.Separator + "constant value (edit the number)");
+            if (port.Type == PortType.Bool)
+            {
+                list.Add("=0" + PortRow.Separator + "constant FALSE");
+            }
+        }
+
         var session = controller.Session(plc);
         if (session is not null)
         {
@@ -345,11 +355,6 @@ public static class BindingSuggestions
                 }
             }
 
-            list.Add(port.Type == PortType.Bool ? "=1" + PortRow.Separator + "constant TRUE" : "=0" + PortRow.Separator + "constant value (edit the number)");
-            if (port.Type == PortType.Bool)
-            {
-                list.Add("=0" + PortRow.Separator + "constant FALSE");
-            }
         }
 
         return list;

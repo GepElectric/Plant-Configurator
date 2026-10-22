@@ -771,11 +771,25 @@ public partial class SimulatorWindow : Window
         }
     }
 
-    private void HoldAnalog(SimulatorSignal signal)
+    /// <summary>While SET is held, the typed value is sent as soon as it is a valid number (no Enter needed).</summary>
+    private void AnalogBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is SimulatorSignal { ForceValueOn: true } signal)
+        {
+            HoldAnalog(signal, releaseOnError: false);
+        }
+    }
+
+    private void HoldAnalog(SimulatorSignal signal, bool releaseOnError = true)
     {
         var text = signal.SetText.Trim().Replace(',', '.');
         if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
         {
+            if (!releaseOnError)
+            {
+                return;
+            }
+
             signal.ForceValueOn = false;
             StatusText.Text = $"'{signal.SetText}' is not a number.";
             return;
@@ -789,6 +803,12 @@ public partial class SimulatorWindow : Window
             var exactRaw = useRaw ? Math.Round(number) : signal.Scaling!.ToRawExact(number);
             if (double.IsNaN(exactRaw) || exactRaw < short.MinValue || exactRaw > short.MaxValue)
             {
+                if (!releaseOnError)
+                {
+                    StatusText.Text = $"{signal.SetText} is outside the measuring range {signal.ScalingText}; still holding the previous value.";
+                    return;
+                }
+
                 signal.ForceValueOn = false;
                 StatusText.Text = $"{signal.SetText} cannot be held: the raw value would be {exactRaw:0}, outside −32768…32767. The measuring range is {signal.ScalingText}.";
                 return;
