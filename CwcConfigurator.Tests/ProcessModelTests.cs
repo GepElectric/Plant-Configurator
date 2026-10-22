@@ -89,14 +89,15 @@ public class ProcessModelTests
         var engine = Engine(Obj("Reservoir", "Reservoir", parameters: new()
         {
             ["Area"] = 500, ["InitialLevel"] = 5, ["SpillwayCrest"] = 5, ["SpillwayWidth"] = 10, ["RiverInflow"] = 10
-        }, ports: new() { ["Unit1Flow"] = "=2" }));
+            , ["Outlet1Capacity"] = 2
+        }, ports: new() { ["Outlet1"] = "=100" }));
         var reservoir = engine.Find("Unit", "Reservoir")!;
 
         Run(engine, 3600, 0.5);
 
         // Spill = 1.7·10·h^1.5 = 10 − 2 → h ≈ 0.60 m above the crest.
         Assert.Equal(8, reservoir.Value("Spill"), 1);
-        Assert.InRange(reservoir.Value("Depth"), 5.55, 5.65);
+        Assert.InRange(reservoir.Value("Level"), 5.55, 5.65);
     }
 
     [Fact]
@@ -104,14 +105,13 @@ public class ProcessModelTests
     {
         var engine = Engine(
             Obj("Gate1", "Valve", new() { ["OpenCmd"] = "=1" }, new() { ["OpenTime"] = 10 }, new() { ["Command"] = "OpenClose" }),
-            Obj("Reservoir", "Reservoir", new() { ["Gate1Opening"] = "@Gate1.Opening" }, new() { ["Area"] = 2000, ["RiverInflow"] = 1, ["InitialLevel"] = 4 },
-                new() { ["Gates"] = "1" }));
+            Obj("Reservoir", "Reservoir", new() { ["Outlet1"] = "@Gate1.Position" }, new() { ["Area"] = 2000, ["RiverInflow"] = 1, ["InitialLevel"] = 4, ["Outlet1Capacity"] = 20 }));
 
         Run(engine, 120);
 
         var reservoir = engine.Find("Unit", "Reservoir")!;
-        Assert.True(reservoir.Value("GateFlow") > 10);
-        Assert.True(reservoir.Value("Depth") < 3.6);
+        Assert.True(reservoir.Value("Outflow") > 10);
+        Assert.True(reservoir.Value("Level") < 3.6);
     }
 
     [Fact]
@@ -194,15 +194,15 @@ public class ProcessModelTests
     {
         var models = new Dictionary<string, ProcessModel>
         {
-            ["Common"] = new() { Objects = [Obj("Reservoir", "Reservoir", new() { ["Unit1Flow"] = "@Unit 1/Flow.Out" }, new() { ["RiverInflow"] = 0, ["Area"] = 100, ["InitialLevel"] = 4 })] },
-            ["Unit 1"] = new() { Objects = [Obj("Flow", "Signal", parameters: new() { ["Value"] = 1 }), Obj("Penstock", "Penstock", new() { ["ReservoirLevel"] = "@Common/Reservoir.Level" })] }
+            ["Common"] = new() { Objects = [Obj("Reservoir", "Reservoir", new() { ["Outlet1"] = "@Unit 1/Flow.Out" }, new() { ["RiverInflow"] = 0, ["Area"] = 100, ["InitialLevel"] = 4, ["Outlet1Capacity"] = 1 })] },
+            ["Unit 1"] = new() { Objects = [Obj("Flow", "Signal", parameters: new() { ["Value"] = 100 }), Obj("Penstock", "Penstock", new() { ["ReservoirLevel"] = "@Common/Reservoir.Level" })] }
         };
         var engine = new ProcessEngine(models);
 
         Run(engine, 100);
 
         Assert.Empty(engine.Problems);
-        Assert.Equal(3, engine.Find("Common", "Reservoir")!.Value("Depth"), 1);           // 4 m − 1 m³/s · 100 s / 100 m²
+        Assert.Equal(3, engine.Find("Common", "Reservoir")!.Value("Level"), 1);           // 4 m − 1 m³/s · 100 s / 100 m²
         Assert.Equal(3, engine.Find("Unit 1", "Penstock")!.Value("GrossHead"), 1);
     }
 
@@ -339,9 +339,11 @@ public class ProcessModelTests
     [Fact]
     public void OldModel_ConnectedPortsSwitchTheirVariantOn()
     {
-        var reservoir = Obj("Reservoir", "Reservoir", new() { ["Unit3Flow"] = "@U3.Flow", ["RiverInflow"] = "AI:4" });
+        var reservoir = Obj("Reservoir", "Reservoir", new() { ["Gate2Opening"] = "@G2.Position", ["RiverInflow"] = "AI:4" }, new() { ["Gate2Capacity"] = 7 });
+        ReservoirObject.Migrate(reservoir);
         ObjectCatalog.Find("Reservoir")!.UpgradeSwitches(reservoir);
-        Assert.Equal("3", reservoir.Options["Units"]);
+        Assert.Equal("@G2.Position", reservoir.Ports["Outlet1"]);
+        Assert.Equal(7, reservoir.Params["Outlet1Capacity"]);
         Assert.Equal("Yes", reservoir.Options["RiverInflowInput"]);
     }
 
@@ -364,7 +366,7 @@ public class ProcessModelTests
                 Objects =
                 [
                     Obj("Bus", "Busbar"),
-                    Obj("Q1", "Disconnector", new() { ["Supply"] = "@Bus.Live" }, new() { ["TravelTime"] = 2 }, new() { ["MotorDrive"] = "Yes" }),
+                    Obj("Q1", "Disconnector", new() { ["Supply"] = "@Bus.Live" }),
                     Obj("E1", "EarthSwitch", new() { ["Supply"] = "@Q1.Live" }),
                     Obj("M1", "Motor", new() { ["Supply"] = "@E1.Live" })
                 ]
@@ -374,16 +376,15 @@ public class ProcessModelTests
         engine.Step(0.1, _ => null);
         Assert.Equal(1, engine.Find("Unit", "E1")!.Value("Live"));   // disconnector closed by default, not earthed
 
-        engine.Find("Unit", "Q1")!.Config.Ports["OpenCmd"] = "=1";
-        engine = new ProcessEngine(engine.Models, engine);
-        Run(engine, 3);                                              // OpenCmd: the disconnector opens in 2 s
+        engine.Find("Unit", "Q1")!.Config.Options["Position"] = "Open";   // opened on the SCADA
+        Run(engine, 3);
         Assert.Equal(1, engine.Find("Unit", "Q1")!.Value("Open"));
         Assert.Equal(0, engine.Find("Unit", "M1")!.Value("Running"));
 
         engine.Find("Unit", "E1")!.Config.Options["Position"] = "Earthed";
         Run(engine, 1);
         Assert.Equal(1, engine.Find("Unit", "E1")!.Value("Earthed"));
-        Assert.Equal(0, engine.Find("Unit", "E1")!.Value("Fault"));   // earthed after isolating: no fault
+        Assert.Equal(0, engine.Find("Unit", "E1")!.Value("Live"));
     }
 
     [Fact]
@@ -411,6 +412,17 @@ public class ProcessModelTests
         {
             File.Delete(path);
         }
+    }
+
+    [Fact]
+    public void PeltonTurbine_IsAnOutletOfTheReservoir()
+    {
+        var engine = Engine(
+            Obj("Turbine", "TurbineOpening", new() { ["Nozzle1"] = "=100", ["Nozzle2"] = "=50" }),
+            Obj("Reservoir", "Reservoir", new() { ["Outlet1"] = "@Turbine.Opening" }, new() { ["Outlet1Capacity"] = 1.6 }));
+        Run(engine, 1);
+        Assert.Equal(75, engine.Find("Unit", "Turbine")!.Value("Opening"), 3);
+        Assert.Equal(1.2, engine.Find("Unit", "Reservoir")!.Value("Outflow"), 3);
     }
 
     [Fact]
@@ -482,7 +494,7 @@ public class ProcessModelTests
         Assert.Equal("COUNTER:0", gate.Ports["Position"]);
         var reservoir = result.Objects.Single(item => item.Name == "Reservoir");
         Assert.Equal("AI:18", reservoir.Ports["Level"]);
-        Assert.Equal("@Gate1.Opening", reservoir.Ports["Gate1Opening"]);
+        Assert.Equal("@Gate1.Position", reservoir.Ports["Outlet1"]);
         Assert.Equal("DI:13", result.Objects.Single(item => item.Name == "HealthyContacts").Ports["Out"]);
         var echo = result.Objects.Single(item => item.Name == "Echo_DAM_PUMP");
         Assert.Equal("DO:54", echo.Ports["In1"]);

@@ -437,6 +437,7 @@ public static class ObjectCatalog
         ValveObject.TypeInfo,
         HpuObject.TypeInfo,
         ReservoirObject.TypeInfo,
+        TurbineOpeningObject.TypeInfo,
         PenstockObject.TypeInfo,
         TurbinePressureObject.TypeInfo,
         TurbineFlowObject.TypeInfo,

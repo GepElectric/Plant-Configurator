@@ -112,64 +112,61 @@ public partial class ScadaView
                     var live = On("Live");
                     _body.Children.Add(Shape(new Rectangle { Width = BusWidth, Height = 8, Fill = instance is null ? DeadBrush : live ? LiveBrush : DeadBrush }, 0, 26));
                     _state.Text = "";
-                    _name.Text = $"{Config.Name}   {(instance is null ? "" : live ? $"{Value(instance, Info.Type == "Busbar" ? "Voltage" : "U")} V" : "dead")}";
+                    _name.Text = $"{Config.Name}   {(instance is null ? "" : !live ? "dead" : Info.Type == "AuxSupply" ? $"{Value(instance, "U")} V" : "live")}";
                     return;
                 }
 
                 case "Mcb":
                 case "Contactor":
-                {
-                    var closed = On(Info.Type == "Mcb" ? "On" : "State");
-                    var tripped = Info.Type == "Mcb" && On("Tripped");
-                    _body.Children.Add(Segment(Center, 2, Center, 32, Wire("Supply")));
-                    _body.Children.Add(Segment(Center, 60, Center, 90, Wire("Live")));
-                    var box = new Rectangle
-                    {
-                        Width = 28,
-                        Height = 28,
-                        StrokeThickness = 2.5,
-                        Stroke = tripped ? TripBrush : closed ? ClosedBrush : OpenBrush,
-                        Fill = tripped ? TripBrush : closed ? ClosedBrush : Brushes.White
-                    };
-                    _body.Children.Add(Shape(box, Center - 14, 32));
-                    if (Info.Type == "Contactor")
-                    {
-                        _body.Children.Add(Shape(new TextBlock { Text = "K", FontWeight = FontWeights.Bold, Foreground = closed ? Brushes.White : OpenBrush }, Center - 4, 37));
-                    }
-
-                    _state.Text = tripped ? "TRIPPED" : closed ? (Info.Type == "Mcb" ? "ON" : "CLOSED") : (Info.Type == "Mcb" ? "OFF" : "OPEN");
-                    return;
-                }
-
                 case "Disconnector":
                 {
-                    var closed = On("Closed");
-                    var open = On("Open") || instance is null;
+                    // IEC 60617: switch blade from the lower contact; at the fixed (upper) contact a cross for a
+                    // circuit breaker, an arc for a contactor, a bar for a disconnector.
+                    var closed = On(Info.Type switch { "Mcb" => "On", "Contactor" => "State", _ => "Closed" });
+                    var tripped = Info.Type == "Mcb" && On("Tripped");
                     _body.Children.Add(Segment(Center, 2, Center, 30, Wire("Supply")));
                     _body.Children.Add(Segment(Center, 62, Center, 90, Wire("Live")));
-                    _body.Children.Add(Shape(new Ellipse { Width = 6, Height = 6, Fill = Brushes.Black }, Center - 3, 27));
-                    _body.Children.Add(closed
-                        ? Segment(Center, 30, Center, 62, ClosedBrush, 3)
-                        : Segment(Center, 62, Center + 16, 34, open ? OpenBrush : TripBrush, 3));
-                    _state.Text = closed ? "CLOSED" : open ? "OPEN" : "MOVING";
+                    _body.Children.Add(Blade(closed, tripped ? TripBrush : closed ? ClosedBrush : OpenBrush));
+                    var marker = closed ? ClosedBrush : tripped ? TripBrush : OpenBrush;
+                    switch (Info.Type)
+                    {
+                        case "Mcb":
+                            _body.Children.Add(Segment(Center - 5, 25, Center + 5, 35, marker, 2));
+                            _body.Children.Add(Segment(Center - 5, 35, Center + 5, 25, marker, 2));
+                            break;
+                        case "Contactor":
+                            _body.Children.Add(Arc(Center, 30, marker));
+                            break;
+                        default:
+                            _body.Children.Add(Segment(Center - 6, 30, Center + 6, 30, marker, 2));
+                            break;
+                    }
+
+                    _state.Text = Info.Type switch
+                    {
+                        "Mcb" => tripped ? "TRIPPED" : closed ? "ON" : "OFF",
+                        _ => closed ? "CLOSED" : "OPEN"
+                    };
                     return;
                 }
 
                 case "EarthSwitch":
                 {
+                    // Line passes straight through; the earthing disconnector branches off to the earth symbol.
                     var earthed = On("Earthed");
-                    var free = On("NotEarthed") || instance is null;
+                    var brush = earthed ? ClosedBrush : OpenBrush;
                     _body.Children.Add(Segment(Center, 2, Center, 90, Wire("Supply")));
-                    _body.Children.Add(Segment(Center, 46, Center + 20, 46, earthed ? ClosedBrush : DeadBrush));
+                    _body.Children.Add(Segment(Center, 40, Center + 22, 40, Wire("Supply"), 2));
+                    _body.Children.Add(Segment(Center + 16, 40, Center + 28, 40, brush, 2));
                     _body.Children.Add(earthed
-                        ? Segment(Center + 20, 46, Center + 20, 64, ClosedBrush, 3)
-                        : Segment(Center + 20, 64, Center + 32, 50, free ? OpenBrush : TripBrush, 3));
-                    for (var i = 0; i < 3; i++)
+                        ? Segment(Center + 22, 40, Center + 22, 66, brush, 3)
+                        : Segment(Center + 22, 66, Center + 36, 46, brush, 3));
+                    for (var k = 0; k < 3; k++)
                     {
-                        _body.Children.Add(Segment(Center + 20 - (10 - i * 3), 66 + i * 4, Center + 20 + (10 - i * 3), 66 + i * 4, Brushes.Black, 1.5));
+                        _body.Children.Add(Segment(Center + 22 - (10 - k * 3), 68 + k * 4, Center + 22 + (10 - k * 3), 68 + k * 4, Brushes.Black, 1.5));
                     }
 
-                    _state.Text = earthed ? (On("Fault") ? "EARTHED – FAULT" : "EARTHED") : free ? "NOT EARTHED" : "MOVING";
+                    _state.Text = earthed ? "EARTHED" : "NOT EARTHED";
                     return;
                 }
 
@@ -191,6 +188,18 @@ public partial class ScadaView
                 }
             }
         }
+
+        /// <summary>Switch blade: closed = straight to the fixed contact, open = turned aside.</summary>
+        private static Line Blade(bool closed, Brush brush) =>
+            closed ? Segment(Center, 62, Center, 30, brush, 3) : Segment(Center, 62, Center + 17, 34, brush, 3);
+
+        /// <summary>Contactor contact: half circle at the fixed contact.</summary>
+        private static Path Arc(double x, double y, Brush brush) => new()
+        {
+            Stroke = brush,
+            StrokeThickness = 2,
+            Data = new PathGeometry([new PathFigure(new Point(x - 6, y), [new ArcSegment(new Point(x + 6, y), new Size(6, 6), 0, false, SweepDirection.Clockwise, true)], false)])
+        };
 
         private static string Value(SimObject instance, string port) =>
             instance.Value(port).ToString(Math.Abs(instance.Value(port)) >= 100 ? "0" : "0.#", System.Globalization.CultureInfo.InvariantCulture);

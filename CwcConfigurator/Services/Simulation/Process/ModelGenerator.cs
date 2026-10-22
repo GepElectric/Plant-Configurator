@@ -103,11 +103,11 @@ public static class ModelGenerator
         {
             if (model.Exists($"Gate{n}"))
             {
-                model.Port(reservoir, $"Gate{n}Opening", $"@Gate{n}.Opening");
+                model.Port(reservoir, $"Outlet{n}", $"@Gate{n}.Position");
             }
         }
 
-        model.Note("Reservoir: link each unit's turbine flow to Unit1Flow…Unit8Flow (e.g. @Unit 1/Flow.Flow).");
+        model.Note("Reservoir: every gate and unit is an outlet (opening %); link a unit through a Turbine opening object and set the outlet capacity.");
     }
 
     private static void Unit(Finder find, Builder model)

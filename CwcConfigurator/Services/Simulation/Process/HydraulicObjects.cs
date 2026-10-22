@@ -28,22 +28,23 @@ public sealed class ActuatorObject : SimObject
             Option("EsdActive", "Level of the Esd input that means ESD (Low = de-energised ESD valve).", "Low", "High").When("EsdValve", "Yes"),
             Has("PowerSupply", "The servo has a switched supply / proportional valve enable (PowerOn input). No = always on."),
             Has("FullyCloseCommand", "The PLC has a separate fully close / lock command (FullyClose input)."),
-            Has("OilPressureInput", "The servo pressure comes from an HPU object (OilPressure input). No = always available.")
+            Has("OilPressureInput", "The servo pressure comes from an HPU object (OilPressure input). No = always available."),
+            Has("MoreOutputs", "Also the Intermediate switch and the servo speed.")
         ],
         [
             Param("OpenTime", 30, "s", "Full stroke time when opening at nominal oil pressure."),
             Param("CloseTime", 30, "s", "Full stroke time when closing at nominal oil pressure."),
-            Param("EsdCloseTime", 10, "s", "Full stroke time when the ESD valve closes the servo."),
+            Param("EsdCloseTime", 10, "s", "Full stroke time when the ESD valve closes the servo.").When("EsdValve", "Yes"),
             Param("AccelTime", 0.4, "s", "Time constant of the servo speed (start/stop is not instantaneous)."),
-            Param("PositionTau", 0.6, "s", "AnalogPosition: time constant of following the setpoint."),
-            Param("Deadband", 0, "%", "Analog modes: setpoint/speed deadband."),
-            Param("MinPressure", 20, "bar", "Oil pressure below which the servo cannot move (only if OilPressure is connected)."),
-            Param("NominalPressure", 80, "bar", "Oil pressure at which the stroke times apply."),
-            Param("SetpointMin", 0, "", "AO value that means 0 % (AnalogPosition) or −100 % speed (AnalogSpeed)."),
-            Param("SetpointMax", 100, "", "AO value that means 100 % (AnalogPosition) or +100 % speed (AnalogSpeed)."),
+            Param("PositionTau", 0.6, "s", "Time constant of following the setpoint.").When("Command", "AnalogPosition", "Selectable"),
+            Param("Deadband", 0, "%", "Setpoint/speed deadband.").When("Command", "AnalogPosition", "AnalogSpeed", "Selectable"),
+            Param("MinPressure", 20, "bar", "Oil pressure below which the servo cannot move.").When("OilPressureInput", "Yes"),
+            Param("NominalPressure", 80, "bar", "Oil pressure at which the stroke times apply.").When("OilPressureInput", "Yes"),
+            Param("SetpointMin", 0, "", "AO value that means 0 % (AnalogPosition) or −100 % speed (AnalogSpeed).").When("Command", "AnalogPosition", "AnalogSpeed", "Selectable"),
+            Param("SetpointMax", 100, "", "AO value that means 100 % (AnalogPosition) or +100 % speed (AnalogSpeed).").When("Command", "AnalogPosition", "AnalogSpeed", "Selectable"),
             Param("OpenedAt", 99.5, "%", "Opened limit switch."),
             Param("ClosedAt", 0.5, "%", "Closed limit switch."),
-            Param("IntermediateAt", 50, "%", "Intermediate position switch (on at or above)."),
+            Param("IntermediateAt", 50, "%", "Intermediate position switch (on at or above).").When("MoreOutputs", "Yes"),
             Param("InitialPosition", 0, "%", "Position after reset.")
         ],
         [
@@ -58,12 +59,12 @@ public sealed class ActuatorObject : SimObject
             AnalogOut("Position", "%", "Servo position."),
             BoolOut("Opened", "Fully open limit switch."),
             BoolOut("Closed", "Fully closed limit switch."),
-            BoolOut("Intermediate", "Intermediate position switch."),
             BoolOut("Moving", "Servo is moving (consumes oil)."),
-            AnalogOut("Speed", "%/s", "Servo speed.")
+            BoolOut("Intermediate", "Intermediate position switch.").When("MoreOutputs", "Yes"),
+            AnalogOut("Speed", "%/s", "Servo speed.").When("MoreOutputs", "Yes")
         ],
         [],
-        ["Position", "Speed"],
+        ["Position"],
         () => new ActuatorObject());
 
     public override void Reset()
@@ -211,40 +212,42 @@ public sealed class ValveObject : SimObject
             Option("Command", "Maintained: opens while OpenCmd is on and closes when it drops (fail-close, like an MIV). " +
                               "Pulse: OPEN/CLOSE pulses start a full movement. OpenClose: moves only while a command is on.",
                 "Maintained", "Pulse", "OpenClose"),
-            Option("Characteristic", "Flow opening versus travel.", "Linear", "Butterfly", "Spherical"),
             Has("EsdValve", "The valve has an ESD / hold-open valve (Esd input). No = never ESD."),
-            Option("EsdActive", "Level of the Esd input that means ESD.", "Low", "High").When("EsdValve", "Yes")
+            Option("EsdActive", "Level of the Esd input that means ESD.", "Low", "High").When("EsdValve", "Yes"),
+            Has("Interlocks", "Opening needs oil pressure, a running pump or equalised pressure (extra inputs)."),
+            Has("MoreOutputs", "Also Intermediate, Opening (through the valve characteristic) and the open / close movement outputs."),
+            Option("Characteristic", "Flow opening versus travel.", "Linear", "Butterfly", "Spherical").When("MoreOutputs", "Yes")
         ],
         [
             Param("OpenTime", 90, "s", "Opening time."),
             Param("CloseTime", 40, "s", "Closing time."),
             Param("AccelTime", 0.5, "s", "Time constant of start/stop of the movement."),
-            Param("MinPressure", 0, "bar", "Oil pressure needed to open (0 = not required)."),
-            Param("EqualisedPercent", 0, "%", "Downstream pressure needed as % of upstream before opening (0 = not checked)."),
+            Param("MinPressure", 0, "bar", "Oil pressure needed to open (0 = not required).").When("Interlocks", "Yes"),
+            Param("EqualisedPercent", 0, "%", "Downstream pressure needed as % of upstream before opening (0 = not checked).").When("Interlocks", "Yes"),
             Param("OpenedAt", 99.9, "%", "Open limit switch."),
             Param("ClosedAt", 0.1, "%", "Closed limit switch."),
-            Param("IntermediateAt", 94.44, "%", "Intermediate switch (e.g. MIV 85° of 90°)."),
+            Param("IntermediateAt", 94.44, "%", "Intermediate switch (e.g. MIV 85° of 90°).").When("MoreOutputs", "Yes"),
             Param("InitialPosition", 0, "%", "Position after reset.")
         ],
         [
             BoolIn("OpenCmd", "OPEN command (DO)."),
             BoolIn("CloseCmd", "CLOSE command (DO)."),
             BoolIn("Esd", "ESD / hold-open valve (DO).").When("EsdValve", "Yes"),
-            BoolIn("PumpRunning", "Opening needs the HPU pump running. Not connected = not required.", true),
-            AnalogIn("OilPressure", "bar", "Hydraulic pressure (link from HPU)."),
-            AnalogIn("UpstreamPressure", "bar", "Pressure before the valve (for the equalised permissive)."),
-            AnalogIn("DownstreamPressure", "bar", "Pressure after the valve."),
-            AnalogOut("Position", "%", "Valve travel."),
-            AnalogOut("Opening", "%", "Flow opening (travel through the valve characteristic)."),
+            BoolIn("PumpRunning", "Opening needs the HPU pump running. Not connected = not required.", true).When("Interlocks", "Yes"),
+            AnalogIn("OilPressure", "bar", "Hydraulic pressure (link from HPU).").When("Interlocks", "Yes"),
+            AnalogIn("UpstreamPressure", "bar", "Pressure before the valve (for the equalised permissive).").When("Interlocks", "Yes"),
+            AnalogIn("DownstreamPressure", "bar", "Pressure after the valve.").When("Interlocks", "Yes"),
+            AnalogOut("Position", "%", "Valve / gate position."),
             BoolOut("Open", "Open limit switch."),
             BoolOut("Closed", "Closed limit switch."),
-            BoolOut("Intermediate", "Intermediate switch."),
             BoolOut("Moving", "Valve is moving."),
-            BoolOut("OpenMoving", "Moving in the open direction (open contactor)."),
-            BoolOut("CloseMoving", "Moving in the close direction (close contactor).")
+            BoolOut("Intermediate", "Intermediate switch.").When("MoreOutputs", "Yes"),
+            AnalogOut("Opening", "%", "Flow opening (travel through the valve characteristic).").When("MoreOutputs", "Yes"),
+            BoolOut("OpenMoving", "Moving in the open direction (open contactor).").When("MoreOutputs", "Yes"),
+            BoolOut("CloseMoving", "Moving in the close direction (close contactor).").When("MoreOutputs", "Yes")
         ],
         [],
-        ["Position", "Opening"],
+        ["Position"],
         () => new ValveObject());
 
     public override void Reset()

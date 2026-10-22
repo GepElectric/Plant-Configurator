@@ -807,20 +807,8 @@ public partial class ScadaView : UserControl
 
         public void SetGeometry(Point start, Point end)
         {
-            var figure = new PathFigure { StartPoint = start };
-            if (Orthogonal)
-            {
-                // SLD: down from the source, across, down into the target.
-                var middle = start.Y + Math.Max(10, (end.Y - start.Y) / 2);
-                figure.Segments.Add(new PolyLineSegment([new Point(start.X, middle), new Point(end.X, middle), end], true));
-            }
-            else
-            {
-                var bend = Math.Max(40, Math.Abs(end.X - start.X) / 2);
-                figure.Segments.Add(new BezierSegment(new Point(start.X + bend, start.Y), new Point(end.X - bend, end.Y), end, true));
-            }
-
-            var geometry = new PathGeometry([figure]);
+            // Straight line from pin to pin.
+            var geometry = new PathGeometry([new PathFigure(start, [new LineSegment(end, true)], false)]);
             Path.Data = geometry;
             Hit.Data = geometry;
         }

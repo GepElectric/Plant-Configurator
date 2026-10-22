@@ -75,6 +75,11 @@ public static class ProcessModelStore
             item.Group = string.IsNullOrWhiteSpace(item.Group) ? null : item.Group.Trim();
             item.Screen = string.IsNullOrWhiteSpace(item.Screen) ? null : item.Screen.Trim();
             item.Views = item.Views?.Where(view => !string.IsNullOrWhiteSpace(view.Screen)).ToList() is { Count: > 0 } views ? views : null;
+            if (item.Type.Equals("Reservoir", StringComparison.OrdinalIgnoreCase))
+            {
+                ReservoirObject.Migrate(item);
+            }
+
             ObjectCatalog.Find(item.Type)?.UpgradeSwitches(item);
         }
 

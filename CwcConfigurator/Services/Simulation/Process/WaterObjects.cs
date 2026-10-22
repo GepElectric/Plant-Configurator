@@ -9,82 +9,127 @@ namespace CwcConfigurator.Services.Simulation.Process;
 /// </summary>
 public sealed class ReservoirObject : SimObject
 {
-    private const int Units = 8;
-    private const int Gates = 4;
+    private const int Outlets = 6;
     private double _level;
 
     public static ObjectTypeInfo TypeInfo { get; } = new(
         "Reservoir", "Reservoir / intake level", "Waterway",
-        "Water level = integral of (river inflow - unit flows - gates/flaps - spillway) / area. Above the spillway crest the " +
-        "spill grows with the height over the crest until it takes the surplus and the level settles.",
+        "Water level = integral of (river inflow − outflow through the outlets − spillway) / area. Every outlet is an " +
+        "opening: a gate / flap position or the opening of a unit's turbine. Above the spillway crest the spill grows " +
+        "until it takes the surplus and the level settles.",
         [
-            Has("RiverInflowInput", "River inflow from a link, e.g. a Signal source (step, ramp, sine) to test the level control. No = parameter RiverInflow."),
-            Count("Units", "Units whose flow is taken from the reservoir.", 0, Units, 1),
-            Count("Gates", "Intake gates / flaps that let water out of the reservoir (extra outflow).", 0, Gates, 0)
+            Count("Outlets", "Gates, flaps and units that take water from the reservoir.", 1, Outlets, 2),
+            Has("RiverInflowInput", "River inflow from a link, e.g. a Signal source (step, ramp, sine) to test the level control. No = parameter RiverInflow.")
         ],
         [
-            Param("Area", 2000, "m²", "Water surface of the reservoir / forebay."),
-            Param("SpillwayCrest", 5, "m", "Level of the spillway crest (same scale as Level)."),
-            Param("SpillwayWidth", 10, "m", "Spillway width: spill = 1.7 · width · (level - crest)^1.5."),
+            Param("Area", 2000, "m²", "Water surface of the reservoir."),
+            Param("SpillwayCrest", 5, "m", "Level of the spillway crest."),
+            Param("SpillwayWidth", 10, "m", "Spillway width: spill = 1.7 · width · (level − crest)^1.5."),
             Param("InitialLevel", 4, "m", "Level after reset."),
-            Param("BottomLevel", 0, "m", "Level of the bottom / intake sill: the level cannot fall below it."),
             Param("RiverInflow", 0.8, "m³/s", "River inflow.").When("RiverInflowInput", "No"),
-            .. Enumerable.Range(1, Gates).Select(i => Param($"Gate{i}Capacity", 20, "m³/s", $"Gate/flap {i}: discharge fully open with the level at the spillway crest.")
-                .When("Gates", AtLeast(i, Gates))),
-            Param("LowLevel", 2, "m", "Level low switch."),
-            Param("HighLevel", 5.2, "m", "Level high switch.")
+            .. Enumerable.Range(1, Outlets).Select(i => Param($"Outlet{i}Capacity", 2, "m³/s", $"Flow through outlet {i} fully open.")
+                .When("Outlets", AtLeast(i, Outlets)))
         ],
         [
-            AnalogIn("RiverInflow", "m³/s", "River inflow (link, e.g. @RiverFlow.Out from a Signal source).").When("RiverInflowInput", "Yes"),
-            .. Numbered(Units, i => AnalogIn($"Unit{i}Flow", "m³/s", $"Turbine flow of unit {i} (link, e.g. @Unit {i}/Flow.Flow).").When("Units", AtLeast(i, Units))),
-            .. Numbered(Gates, i => AnalogIn($"Gate{i}Opening", "%", $"Opening of intake gate / flap {i} (link from a valve or actuator).").When("Gates", AtLeast(i, Gates))),
-            AnalogIn("OtherOutflow", "m³/s", "Any other outflow."),
+            AnalogIn("RiverInflow", "m³/s", "River inflow (link, e.g. @River.Out from a Signal source).").When("RiverInflowInput", "Yes"),
+            .. Numbered(Outlets, i => AnalogIn($"Outlet{i}", "%", $"Opening of outlet {i}: gate / flap position or turbine opening (e.g. @Gate{i}.Position, @Turbine.Opening).")
+                .When("Outlets", AtLeast(i, Outlets))),
             AnalogOut("Level", "m", "Water level."),
-            AnalogOut("Depth", "m", "Level above the bottom."),
             AnalogOut("Inflow", "m³/s", "River inflow."),
-            AnalogOut("TurbineFlow", "m³/s", "Sum of the unit flows."),
-            AnalogOut("GateFlow", "m³/s", "Discharge through the gates / flaps."),
-            AnalogOut("Spill", "m³/s", "Spillway discharge."),
-            BoolOut("LevelLow", "Level low."),
-            BoolOut("LevelHigh", "Level high.")
+            AnalogOut("Outflow", "m³/s", "Flow through the outlets."),
+            AnalogOut("Spill", "m³/s", "Spillway discharge.")
         ],
         [],
-        ["Level", "Inflow", "TurbineFlow", "Spill"],
+        ["Level", "Inflow", "Outflow", "Spill"],
         () => new ReservoirObject());
+
+    /// <summary>Older models: gate openings and their capacities become outlets.</summary>
+    public static void Migrate(ObjectConfig config)
+    {
+        var outlet = 0;
+        for (var gate = 1; gate <= 4; gate++)
+        {
+            if (!config.Ports.Remove($"Gate{gate}Opening", out var text))
+            {
+                continue;
+            }
+
+            outlet++;
+            config.Ports[$"Outlet{outlet}"] = text;
+            if (config.Params.Remove($"Gate{gate}Capacity", out var capacity))
+            {
+                config.Params[$"Outlet{outlet}Capacity"] = capacity;
+            }
+        }
+
+        if (outlet > 0)
+        {
+            config.Options["Outlets"] = Math.Max(outlet, 1).ToString();
+        }
+
+        config.Options.Remove("Gates");
+        config.Options.Remove("Units");
+        if (config.Params.Remove("InitialDepth", out var depth))
+        {
+            config.Params.TryAdd("InitialLevel", depth);
+        }
+    }
 
     public override void Reset()
     {
-        _level = Math.Max(P("BottomLevel"), P("InitialLevel"));
-        Publish(Inflow(), 0, 0, 0);
+        _level = Math.Max(0, P("InitialLevel"));
+        Publish(Inflow(), 0, 0);
     }
 
     public override void Step(double dt)
     {
         var inflow = Inflow();
-        var bottom = P("BottomLevel");
+        var count = int.TryParse(Opt("Outlets"), out var value) ? value : 2;
+        var outflow = Enumerable.Range(1, count).Sum(i => P($"Outlet{i}Capacity") * SimMath.Clamp(In($"Outlet{i}"), 0, 100) / 100);
         var crest = P("SpillwayCrest");
-        var turbines = Enumerable.Range(1, Units).Sum(i => Math.Max(0, In($"Unit{i}Flow")));
-        // Gate discharge grows with the square root of the water depth over the sill; the capacity applies at the crest.
-        var depthFactor = Math.Sqrt(Math.Max(0, _level - bottom) / Math.Max(0.1, crest - bottom));
-        var gates = Enumerable.Range(1, Gates).Sum(i => P($"Gate{i}Capacity") * SimMath.Clamp(In($"Gate{i}Opening"), 0, 100) / 100) * depthFactor;
         var spill = _level > crest ? 1.7 * Math.Max(0, P("SpillwayWidth")) * Math.Pow(_level - crest, 1.5) : 0;
-        var outflow = turbines + gates + spill + Math.Max(0, In("OtherOutflow"));
-        _level = Math.Max(bottom, _level + (inflow - outflow) / Math.Max(1, P("Area")) * dt);
-        Publish(inflow, turbines, gates, spill);
+        _level = Math.Max(0, _level + (inflow - outflow - spill) / Math.Max(1, P("Area")) * dt);
+        Publish(inflow, outflow, spill);
     }
 
     private double Inflow() => Math.Max(0, OptIs("RiverInflowInput", "Yes") ? In("RiverInflow") : P("RiverInflow"));
 
-    private void Publish(double inflow, double turbines, double gates, double spill)
+    private void Publish(double inflow, double outflow, double spill)
     {
         Out("Level", _level);
-        Out("Depth", _level - P("BottomLevel"));
         Out("Inflow", inflow);
-        Out("TurbineFlow", turbines);
-        Out("GateFlow", gates);
+        Out("Outflow", outflow);
         Out("Spill", spill);
-        Out("LevelLow", _level <= P("LowLevel"));
-        Out("LevelHigh", _level >= P("HighLevel"));
+    }
+}
+
+/// <summary>
+/// Total opening of a Pelton turbine from its nozzle positions, so the unit can be treated like one gate
+/// (e.g. as a reservoir outlet).
+/// </summary>
+public sealed class TurbineOpeningObject : SimObject
+{
+    private const int Nozzles = 6;
+
+    public static ObjectTypeInfo TypeInfo { get; } = new(
+        "TurbineOpening", "Turbine opening (Pelton)", "Turbine",
+        "Total opening of a Pelton turbine = average of its nozzle positions; use it like a gate (e.g. a reservoir outlet).",
+        [
+            Count("Nozzles", "Number of nozzles.", 1, Nozzles, 2)
+        ],
+        [],
+        [
+            .. Numbered(Nozzles, i => AnalogIn($"Nozzle{i}", "%", $"Position of nozzle {i} (link, e.g. @Nozzle{i}.Position).").When("Nozzles", AtLeast(i, Nozzles))),
+            AnalogOut("Opening", "%", "Total turbine opening.")
+        ],
+        [],
+        ["Opening"],
+        () => new TurbineOpeningObject());
+
+    public override void Step(double dt)
+    {
+        var count = int.TryParse(Opt("Nozzles"), out var value) ? value : 2;
+        Out("Opening", Enumerable.Range(1, count).Average(i => SimMath.Clamp(In($"Nozzle{i}"), 0, 100)));
     }
 }
 
