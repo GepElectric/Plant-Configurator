@@ -11,25 +11,35 @@ public sealed class BusbarObject : SimObject
 {
     public static ObjectTypeInfo TypeInfo { get; } = new(
         "Busbar", "Busbar", "Electrical",
-        "Busbar of a distribution: live when a supply is live. Feeders take @Busbar.Live as their Supply.",
+        "Busbar of a distribution: live when a supply is live. Every outgoing feeder has its own output (Feeder1, Feeder2, …).",
         [
-            Count("Supplies", "Number of incoming supplies (any live supply makes the busbar live).", 1, 3, 1)
+            Count("Supplies", "Number of incoming supplies (any live supply makes the busbar live).", 1, 3, 1),
+            Count("Feeders", "Number of outgoing feeders.", 1, Feeders, 4)
         ],
         [],
         [
             BoolIn("Supply1", "Incoming supply 1 (link). Not connected = live.", true).AsPower().When("Supplies", AtLeast(1, 3)),
             BoolIn("Supply2", "Incoming supply 2 (link).").AsPower().When("Supplies", AtLeast(2, 3)),
             BoolIn("Supply3", "Incoming supply 3 (link).").AsPower().When("Supplies", AtLeast(3, 3)),
-            BoolOut("Live", "Busbar live (link to the feeders).").AsPower()
+            .. Numbered(Feeders, i => BoolOut($"Feeder{i}", $"Outgoing feeder {i} (link to the Supply of its MCB / disconnector).").AsPower()
+                .When("Feeders", AtLeast(i, Feeders))),
+            BoolOut("Live", "Busbar live (to a DI or an indication).")
         ],
         [],
         [],
         () => new BusbarObject());
 
+    private const int Feeders = 12;
+
     public override void Step(double dt)
     {
         var count = int.TryParse(Opt("Supplies"), out var value) ? value : 1;
-        Out("Live", Enumerable.Range(1, count).Any(i => InB($"Supply{i}")));
+        var live = Enumerable.Range(1, count).Any(i => InB($"Supply{i}"));
+        Out("Live", live);
+        for (var i = 1; i <= Feeders; i++)
+        {
+            Out($"Feeder{i}", live);
+        }
     }
 }
 

@@ -16,7 +16,7 @@ public partial class ScadaView
     private sealed class SldSymbol : SheetItem
     {
         private const double Center = 30;
-        private const double BusWidth = 260;
+        private const double MinBusWidth = 260;
         private static readonly Brush TripBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xF5, 0x9E, 0x0B)));
         private static readonly string[] Types = ["Busbar", "AuxSupply", "Mcb", "Contactor", "Disconnector", "EarthSwitch", "Motor"];
 
@@ -26,15 +26,19 @@ public partial class ScadaView
         private readonly TextBlock _state;
         private readonly Border _border;
         private readonly bool _bus;
+        private readonly double _busWidth;
 
         public static bool Supports(string type) => Types.Contains(type, StringComparer.OrdinalIgnoreCase);
 
         public SldSymbol(ObjectConfig config, ObjectTypeInfo info) : base(config, info)
         {
             _bus = info.Type is "Busbar" or "AuxSupply";
+            var feeders = info.Ports.Count(port => port.Power && port.Direction == PortDirection.Output && info.IsActive(port.ShownWhen, config));
+            _busWidth = Math.Max(MinBusWidth, feeders * 90);
+
             _name = new TextBlock { Text = config.Name, FontWeight = FontWeights.SemiBold, FontSize = 12 };
             _state = new TextBlock { FontSize = 10.5, Foreground = Brushes.DimGray };
-            _canvas.Width = _bus ? BusWidth : 150;
+            _canvas.Width = _bus ? _busWidth : 150;
             _canvas.Height = _bus ? 44 : 92;
             _canvas.Children.Add(_body);
             var label = new StackPanel { Children = { _name, _state } };
@@ -47,13 +51,15 @@ public partial class ScadaView
             for (var i = 0; i < inputs.Count; i++)
             {
                 // Incoming supplies on top (a busbar with several supplies spreads them along the bar).
-                var x = _bus ? BusWidth * (i + 1) / (inputs.Count + 1) : Center;
+                var x = _bus ? _busWidth * (i + 1) / (inputs.Count + 1) : Center;
                 AddPin(inputs[i], x, _bus ? 18 : 2);
             }
 
-            foreach (var port in active.Where(port => port.Direction == PortDirection.Output))
+            // Outgoing feeders spread along the bar.
+            var outputs = active.Where(port => port.Direction == PortDirection.Output).ToList();
+            for (var i = 0; i < outputs.Count; i++)
             {
-                AddPin(port, _bus ? BusWidth / 2 : Center, _bus ? 34 : 90);
+                AddPin(outputs[i], _bus ? _busWidth * (i + 1) / (outputs.Count + 1) : Center, _bus ? 34 : 90);
             }
 
             _border = new Border
@@ -80,10 +86,13 @@ public partial class ScadaView
         public override Point Anchor(string port, Point? towards)
         {
             var point = base.Anchor(port, towards);
-            if (_bus && towards is { } other && Info.Port(port) is { Direction: PortDirection.Output })
+            // A single output (AuxSupply.Live, or an older link to Busbar.Live) leaves the bar straight above the feeder.
+            var pinned = PinElements.ContainsKey(port) && PinElements.Count(pair => Info.Port(pair.Key)?.Direction == PortDirection.Output) > 1;
+            if (_bus && !pinned && towards is { } other && Info.Port(port) is { Direction: PortDirection.Output })
             {
                 var left = Canvas.GetLeft(Element) + 4;
-                return new Point(Math.Clamp(other.X, left + 6, left + BusWidth - 6), point.Y);
+                var top = Canvas.GetTop(Element) + 4;
+                return new Point(Math.Clamp(other.X, left + 6, left + _busWidth - 6), top + 34);
             }
 
             return point;
@@ -110,7 +119,7 @@ public partial class ScadaView
                 case "AuxSupply":
                 {
                     var live = On("Live");
-                    _body.Children.Add(Shape(new Rectangle { Width = BusWidth, Height = 8, Fill = instance is null ? DeadBrush : live ? LiveBrush : DeadBrush }, 0, 26));
+                    _body.Children.Add(Shape(new Rectangle { Width = _busWidth, Height = 8, Fill = instance is null ? DeadBrush : live ? LiveBrush : DeadBrush }, 0, 26));
                     _state.Text = "";
                     _name.Text = $"{Config.Name}   {(instance is null ? "" : !live ? "dead" : Info.Type == "AuxSupply" ? $"{Value(instance, "U")} V" : "live")}";
                     return;

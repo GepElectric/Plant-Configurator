@@ -375,6 +375,7 @@ public class ProcessModelTests
 
         engine.Step(0.1, _ => null);
         Assert.Equal(1, engine.Find("Unit", "E1")!.Value("Live"));   // disconnector closed by default, not earthed
+        Assert.Equal(1, engine.Find("Unit", "Bus")!.Value("Feeder4"));      // every feeder of a live busbar is live
 
         engine.Find("Unit", "Q1")!.Config.Options["Position"] = "Open";   // opened on the SCADA
         Run(engine, 3);
