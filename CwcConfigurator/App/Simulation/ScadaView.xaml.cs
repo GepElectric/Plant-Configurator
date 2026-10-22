@@ -578,6 +578,9 @@ public partial class ScadaView : UserControl
                 }
             };
             menu.Items.Add(group);
+            var copyAll = new MenuItem { Header = $"Copy {targets.Count} objects (linked like the originals)" };
+            copyAll.Click += (_, _) => CopyObjects(model, targets);
+            menu.Items.Add(copyAll);
             if (targets.Any(config => config.Group is not null))
             {
                 var ungroup = new MenuItem { Header = "Ungroup the selected objects" };
@@ -606,6 +609,9 @@ public partial class ScadaView : UserControl
             menu.Items.Add(new Separator());
         }
 
+        var copy = new MenuItem { Header = $"Copy object {name}" };
+        copy.Click += (_, _) => CopyObjects(model, targets);
+        menu.Items.Add(copy);
         var delete = new MenuItem { Header = $"Delete object {name}" };
         delete.Click += (_, _) => DeleteObjects(model, targets);
         menu.Items.Add(delete);
@@ -647,6 +653,87 @@ public partial class ScadaView : UserControl
             }
         };
         return new ContextMenu { Items = { ungroup, rename } };
+    }
+
+    /// <summary>
+    /// Copies objects next to the originals. Links between the copied objects point to the copies (the copy is wired
+    /// like the original), links to other objects and constants stay; PLC signals are left for the copy to be bound.
+    /// </summary>
+    private void CopyObjects(ProcessModel model, IReadOnlyList<ObjectConfig> originals)
+    {
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var original in originals)
+        {
+            var stem = original.Name.TrimEnd("0123456789".ToCharArray());
+            var index = 1;
+            while (model.Find($"{stem}{index}") is not null || names.ContainsValue($"{stem}{index}"))
+            {
+                index++;
+            }
+
+            names[original.Name] = $"{stem}{index}";
+        }
+
+        var groups = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        string? CopyGroup(string? group)
+        {
+            if (group is null)
+            {
+                return null;
+            }
+
+            if (!groups.TryGetValue(group, out var copy))
+            {
+                var index = 2;
+                while (model.Objects.Any(item => string.Equals(item.Group, $"{group} {index}", StringComparison.OrdinalIgnoreCase)))
+                {
+                    index++;
+                }
+
+                copy = groups[group] = $"{group} {index}";
+            }
+
+            return copy;
+        }
+
+        _selection.Clear();
+        foreach (var original in originals)
+        {
+            var (x, y) = model.PositionOn(original, _screen);
+            var ports = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (port, text) in original.Ports)
+            {
+                var parts = PortBinding.ParseList(text)
+                    .Where(binding => binding.Kind != BindingKind.Signal)
+                    .Select(binding => binding.Kind == BindingKind.Link && !binding.LinkObject.Contains('/') && names.TryGetValue(binding.LinkObject, out var renamed)
+                        ? $"@{renamed}.{binding.LinkPort}"
+                        : binding.ToString())
+                    .ToList();
+                if (parts.Count > 0)
+                {
+                    ports[port] = string.Join(", ", parts);
+                }
+            }
+
+            model.Objects.Add(new ObjectConfig
+            {
+                Name = names[original.Name],
+                Type = original.Type,
+                Description = original.Description,
+                Options = new(original.Options, StringComparer.OrdinalIgnoreCase),
+                Params = new(original.Params, StringComparer.OrdinalIgnoreCase),
+                Tables = original.Tables.ToDictionary(pair => pair.Key, pair => pair.Value.ToList(), StringComparer.OrdinalIgnoreCase),
+                Ports = ports,
+                Group = CopyGroup(original.Group),
+                Screen = _screen,
+                X = x + 40,
+                Y = y + 40
+            });
+            _selection.Add(names[original.Name]);
+        }
+
+        _selected = _selection.Count == 1 ? _selection.First() : null;
+        _controller?.Rebuild();
     }
 
     private void SetGroup(IReadOnlyList<ObjectConfig> objects, string? group)
