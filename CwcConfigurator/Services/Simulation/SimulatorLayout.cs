@@ -90,6 +90,9 @@ public sealed record SimulatorLayout(
 
     public int RtdWord(int module, int channel) => RtdStart + ((module * RtdChannels) + channel) * 2;
 
+    /// <summary>COUNTER is Array[0..COUNTER_MODUL_NUM] of Real: one Real per counter module.</summary>
+    public int CounterReal(int module) => CounterStart + module * 4;
+
     public int AoWord(int module, int channel) => AoStart + ((module * AoChannels) + channel) * 2;
 
     public string Describe()

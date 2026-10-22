@@ -23,7 +23,7 @@ public sealed class SimulatorPlcOption
 
 /// <summary>
 /// Tools → Simulator: reads and writes the PLC simulator DB (DB30) over S7. The simulator drives the PLC
-/// program's inputs (DI, AI, RTD) and shows its outputs (DO, AO). The PLC uses DB30 instead of the I/O modules
+/// program's inputs (DI, AI, RTD, COUNTER) and shows its outputs (DO, AO). The PLC uses DB30 instead of the I/O modules
 /// only in total simulation (PLC_CONFIGURATION.RUN_MODE = 2).
 /// </summary>
 public partial class SimulatorWindow : Window
@@ -192,7 +192,7 @@ public partial class SimulatorWindow : Window
         _view.Filter = item => item is SimulatorSignal signal && Matches(signal);
         SignalsGrid.ItemsSource = _view;
         LayoutText.Text = $"Simulator DB: {_layout.Describe()}. " +
-                          "The PLC reads DI/AI/RTD from this DB and writes DO/AO into it only in total simulation (PLC_CONFIGURATION.RUN_MODE = 2).";
+                          "The PLC reads DI/AI/RTD/COUNTER from this DB and writes DO/AO into it only in total simulation (PLC_CONFIGURATION.RUN_MODE = 2).";
         UpdateSummary();
     }
 
@@ -334,6 +334,14 @@ public partial class SimulatorWindow : Window
             return;
         }
 
+        if (signal.IsReal)
+        {
+            var real = (float)number;
+            await WriteAsync(signal, () => _client.WriteRealAsync(_dbNumber, signal.ByteOffset, real),
+                $"{signal.Kind} {signal.Module} {signal.Name} := {number.ToString("0.###", CultureInfo.InvariantCulture)} {signal.Unit}");
+            return;
+        }
+
         var useRaw = RawEntryCheck.IsChecked == true || !signal.HasScaling;
         var exactRaw = useRaw ? Math.Round(number) : signal.Scaling!.ToRawExact(number);
         if (double.IsNaN(exactRaw) || exactRaw < short.MinValue || exactRaw > short.MaxValue)
@@ -406,8 +414,9 @@ public partial class SimulatorWindow : Window
             3 => signal.Kind == SimulatorSignalKind.DI,
             4 => signal.Kind == SimulatorSignalKind.AI,
             5 => signal.Kind == SimulatorSignalKind.RTD,
-            6 => signal.Kind == SimulatorSignalKind.DO,
-            7 => signal.Kind == SimulatorSignalKind.AO,
+            6 => signal.Kind == SimulatorSignalKind.COUNTER,
+            7 => signal.Kind == SimulatorSignalKind.DO,
+            8 => signal.Kind == SimulatorSignalKind.AO,
             _ => true
         };
         if (!kindMatches)
@@ -431,7 +440,8 @@ public partial class SimulatorWindow : Window
         var enabled = _signals.Where(signal => signal.IsEnabled).ToList();
         var shown = _view?.Cast<object>().Count() ?? 0;
         SummaryText.Text = $"{shown} shown · enabled: DI {Count(enabled, SimulatorSignalKind.DI)}, AI {Count(enabled, SimulatorSignalKind.AI)}, " +
-                           $"RTD {Count(enabled, SimulatorSignalKind.RTD)}, DO {Count(enabled, SimulatorSignalKind.DO)}, AO {Count(enabled, SimulatorSignalKind.AO)}";
+                           $"RTD {Count(enabled, SimulatorSignalKind.RTD)}, COUNTER {Count(enabled, SimulatorSignalKind.COUNTER)}, " +
+                           $"DO {Count(enabled, SimulatorSignalKind.DO)}, AO {Count(enabled, SimulatorSignalKind.AO)}";
     }
 
     private static int Count(IEnumerable<SimulatorSignal> signals, SimulatorSignalKind kind) => signals.Count(signal => signal.Kind == kind);

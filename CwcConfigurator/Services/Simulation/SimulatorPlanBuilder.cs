@@ -76,6 +76,24 @@ public static class SimulatorPlanBuilder
             });
         }
 
+        foreach (var row in project.Counters.Where(row => row.ModuleNumber < layout.CounterModules))
+        {
+            var meas = Find(measRows, row.Id, row.Config);
+            signals.Add(new SimulatorSignal
+            {
+                Kind = SimulatorSignalKind.COUNTER,
+                Module = row.ModuleNumber,
+                Channel = 0,
+                Id = row.Id,
+                Config = row.Config,
+                System = FirstNonEmpty(meas?.SystemNameEnglish, meas?.PlcStructure, row.Structure),
+                Name = FirstNonEmpty(meas?.NameEnglish, row.MeasurementName, row.SignalName),
+                PlcName = meas?.PlcName ?? "",
+                Unit = ResolveUnit(catalog, FirstNonEmpty(meas?.Unit, row.Unit)),
+                ByteOffset = layout.CounterReal(row.ModuleNumber)
+            });
+        }
+
         foreach (var row in project.DigitalOutputs.Where(row => row.ModuleNumber < layout.DoModules && row.Port < layout.DoChannels))
         {
             var db = Find(doRows, row.Id, row.Config);

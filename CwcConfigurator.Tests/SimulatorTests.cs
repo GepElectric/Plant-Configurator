@@ -144,6 +144,31 @@ public class SimulatorTests
     }
 
     [Fact]
+    public void Counter_IsOneRealPerModule()
+    {
+        var project = new CwcProject();
+        project.Counters.Add(new CounterConfig { ModuleNumber = 2, Id = 30, Config = SignalConfigState.Enabled });
+        project.DbCatalog.MeasRows.Add(new DbStringRow { Id = 30, NameEnglish = "Active energy" });
+
+        var counter = SimulatorPlanBuilder.Build(project, SimulatorLayout.Default).Single(signal => signal.Kind == SimulatorSignalKind.COUNTER);
+
+        Assert.Equal(128 + 2 * 4, counter.ByteOffset);
+        Assert.Equal("DBD136", counter.Address);
+        Assert.Equal("Active energy", counter.Name);
+        Assert.True(counter.CanSetAnalog);
+        Assert.True(counter.IsReal);
+
+        var bits = System.BitConverter.SingleToInt32Bits(1234.5f);
+        var data = new byte[140];
+        data[136] = (byte)(bits >> 24);
+        data[137] = (byte)(bits >> 16);
+        data[138] = (byte)(bits >> 8);
+        data[139] = (byte)bits;
+        counter.UpdateFrom(data);
+        Assert.Equal("1234.5", counter.ValueText);
+    }
+
+    [Fact]
     public void Signal_ReadsBigEndianIntAndBits()
     {
         var ai = new SimulatorSignal { Kind = SimulatorSignalKind.AI, Module = 0, Channel = 0, Id = 1, ByteOffset = 2, Scaling = new AnalogScaling(0, 27648, 0, 100), Unit = "%" };

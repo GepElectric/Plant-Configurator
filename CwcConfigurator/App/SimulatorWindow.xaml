@@ -62,13 +62,14 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="Show" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                    <ComboBox x:Name="KindFilter" Width="210" SelectedIndex="0" SelectionChanged="Filter_Changed">
+                    <ComboBox x:Name="KindFilter" Width="250" SelectedIndex="0" SelectionChanged="Filter_Changed">
                         <ComboBoxItem Content="All signals"/>
-                        <ComboBoxItem Content="Simulator outputs (DI, AI, RTD)"/>
+                        <ComboBoxItem Content="Simulator outputs (DI, AI, RTD, COUNTER)"/>
                         <ComboBoxItem Content="Simulator inputs (DO, AO)"/>
                         <ComboBoxItem Content="DI"/>
                         <ComboBoxItem Content="AI"/>
                         <ComboBoxItem Content="RTD"/>
+                        <ComboBoxItem Content="COUNTER"/>
                         <ComboBoxItem Content="DO"/>
                         <ComboBoxItem Content="AO"/>
                     </ComboBox>
