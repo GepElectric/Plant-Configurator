@@ -355,6 +355,65 @@ public class ProcessModelTests
     }
 
     [Fact]
+    public void Sld_BusbarDisconnectorEarthSwitch()
+    {
+        var engine = new ProcessEngine(new Dictionary<string, ProcessModel>
+        {
+            ["Unit"] = new()
+            {
+                Objects =
+                [
+                    Obj("Bus", "Busbar"),
+                    Obj("Q1", "Disconnector", new() { ["Supply"] = "@Bus.Live" }, new() { ["TravelTime"] = 2 }, new() { ["MotorDrive"] = "Yes" }),
+                    Obj("E1", "EarthSwitch", new() { ["Supply"] = "@Q1.Live" }),
+                    Obj("M1", "Motor", new() { ["Supply"] = "@E1.Live" })
+                ]
+            }
+        });
+
+        engine.Step(0.1, _ => null);
+        Assert.Equal(1, engine.Find("Unit", "E1")!.Value("Live"));   // disconnector closed by default, not earthed
+
+        engine.Find("Unit", "Q1")!.Config.Ports["OpenCmd"] = "=1";
+        engine = new ProcessEngine(engine.Models, engine);
+        Run(engine, 3);                                              // OpenCmd: the disconnector opens in 2 s
+        Assert.Equal(1, engine.Find("Unit", "Q1")!.Value("Open"));
+        Assert.Equal(0, engine.Find("Unit", "M1")!.Value("Running"));
+
+        engine.Find("Unit", "E1")!.Config.Options["Position"] = "Earthed";
+        Run(engine, 1);
+        Assert.Equal(1, engine.Find("Unit", "E1")!.Value("Earthed"));
+        Assert.Equal(0, engine.Find("Unit", "E1")!.Value("Fault"));   // earthed after isolating: no fault
+    }
+
+    [Fact]
+    public void Views_ShowAnObjectOnMoreScreens()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"views_{Guid.NewGuid():N}.simulator.yaml");
+        try
+        {
+            var contactor = Obj("K1", "Contactor");
+            contactor.Screen = "Pumps";
+            contactor.Views = [new ObjectView { Screen = "AC SLD", X = 300, Y = 200 }];
+            var model = new ProcessModel { Objects = [contactor], SldScreens = ["AC SLD"] };
+            ProcessModelStore.Save(path, new Dictionary<string, ProcessModel> { ["Unit"] = model });
+            var loaded = ProcessModelStore.Load(path)["Unit"];
+
+            var k1 = loaded.Find("K1")!;
+            Assert.True(loaded.IsOn(k1, "Pumps") && loaded.IsOn(k1, "AC SLD"));
+            Assert.Equal((300d, 200d), loaded.PositionOn(k1, "AC SLD"));
+            loaded.SetPosition(k1, "Pumps", 40, 50);
+            Assert.Equal((40d, 50d), loaded.PositionOn(k1, "Pumps"));
+            Assert.True(loaded.IsSld("ac sld"));
+            Assert.Contains("AC SLD", loaded.AllScreens());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void Model_RoundTripsThroughYaml()
     {
         var path = Path.Combine(Path.GetTempPath(), $"model_{Guid.NewGuid():N}.simulator.yaml");

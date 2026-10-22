@@ -14,13 +14,46 @@ public sealed class ProcessModel
     /// <summary>SCADA screens in their order (objects without a screen are on the first one).</summary>
     public List<string> Screens { get; set; } = [];
 
+    /// <summary>Screens drawn as a single-line diagram (electrical objects as SLD symbols).</summary>
+    public List<string> SldScreens { get; set; } = [];
+
+    public bool IsSld(string screen) => SldScreens.Contains(screen, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The object is shown on this screen (its own screen or an extra view).</summary>
+    public bool IsOn(ObjectConfig item, string screen) =>
+        ScreenOf(item).Equals(screen, StringComparison.OrdinalIgnoreCase)
+        || item.Views?.Any(view => view.Screen.Equals(screen, StringComparison.OrdinalIgnoreCase)) == true;
+
+    /// <summary>Position of the object on a screen.</summary>
+    public (double X, double Y) PositionOn(ObjectConfig item, string screen) =>
+        !ScreenOf(item).Equals(screen, StringComparison.OrdinalIgnoreCase)
+        && item.Views?.FirstOrDefault(view => view.Screen.Equals(screen, StringComparison.OrdinalIgnoreCase)) is { } view
+            ? (view.X, view.Y)
+            : (item.X, item.Y);
+
+    public void SetPosition(ObjectConfig item, string screen, double x, double y)
+    {
+        if (!ScreenOf(item).Equals(screen, StringComparison.OrdinalIgnoreCase)
+            && item.Views?.FirstOrDefault(view => view.Screen.Equals(screen, StringComparison.OrdinalIgnoreCase)) is { } view)
+        {
+            view.X = x;
+            view.Y = y;
+            return;
+        }
+
+        item.X = x;
+        item.Y = y;
+    }
+
     public const string MainScreen = "Main";
 
     /// <summary>Screens in order: the listed ones plus any used by an object; at least "Main".</summary>
     public List<string> AllScreens()
     {
         var screens = new List<string>();
-        foreach (var name in Screens.Concat(Objects.Select(item => item.Screen ?? "")).Where(name => !string.IsNullOrWhiteSpace(name)))
+        foreach (var name in Screens.Concat(Objects.Select(item => item.Screen ?? ""))
+                     .Concat(Objects.SelectMany(item => item.Views ?? []).Select(view => view.Screen))
+                     .Where(name => !string.IsNullOrWhiteSpace(name)))
         {
             if (!screens.Contains(name, StringComparer.OrdinalIgnoreCase))
             {
@@ -64,6 +97,17 @@ public sealed class ObjectConfig
 
     /// <summary>SCADA screen of the object (e.g. "AC distribution"); null = the first screen.</summary>
     public string? Screen { get; set; }
+
+    /// <summary>The same object shown on more screens (e.g. a contactor next to its pump and in the cabinet SLD).</summary>
+    public List<ObjectView>? Views { get; set; }
+}
+
+/// <summary>An extra place of an object: on another SCADA screen at another position.</summary>
+public sealed class ObjectView
+{
+    public string Screen { get; set; } = "";
+    public double X { get; set; }
+    public double Y { get; set; }
 }
 
 public enum PortDirection
@@ -82,6 +126,9 @@ public sealed record PortDef(string Name, PortDirection Direction, PortType Type
 {
     /// <summary>The port exists only in these variants; otherwise it is hidden and works as not connected (its default).</summary>
     public ShownWhen? ShownWhen { get; init; }
+
+    /// <summary>Energy connection (voltage Supply / Live): drawn as a power line, on an SLD screen as the diagram.</summary>
+    public bool Power { get; init; }
 }
 
 /// <summary>Variant condition: option <paramref name="Option"/> has one of <paramref name="Values"/>.</summary>

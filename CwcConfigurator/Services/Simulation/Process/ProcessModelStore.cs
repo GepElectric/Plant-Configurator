@@ -62,6 +62,7 @@ public static class ProcessModelStore
         model.Objects ??= [];
         model.Forces ??= [];
         model.Screens ??= [];
+        model.SldScreens ??= [];
         foreach (var item in model.Objects)
         {
             item.Name ??= "";
@@ -73,6 +74,7 @@ public static class ProcessModelStore
             item.Ports = new Dictionary<string, string>((item.Ports ?? []).Where(pair => !string.IsNullOrWhiteSpace(pair.Value)), StringComparer.OrdinalIgnoreCase);
             item.Group = string.IsNullOrWhiteSpace(item.Group) ? null : item.Group.Trim();
             item.Screen = string.IsNullOrWhiteSpace(item.Screen) ? null : item.Screen.Trim();
+            item.Views = item.Views?.Where(view => !string.IsNullOrWhiteSpace(view.Screen)).ToList() is { Count: > 0 } views ? views : null;
             ObjectCatalog.Find(item.Type)?.UpgradeSwitches(item);
         }
 

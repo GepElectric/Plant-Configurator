@@ -133,7 +133,7 @@ public sealed class AuxSupplyObject : SimObject
             AnalogOut("PF", "", "Power factor."),
             AnalogOut("F", "Hz", "Frequency."),
             AnalogOut("Energy", "kWh", "Active energy."),
-            BoolOut("Live", "Busbar live (link to the MCBs of the distribution: @AuxSupply.Live).")
+            BoolOut("Live", "Busbar live (link to the MCBs of the distribution: @AuxSupply.Live).").AsPower()
         ],
         [],
         ["U", "P"],
@@ -448,6 +448,9 @@ public static class ObjectCatalog
         TemperatureObject.TypeInfo,
         VibrationObject.TypeInfo,
         AuxSupplyObject.TypeInfo,
+        BusbarObject.TypeInfo,
+        DisconnectorObject.TypeInfo,
+        EarthSwitchObject.TypeInfo,
         McbObject.TypeInfo,
         ContactorObject.TypeInfo,
         MotorObject.TypeInfo,

@@ -1,10 +1,202 @@
-﻿using static CwcConfigurator.Services.Simulation.Process.Def;
+using static CwcConfigurator.Services.Simulation.Process.Def;
 
 namespace CwcConfigurator.Services.Simulation.Process;
 
 // Cabinet / AC distribution objects. Every object has a Supply input (voltage present upstream; not connected = live)
 // and a Live output (voltage passed on downstream), so a small single-line diagram can be built by linking them:
-// AuxSupply.Live â†’ MCB.Supply, MCB.Live â†’ Contactor.Supply, Contactor.Live â†’ Motor.Supply.
+// AuxSupply.Live → MCB.Supply, MCB.Live → Contactor.Supply, Contactor.Live → Motor.Supply.
+
+/// <summary>
+/// Busbar / distribution board: live when any of its supplies is live (incomer, generator, diesel). Its Live output
+/// feeds the outgoing feeders; on an SLD screen it is drawn as a bar.
+/// </summary>
+public sealed class BusbarObject : SimObject
+{
+    public static ObjectTypeInfo TypeInfo { get; } = new(
+        "Busbar", "Busbar", "Electrical",
+        "Busbar of a distribution: live when a supply is live. Feeders take @Busbar.Live as their Supply.",
+        [
+            Count("Supplies", "Number of incoming supplies (any live supply makes the busbar live).", 1, 3, 1)
+        ],
+        [
+            Param("Voltage", 400, "V", "Rated voltage (for the Voltage output).")
+        ],
+        [
+            BoolIn("Supply1", "Incoming supply 1 (link). Not connected = live.", true).AsPower().When("Supplies", AtLeast(1, 3)),
+            BoolIn("Supply2", "Incoming supply 2 (link).").AsPower().When("Supplies", AtLeast(2, 3)),
+            BoolIn("Supply3", "Incoming supply 3 (link).").AsPower().When("Supplies", AtLeast(3, 3)),
+            BoolOut("Live", "Busbar live (link to the feeders).").AsPower(),
+            AnalogOut("Voltage", "V", "Busbar voltage (to an AI or a measuring device).")
+        ],
+        [],
+        ["Voltage"],
+        () => new BusbarObject());
+
+    public override void Step(double dt)
+    {
+        var count = int.TryParse(Opt("Supplies"), out var value) ? value : 1;
+        var live = Enumerable.Range(1, count).Any(i => InB($"Supply{i}"));
+        Out("Live", live);
+        Out("Voltage", live ? P("Voltage") : 0);
+    }
+}
+
+/// <summary>
+/// Disconnector (isolator): opened / closed by hand on the SCADA or motor-operated from the PLC, with a travel time.
+/// Position contacts back to the PLC; passes the voltage on only when fully closed.
+/// </summary>
+public sealed class DisconnectorObject : SimObject
+{
+    private double _position;
+    private string _lastPosition = "";
+    private int _direction;
+
+    public static ObjectTypeInfo TypeInfo { get; } = new(
+        "Disconnector", "Disconnector", "Electrical",
+        "Disconnector / isolator: by hand (Position on the SCADA) or motor-operated (OpenCmd / CloseCmd), travel time, " +
+        "Closed / Open contacts to the PLC, Live only when fully closed.",
+        [
+            Option("Position", "Position set by hand on the SCADA (also the position after reset).", "Closed", "Open"),
+            Has("MotorDrive", "Motor-operated: OpenCmd / CloseCmd from the PLC.")
+        ],
+        [
+            Param("TravelTime", 3, "s", "Time from open to closed.").When("MotorDrive", "Yes")
+        ],
+        [
+            BoolIn("Supply", "Voltage upstream (link). Not connected = live.", true).AsPower(),
+            BoolIn("CloseCmd", "Close command (DO).").When("MotorDrive", "Yes"),
+            BoolIn("OpenCmd", "Open command (DO).").When("MotorDrive", "Yes"),
+            BoolOut("Closed", "Closed contact (to a DI)."),
+            BoolOut("Open", "Open contact (to a DI)."),
+            BoolOut("Live", "Voltage after the disconnector.").AsPower()
+        ],
+        [],
+        [],
+        () => new DisconnectorObject());
+
+    public override void Reset()
+    {
+        _lastPosition = Opt("Position");
+        _position = OptIs("Position", "Closed") ? 100 : 0;
+        _direction = 0;
+        Publish();
+    }
+
+    public override void Step(double dt)
+    {
+        var position = Opt("Position");
+        if (!position.Equals(_lastPosition, StringComparison.OrdinalIgnoreCase))
+        {
+            _lastPosition = position;
+            _position = position.Equals("Closed", StringComparison.OrdinalIgnoreCase) ? 100 : 0;
+            _direction = 0;
+        }
+
+        if (InB("CloseCmd"))
+        {
+            _direction = 1;
+        }
+        else if (InB("OpenCmd"))
+        {
+            _direction = -1;
+        }
+
+        _position = SimMath.Clamp(_position + _direction * 100 / Math.Max(0.1, P("TravelTime")) * dt, 0, 100);
+        if (_position is 0 or 100)
+        {
+            _direction = 0;
+        }
+
+        Publish();
+    }
+
+    private void Publish()
+    {
+        Out("Closed", _position >= 100);
+        Out("Open", _position <= 0);
+        Out("Live", _position >= 100 && InB("Supply"));
+    }
+}
+
+/// <summary>
+/// Earthing switch: earths the outgoing side. Earthed contact back to the PLC; while earthed the voltage is not passed
+/// on, and earthing a live part gives Fault (link it to a breaker TripCmd to trip the supply).
+/// </summary>
+public sealed class EarthSwitchObject : SimObject
+{
+    private double _position;
+    private string _lastPosition = "";
+    private int _direction;
+
+    public static ObjectTypeInfo TypeInfo { get; } = new(
+        "EarthSwitch", "Earthing switch", "Electrical",
+        "Earthing switch: by hand (Position on the SCADA) or motor-operated, Earthed / NotEarthed contacts to the PLC. " +
+        "Live passes the supply on only when not earthed; Fault = earthed while the supply is live.",
+        [
+            Option("Position", "Position set by hand on the SCADA (also the position after reset).", "NotEarthed", "Earthed"),
+            Has("MotorDrive", "Motor-operated: EarthCmd / UnearthCmd from the PLC.")
+        ],
+        [
+            Param("TravelTime", 3, "s", "Travel time.").When("MotorDrive", "Yes")
+        ],
+        [
+            BoolIn("Supply", "Voltage of the earthed part (link). Not connected = live.", true).AsPower(),
+            BoolIn("EarthCmd", "Earth command (DO).").When("MotorDrive", "Yes"),
+            BoolIn("UnearthCmd", "Unearth command (DO).").When("MotorDrive", "Yes"),
+            BoolOut("Earthed", "Earthed contact (to a DI)."),
+            BoolOut("NotEarthed", "Not earthed contact (to a DI)."),
+            BoolOut("Fault", "Earthed while live (link to a breaker TripCmd)."),
+            BoolOut("Live", "Voltage passed on (FALSE while earthed).").AsPower()
+        ],
+        [],
+        [],
+        () => new EarthSwitchObject());
+
+    public override void Reset()
+    {
+        _lastPosition = Opt("Position");
+        _position = OptIs("Position", "Earthed") ? 100 : 0;
+        _direction = 0;
+        Publish();
+    }
+
+    public override void Step(double dt)
+    {
+        var position = Opt("Position");
+        if (!position.Equals(_lastPosition, StringComparison.OrdinalIgnoreCase))
+        {
+            _lastPosition = position;
+            _position = position.Equals("Earthed", StringComparison.OrdinalIgnoreCase) ? 100 : 0;
+            _direction = 0;
+        }
+
+        if (InB("EarthCmd"))
+        {
+            _direction = 1;
+        }
+        else if (InB("UnearthCmd"))
+        {
+            _direction = -1;
+        }
+
+        _position = SimMath.Clamp(_position + _direction * 100 / Math.Max(0.1, P("TravelTime")) * dt, 0, 100);
+        if (_position is 0 or 100)
+        {
+            _direction = 0;
+        }
+
+        Publish();
+    }
+
+    private void Publish()
+    {
+        var earthed = _position >= 100;
+        Out("Earthed", earthed);
+        Out("NotEarthed", _position <= 0);
+        Out("Fault", _position > 0 && InB("Supply"));
+        Out("Live", _position <= 0 && InB("Supply"));
+    }
+}
 
 /// <summary>
 /// Miniature circuit breaker / motor protection switch: switched by hand on the SCADA (Position), optionally by a
@@ -24,25 +216,25 @@ public sealed class McbObject : SimObject
         "Circuit breaker of a feeder: ON/OFF by hand (Position on the SCADA), optional motor drive and shunt trip from the PLC. " +
         "Trips on overload (thermal) or short circuit when Load is connected. After a trip set Position to Off and On again.",
         [
-            Option("Position", "Handle position set by the operator (on the SCADA). Off â†’ On also resets a trip.", "On", "Off"),
+            Option("Position", "Handle position set by the operator (on the SCADA). Off → On also resets a trip.", "On", "Off"),
             Has("MotorDrive", "Motor-operated breaker: OnCmd / OffCmd from the PLC."),
             Has("ShuntTrip", "Shunt trip coil: TripCmd from the PLC opens the breaker as tripped."),
             Has("LoadInput", "Load current connected (e.g. @Pump1.Current): overload and short-circuit trips.")
         ],
         [
             Param("Rating", 16, "A", "Rated current.").When("LoadInput", "Yes"),
-            Param("OverloadTime", 10, "s", "Trip time at 1.5 Ã— rating (shorter for a higher overload).").When("LoadInput", "Yes"),
-            Param("ShortCircuitFactor", 10, "Ã— In", "Instant trip above this multiple of the rating.").When("LoadInput", "Yes")
+            Param("OverloadTime", 10, "s", "Trip time at 1.5 × rating (shorter for a higher overload).").When("LoadInput", "Yes"),
+            Param("ShortCircuitFactor", 10, "× In", "Instant trip above this multiple of the rating.").When("LoadInput", "Yes")
         ],
         [
-            BoolIn("Supply", "Voltage upstream (link, e.g. @AuxSupply.Live). Not connected = live.", true),
+            BoolIn("Supply", "Voltage upstream (link, e.g. @AuxSupply.Live). Not connected = live.", true).AsPower(),
             BoolIn("OnCmd", "Close command (DO).").When("MotorDrive", "Yes"),
             BoolIn("OffCmd", "Open command (DO).").When("MotorDrive", "Yes"),
             BoolIn("TripCmd", "Shunt trip (DO).").When("ShuntTrip", "Yes"),
             AnalogIn("Load", "A", "Current through the breaker.").When("LoadInput", "Yes"),
             BoolOut("On", "Auxiliary contact: breaker closed (to a DI, e.g. ..._MCB_ON)."),
             BoolOut("Tripped", "Alarm contact: breaker tripped."),
-            BoolOut("Live", "Voltage after the breaker (link to the next object).")
+            BoolOut("Live", "Voltage after the breaker (link to the next object).").AsPower()
         ],
         [],
         [],
@@ -134,9 +326,9 @@ public sealed class ContactorObject : SimObject
         [],
         [
             BoolIn("Command", "Command from the PLC (DO), e.g. ..._CONT_ON."),
-            BoolIn("Supply", "Voltage before the contactor (link, e.g. @F1.Live). Not connected = live.", true),
+            BoolIn("Supply", "Voltage before the contactor (link, e.g. @F1.Live). Not connected = live.", true).AsPower(),
             BoolOut("State", "Contactor closed, back to the PLC (DI)."),
-            BoolOut("Live", "Voltage after the contactor (link to the motor / pump).")
+            BoolOut("Live", "Voltage after the contactor (link to the motor / pump).").AsPower()
         ],
         [],
         [],
@@ -152,7 +344,7 @@ public sealed class ContactorObject : SimObject
 
 /// <summary>
 /// Motor driving a pump, fan or compressor: runs up while supplied (e.g. from a contactor), starting current,
-/// load current âˆ speedÂ³ for a pump/fan, flow âˆ speed, pressure âˆ speedÂ².
+/// load current ∝ speed³ for a pump/fan, flow ∝ speed, pressure ∝ speed².
 /// </summary>
 public sealed class MotorObject : SimObject
 {
@@ -163,11 +355,11 @@ public sealed class MotorObject : SimObject
         "Motor of a pump, fan or compressor, supplied by a contactor (Supply = @K1.Live): run-up, starting current, " +
         "current, flow and pressure. Running goes to a DI or to the reservoir / HPU as a link.",
         [
-            Option("Load", "Pump / fan: torque âˆ speedÂ² (current falls at low speed). Constant: constant torque (compressor, conveyor).", "Pump", "Constant")
+            Option("Load", "Pump / fan: torque ∝ speed² (current falls at low speed). Constant: constant torque (compressor, conveyor).", "Pump", "Constant")
         ],
         [
             Param("RatedCurrent", 11, "A", "Current at rated load."),
-            Param("StartCurrent", 6, "Ã— In", "Starting current (direct on line)."),
+            Param("StartCurrent", 6, "× In", "Starting current (direct on line)."),
             Param("StartTime", 2, "s", "Run-up time to rated speed."),
             Param("StopTime", 5, "s", "Run-down time."),
             Param("RatedFlow", 100, "l/min", "Flow at rated speed."),
@@ -175,7 +367,7 @@ public sealed class MotorObject : SimObject
             Param("RunningAt", 90, "%", "Speed from which Running is TRUE.")
         ],
         [
-            BoolIn("Supply", "Voltage at the motor (link, e.g. @K1.Live)."),
+            BoolIn("Supply", "Voltage at the motor (link, e.g. @K1.Live).").AsPower(),
             BoolIn("PressureRelease", "Discharge open / valve open: TRUE = full flow, FALSE = no flow (pressure only). Not connected = open.", true),
             BoolOut("Running", "Motor running (speed above RunningAt)."),
             AnalogOut("Speed", "%", "Speed."),

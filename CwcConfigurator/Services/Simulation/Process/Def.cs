@@ -28,6 +28,9 @@ internal static class Def
 
     public static ParamDef When(this ParamDef def, string option, params string[] values) => def with { ShownWhen = new(option, values) };
 
+    /// <summary>Energy connection (Supply / Live).</summary>
+    public static PortDef AsPower(this PortDef port) => port with { Power = true };
+
     /// <summary>Option "min".."max" telling how many numbered pieces of equipment exist (first value = default).</summary>
     public static OptionDef Count(string name, string description, int min, int max, int defaultValue) =>
         new(name, [defaultValue.ToString(), .. Enumerable.Range(min, max - min + 1).Where(i => i != defaultValue).Select(i => i.ToString())], description);
