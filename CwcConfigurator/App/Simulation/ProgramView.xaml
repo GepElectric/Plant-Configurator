@@ -1,0 +1,143 @@
+<UserControl x:Class="CwcConfigurator.App.Simulation.ProgramView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="290"/>
+            <ColumnDefinition Width="5"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- object list -->
+        <DockPanel Margin="8">
+            <TextBlock DockPanel.Dock="Top" Text="Objects" FontWeight="SemiBold" Margin="0,0,0,4"/>
+            <StackPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="TypeBox" DisplayMemberPath="Title" Height="24"/>
+                    <Button Grid.Column="1" Content="Add" MinWidth="50" Height="24" Margin="4,0,0,0" Click="Add_Click"/>
+                </Grid>
+                <WrapPanel Margin="0,4,0,0">
+                    <Button Content="Delete" MinWidth="60" Height="24" Margin="0,0,4,4" Click="Delete_Click"/>
+                    <Button Content="Duplicate" MinWidth="70" Height="24" Margin="0,0,4,4" Click="Duplicate_Click"/>
+                    <Button Content="Generate from signals" MinWidth="140" Height="24" Margin="0,0,4,4" Click="Generate_Click"
+                            ToolTip="Creates objects for this PLC from the signal names (gates, reservoir, HPU, nozzles, MIV, GCB, …) and binds their signals."/>
+                </WrapPanel>
+                <WrapPanel>
+                    <Button Content="Save model" MinWidth="80" Height="24" Margin="0,0,4,4" Click="Save_Click"/>
+                    <Button Content="Reload" MinWidth="60" Height="24" Margin="0,0,4,4" Click="Reload_Click"/>
+                    <Button Content="Open file" MinWidth="70" Height="24" Margin="0,0,4,4" Click="OpenFile_Click"
+                            ToolTip="Open the model YAML in the default editor."/>
+                </WrapPanel>
+                <TextBlock x:Name="ModelPathText" Foreground="#57606A" TextWrapping="Wrap" FontSize="11"/>
+                <TextBlock x:Name="ProblemsText" Foreground="#B91C1C" TextWrapping="Wrap" Margin="0,4,0,0"/>
+            </StackPanel>
+            <ListBox x:Name="ObjectList" SelectionChanged="ObjectList_SelectionChanged"/>
+        </DockPanel>
+
+        <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="#E5E7EB"/>
+
+        <!-- object details -->
+        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="DetailsPanel" Margin="10" IsEnabled="False">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="260"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Name" VerticalAlignment="Center"/>
+                    <TextBox x:Name="NameBox" Grid.Column="1" Height="24" VerticalContentAlignment="Center" LostFocus="NameBox_LostFocus" KeyDown="NameBox_KeyDown"/>
+                    <TextBlock x:Name="TypeText" Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="#57606A" TextWrapping="Wrap"/>
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Description" VerticalAlignment="Center"/>
+                    <TextBox x:Name="DescriptionBox" Grid.Column="1" Height="24" VerticalContentAlignment="Center" LostFocus="DescriptionBox_LostFocus"/>
+                </Grid>
+
+                <TextBlock Text="Variants" FontWeight="SemiBold" Margin="0,12,0,4"/>
+                <ItemsControl x:Name="OptionsList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="180"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Column="1" ItemsSource="{Binding Values}" SelectedItem="{Binding Value}" Height="24"/>
+                                <TextBlock Grid.Column="2" Text="{Binding Description}" Margin="10,0,0,0" VerticalAlignment="Center" Foreground="#57606A" TextWrapping="Wrap"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Text="Inputs and outputs (signal DI:/DO:/AI:/RTD:/COUNTER:/AO:id, link @Object.Port or @PLC/Object.Port, constant =value; an output can drive several signals: DI:13, DI:46)"
+                           FontWeight="SemiBold" Margin="0,12,0,4" TextWrapping="Wrap"/>
+                <DataGrid x:Name="PortsGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="False"
+                          HeadersVisibility="Column" GridLinesVisibility="Horizontal" MaxHeight="520">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="PORT" Width="150" Binding="{Binding Name}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="DIR" Width="40" Binding="{Binding Direction}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="TYPE" Width="60" Binding="{Binding Kind}" IsReadOnly="True"/>
+                        <DataGridTemplateColumn Header="BINDING" Width="330">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <ComboBox IsEditable="True" ItemsSource="{Binding Suggestions}" Text="{Binding Binding, UpdateSourceTrigger=LostFocus}"
+                                              IsTextSearchEnabled="True" StaysOpenOnEdit="True" Height="24"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="VALUE" Width="100" Binding="{Binding Live}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="DESCRIPTION" Width="*" Binding="{Binding Description}" IsReadOnly="True">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="TextWrapping" Value="Wrap"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <TextBlock Text="Parameters (changes apply immediately; empty = default)" FontWeight="SemiBold" Margin="0,12,0,4"/>
+                <DataGrid x:Name="ParamsGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="False"
+                          HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="PARAMETER" Width="170" Binding="{Binding Name}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="VALUE" Width="90" Binding="{Binding Value, UpdateSourceTrigger=LostFocus}"/>
+                        <DataGridTextColumn Header="UNIT" Width="60" Binding="{Binding Unit}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="DEFAULT" Width="70" Binding="{Binding Default}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="DESCRIPTION" Width="*" Binding="{Binding Description}" IsReadOnly="True">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="TextWrapping" Value="Wrap"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <ItemsControl x:Name="TablesList" Margin="0,12,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,0,0,8">
+                                <TextBlock Text="{Binding Header}" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding Description}" Foreground="#57606A" TextWrapping="Wrap"/>
+                                <TextBox Text="{Binding Text, UpdateSourceTrigger=LostFocus}" TextWrapping="Wrap" AcceptsReturn="False" MinHeight="44" Margin="0,4,0,0"
+                                         ToolTip="Points x:y separated by ';' with increasing x."/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

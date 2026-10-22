@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
@@ -8,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using CwcConfigurator.Domain;
 using CwcConfigurator.Services.Simulation;
+using CwcConfigurator.Services.Simulation.Process;
 
 namespace CwcConfigurator.App;
 
@@ -22,32 +24,31 @@ public sealed class SimulatorPlcOption
 }
 
 /// <summary>
-/// Tools → Simulator: reads and writes the PLC simulator DB (DB30) over S7. The simulator drives the PLC
-/// program's inputs (DI, AI, RTD, COUNTER) and shows its outputs (DO, AO). The PLC uses DB30 instead of the I/O modules
-/// only in total simulation (PLC_CONFIGURATION.RUN_MODE = 2).
+/// Tools → Simulator. Signals: reads and writes the simulator DB (DB30) of each PLC over S7 and lets the user set
+/// DI/AI/RTD/COUNTER and watch DO/AO. Program / SCADA: the plant model (objects per PLC, linked across PLCs) that
+/// computes the inputs from the PLC outputs. The PLC uses DB30 only in total simulation (PLC_CONFIGURATION.RUN_MODE = 2).
 /// </summary>
 public partial class SimulatorWindow : Window
 {
     public const string CommandLineSwitch = "--simulator";
 
-    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan CycleTime = TimeSpan.FromMilliseconds(100);
     private static readonly Brush ConnectedBrush = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E));
     private static readonly Brush DisconnectedBrush = new SolidColorBrush(Color.FromRgb(0xC9, 0xCE, 0xD6));
 
-    private readonly SimulatorS7Client _client = new();
-    private readonly DispatcherTimer _pollTimer = new() { Interval = PollInterval };
+    private readonly List<PlcSession> _sessions;
+    private readonly SimulationController _controller;
+    private readonly DispatcherTimer _timer = new() { Interval = CycleTime };
+    private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly List<TextBox> _constantBoxes = [];
-    private List<SimulatorSignal> _signals = [];
+    private PlcSession? _session;
     private ICollectionView? _view;
-    private SimulatorLayout _layout = SimulatorLayout.Default;
-    private SimulatorPlcOption? _option;
-    private int _dbNumber = SimulatorLayout.DefaultDbNumber;
-    private bool _polling;
+    private bool _cycleRunning;
+    private int _tick;
 
-    public SimulatorWindow(IReadOnlyList<SimulatorPlcOption> options, string? activeName)
+    public SimulatorWindow(IReadOnlyList<SimulatorPlcOption> options, string? activeName, string? modelPath)
     {
         InitializeComponent();
-        _pollTimer.Tick += async (_, _) => await PollAsync();
         foreach (var name in SimulatorLayout.ConstantNames)
         {
             var box = new TextBox { Width = 40, VerticalContentAlignment = VerticalAlignment.Center };
@@ -58,12 +59,24 @@ public partial class SimulatorWindow : Window
             ConstantsPanel.Children.Add(item);
         }
 
-        foreach (var option in options)
+        _sessions = options.Select(option => new PlcSession(option.Name, option.Project, option.SettingsKey)).ToList();
+        _controller = new SimulationController(_sessions, modelPath);
+        ProgramPanel.Attach(_controller);
+        ScadaPanel.Attach(_controller);
+        foreach (var session in _sessions)
         {
-            PlcSelector.Items.Add(option);
+            PlcSelector.Items.Add(session);
         }
 
-        PlcSelector.SelectedItem = options.FirstOrDefault(option => option.Name == activeName) ?? options.FirstOrDefault();
+        PlcSelector.SelectedItem = _sessions.FirstOrDefault(session => session.Name == activeName) ?? _sessions.FirstOrDefault();
+        if (_controller.Engine.Problems.Count > 0)
+        {
+            StatusText.Text = "Model: " + string.Join(" · ", _controller.Engine.Problems.Take(3));
+        }
+
+        _timer.Tick += async (_, _) => await CycleAsync();
+        _timer.Start();
+        UpdateRunButton();
     }
 
     /// <summary>One option per PLC database: each PLC has its own hardware tables and simulator DB.</summary>
@@ -105,9 +118,9 @@ public partial class SimulatorWindow : Window
         }
 
         var fullPath = System.IO.Path.GetFullPath(projectPath);
-        var project = new CwcConfigurator.Services.ProjectFileService().Load(fullPath);
+        var project = new Services.ProjectFileService().Load(fullPath);
         var active = project.PlcDatabases.FirstOrDefault(database => database.Id == project.ActivePlcDatabaseId)?.Name;
-        var window = new SimulatorWindow(CreateOptions(project, fullPath), active)
+        var window = new SimulatorWindow(CreateOptions(project, fullPath), active, ProcessModelStore.PathFor(fullPath))
         {
             WindowStartupLocation = WindowStartupLocation.CenterScreen
         };
@@ -117,48 +130,53 @@ public partial class SimulatorWindow : Window
 
     private void PlcSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (PlcSelector.SelectedItem is not SimulatorPlcOption option)
+        if (PlcSelector.SelectedItem is not PlcSession session)
         {
             return;
         }
 
-        Disconnect("Not connected");
-        _option = option;
-        var settings = SimulatorSettingsStore.Load(option.SettingsKey);
-        IpBox.Text = settings.IpAddress;
-        RackBox.Text = settings.Rack.ToString(CultureInfo.InvariantCulture);
-        SlotBox.Text = settings.Slot.ToString(CultureInfo.InvariantCulture);
-        DbBox.Text = settings.DbNumber.ToString(CultureInfo.InvariantCulture);
-
-        var layout = SimulatorLayout.FromProject(option.Project);
-        if (settings.Constants is { } constants)
-        {
-            try
-            {
-                layout = SimulatorLayout.FromConstants(constants);
-            }
-            catch (ArgumentException)
-            {
-            }
-        }
-
-        var values = layout.ToConstants();
+        _session = session;
+        IpBox.Text = session.Settings.IpAddress;
+        RackBox.Text = session.Settings.Rack.ToString(CultureInfo.InvariantCulture);
+        SlotBox.Text = session.Settings.Slot.ToString(CultureInfo.InvariantCulture);
+        DbBox.Text = session.Settings.DbNumber.ToString(CultureInfo.InvariantCulture);
+        var values = session.Layout.ToConstants();
         for (var index = 0; index < _constantBoxes.Count; index++)
         {
             _constantBoxes[index].Text = values[index].ToString(CultureInfo.InvariantCulture);
         }
 
-        LayoutExpander.IsExpanded = settings.Constants is null;
-        ApplyLayout(layout);
-        StatusText.Text = string.IsNullOrWhiteSpace(settings.IpAddress)
-            ? "Enter the PLC IP address and connect. PUT/GET access must be allowed in the PLC."
-            : "Ready to connect.";
+        LayoutExpander.IsExpanded = session.Settings.Constants is null;
+        ShowSignals();
+        UpdateConnectionUi();
+        ProgramPanel.ShowPlc(session.Name);
+        ScadaPanel.ShowPlc(session.Name);
+        if (!session.IsConnected)
+        {
+            StatusText.Text = string.IsNullOrWhiteSpace(session.Settings.IpAddress)
+                ? "Enter the PLC IP address and connect. PUT/GET access must be allowed in the PLC."
+                : $"{session.Name}: ready to connect.";
+        }
+    }
+
+    private void ShowSignals()
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        _view = CollectionViewSource.GetDefaultView(_session.Signals);
+        _view.Filter = item => item is SimulatorSignal signal && Matches(signal);
+        SignalsGrid.ItemsSource = _view;
+        LayoutText.Text = $"{_session.Name} simulator DB: {_session.Layout.Describe()}. " +
+                          "The PLC reads DI/AI/RTD/COUNTER from this DB and writes DO/AO into it only in total simulation (PLC_CONFIGURATION.RUN_MODE = 2).";
         UpdateSummary();
     }
 
     private void ApplyLayout_Click(object sender, RoutedEventArgs e)
     {
-        if (_option is null)
+        if (_session is null)
         {
             return;
         }
@@ -176,36 +194,26 @@ public partial class SimulatorWindow : Window
             values.Add(value);
         }
 
-        Disconnect("Not connected");
-        ApplyLayout(SimulatorLayout.FromConstants(values));
-        var settings = SimulatorSettingsStore.Load(_option.SettingsKey);
-        settings.Constants = values.ToArray();
-        SimulatorSettingsStore.Save(_option.SettingsKey, settings);
-        StatusText.Text = "Layout applied: " + _layout.Describe() + ".";
-    }
-
-    private void ApplyLayout(SimulatorLayout layout)
-    {
-        _layout = layout;
-        _signals = SimulatorPlanBuilder.Build(_option!.Project, _layout);
-        _view = CollectionViewSource.GetDefaultView(_signals);
-        _view.Filter = item => item is SimulatorSignal signal && Matches(signal);
-        SignalsGrid.ItemsSource = _view;
-        LayoutText.Text = $"Simulator DB: {_layout.Describe()}. " +
-                          "The PLC reads DI/AI/RTD/COUNTER from this DB and writes DO/AO into it only in total simulation (PLC_CONFIGURATION.RUN_MODE = 2).";
-        UpdateSummary();
+        _session.Disconnect();
+        _session.ApplyLayout(SimulatorLayout.FromConstants(values));
+        _session.SaveSettings();
+        ShowSignals();
+        UpdateConnectionUi();
+        StatusText.Text = $"{_session.Name}: layout applied: {_session.Layout.Describe()}.";
     }
 
     private async void ConnectButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_client.IsConnected)
+        if (_session is null)
         {
-            Disconnect("Disconnected");
             return;
         }
 
-        if (_option is null)
+        if (_session.IsConnected)
         {
+            _session.Disconnect();
+            UpdateConnectionUi();
+            StatusText.Text = $"{_session.Name}: disconnected.";
             return;
         }
 
@@ -216,76 +224,117 @@ public partial class SimulatorWindow : Window
             return;
         }
 
-        SetBusy(true, $"Connecting to {IpBox.Text.Trim()}...");
+        var session = _session;
+        ConnectButton.IsEnabled = false;
+        Cursor = Cursors.Wait;
+        StatusText.Text = $"{session.Name}: connecting to {IpBox.Text.Trim()}...";
         try
         {
-            await _client.ConnectAsync(IpBox.Text, rack, slot);
-            _dbNumber = dbNumber;
-            if (!await _client.HasLengthAsync(dbNumber, _layout.TotalBytes))
-            {
-                throw new InvalidOperationException(
-                    $"DB{dbNumber} is shorter than the expected {_layout.TotalBytes} bytes ({_layout.Describe()}). " +
-                    "Check the DB number and the PLC constants under 'Simulator DB layout'.");
-            }
-
-            var longer = await _client.HasLengthAsync(dbNumber, _layout.TotalBytes + 2);
-            SimulatorSettingsStore.Save(_option.SettingsKey, new SimulatorConnectionSettings
-            {
-                IpAddress = IpBox.Text.Trim(),
-                Rack = rack,
-                Slot = slot,
-                DbNumber = dbNumber,
-                Constants = _layout.ToConstants()
-            });
-
-            ConnectionLamp.Fill = ConnectedBrush;
-            ConnectionText.Text = $"Connected to {IpBox.Text.Trim()} · DB{dbNumber}";
-            ConnectButton.Content = "Disconnect";
-            SetConnectionFieldsEnabled(false);
-            StatusText.Text = longer
-                ? $"Connected. Warning: DB{dbNumber} is longer than {_layout.TotalBytes} bytes; check the PLC constants under 'Simulator DB layout'."
-                : "Connected. Values are refreshed every 0.5 s.";
-            await PollAsync();
-            _pollTimer.Start();
+            await session.ConnectAsync(IpBox.Text, rack, slot, dbNumber);
+            StatusText.Text = session.Warning is null
+                ? $"{session.Name}: connected. Values are refreshed every {CycleTime.TotalMilliseconds:0} ms."
+                : $"{session.Name}: connected. Warning: {session.Warning}";
         }
         catch (Exception ex)
         {
             CwcApplication.LogException("Simulator.Connect", ex);
-            Disconnect("Not connected");
-            StatusText.Text = "Connection failed: " + ex.Message;
+            session.Disconnect();
+            StatusText.Text = $"{session.Name}: connection failed: {ex.Message}";
         }
         finally
         {
-            SetBusy(false);
+            ConnectButton.IsEnabled = true;
+            Cursor = null;
+            UpdateConnectionUi();
         }
     }
 
-    private async Task PollAsync()
+    /// <summary>Timer cycle: PLC read, model step, PLC write, view refresh.</summary>
+    private async Task CycleAsync()
     {
-        if (_polling || !_client.IsConnected)
+        if (_cycleRunning)
         {
             return;
         }
 
-        _polling = true;
+        _cycleRunning = true;
         try
         {
-            var data = await _client.ReadBytesAsync(_dbNumber, 0, _layout.TotalBytes);
-            foreach (var signal in _signals)
+            var dt = Math.Min(0.5, _clock.Elapsed.TotalSeconds);
+            _clock.Restart();
+            var errors = await _controller.StepAsync(dt);
+            if (errors.Count > 0)
             {
-                signal.UpdateFrom(data);
+                StatusText.Text = string.Join(" · ", errors);
+                UpdateConnectionUi();
+            }
+
+            _tick++;
+            SimTimeText.Text = _controller.Running ? TimeSpan.FromSeconds(_controller.SimulatedTime).ToString(@"hh\:mm\:ss") : "";
+            if (_tick % 3 == 0)
+            {
+                ProgramPanel.RefreshLive();
+                ScadaPanel.RefreshLive();
+            }
+
+            if (_tick % 10 == 0)
+            {
+                UpdatePlcStatus();
             }
         }
         catch (Exception ex)
         {
-            CwcApplication.LogException("Simulator.Poll", ex);
-            Disconnect("Connection lost");
-            StatusText.Text = "Reading the PLC failed: " + ex.Message;
+            CwcApplication.LogException("Simulator.Cycle", ex);
+            StatusText.Text = "Simulation error: " + ex.Message;
         }
         finally
         {
-            _polling = false;
+            _cycleRunning = false;
         }
+    }
+
+    private void RunButton_Click(object sender, RoutedEventArgs e)
+    {
+        _controller.Running = !_controller.Running;
+        UpdateRunButton();
+        StatusText.Text = _controller.Running
+            ? _sessions.Any(session => session.IsConnected)
+                ? "Model running: it writes the simulated inputs of the connected PLCs."
+                : "Model running without a PLC (test mode): values are visible in Program and SCADA only."
+            : "Model stopped: the PLC inputs keep their last values.";
+    }
+
+    private void ResetButton_Click(object sender, RoutedEventArgs e)
+    {
+        _controller.Reset();
+        StatusText.Text = "Model reset to the initial state; forces removed.";
+    }
+
+    private void UpdateRunButton()
+    {
+        RunButton.Content = _controller.Running ? "■ Stop model" : "▶ Run model";
+        RunButton.Background = _controller.Running ? new SolidColorBrush(Color.FromRgb(0xB7, 0xE4, 0xC7)) : SystemColors.ControlBrush;
+    }
+
+    private void UpdateConnectionUi()
+    {
+        var connected = _session?.IsConnected == true;
+        ConnectionLamp.Fill = connected ? ConnectedBrush : DisconnectedBrush;
+        ConnectionText.Text = connected ? $"Connected to {_session!.Settings.IpAddress} · DB{_session.DbNumber}" : "Not connected";
+        ConnectButton.Content = connected ? "Disconnect" : "Connect";
+        IpBox.IsEnabled = !connected;
+        RackBox.IsEnabled = !connected;
+        SlotBox.IsEnabled = !connected;
+        DbBox.IsEnabled = !connected;
+        LayoutExpander.IsEnabled = !connected;
+        UpdatePlcStatus();
+    }
+
+    private void UpdatePlcStatus()
+    {
+        PlcStatusText.Text = _sessions.Count <= 1
+            ? ""
+            : string.Join("   ", _sessions.Select(session => $"{(session.IsConnected ? "●" : "○")} {session.Name}"));
     }
 
     private async void SetTrue_Click(object sender, RoutedEventArgs e) => await SetBoolAsync(sender, true);
@@ -299,7 +348,7 @@ public partial class SimulatorWindow : Window
             return;
         }
 
-        await WriteAsync(signal, () => _client.WriteBitAsync(_dbNumber, signal.ByteOffset, signal.BitOffset, value),
+        await WriteAsync(signal, () => _session!.WriteBitAsync(signal.ByteOffset, signal.BitOffset, value),
             $"{signal.Kind} {signal.Module}.{signal.Channel} {signal.Name} := {(value ? "TRUE" : "FALSE")}");
     }
 
@@ -337,7 +386,7 @@ public partial class SimulatorWindow : Window
         if (signal.IsReal)
         {
             var real = (float)number;
-            await WriteAsync(signal, () => _client.WriteRealAsync(_dbNumber, signal.ByteOffset, real),
+            await WriteAsync(signal, () => _session!.WriteRealAsync(signal.ByteOffset, real),
                 $"{signal.Kind} {signal.Module} {signal.Name} := {number.ToString("0.###", CultureInfo.InvariantCulture)} {signal.Unit}");
             return;
         }
@@ -365,7 +414,7 @@ public partial class SimulatorWindow : Window
             description += $" – outside the measuring range {signal.ScalingText}";
         }
 
-        await WriteAsync(signal, () => _client.WriteIntAsync(_dbNumber, signal.ByteOffset, raw), description);
+        await WriteAsync(signal, () => _session!.WriteIntAsync(signal.ByteOffset, raw), description);
     }
 
     private async Task WriteAsync(SimulatorSignal signal, Func<Task> write, string description)
@@ -373,8 +422,7 @@ public partial class SimulatorWindow : Window
         try
         {
             await write();
-            StatusText.Text = "Set " + description;
-            await PollAsync();
+            StatusText.Text = "Set " + description + (_controller.Running ? " (the running model may overwrite it if it drives this signal)" : "");
         }
         catch (Exception ex)
         {
@@ -385,7 +433,7 @@ public partial class SimulatorWindow : Window
 
     private bool EnsureConnected()
     {
-        if (_client.IsConnected)
+        if (_session?.IsConnected == true)
         {
             return true;
         }
@@ -432,12 +480,12 @@ public partial class SimulatorWindow : Window
 
     private void UpdateSummary()
     {
-        if (SummaryText is null)
+        if (SummaryText is null || _session is null)
         {
             return;
         }
 
-        var enabled = _signals.Where(signal => signal.IsEnabled).ToList();
+        var enabled = _session.Signals.Where(signal => signal.IsEnabled).ToList();
         var shown = _view?.Cast<object>().Count() ?? 0;
         SummaryText.Text = $"{shown} shown · enabled: DI {Count(enabled, SimulatorSignalKind.DI)}, AI {Count(enabled, SimulatorSignalKind.AI)}, " +
                            $"RTD {Count(enabled, SimulatorSignalKind.RTD)}, COUNTER {Count(enabled, SimulatorSignalKind.COUNTER)}, " +
@@ -446,44 +494,41 @@ public partial class SimulatorWindow : Window
 
     private static int Count(IEnumerable<SimulatorSignal> signals, SimulatorSignalKind kind) => signals.Count(signal => signal.Kind == kind);
 
-    private void Disconnect(string text)
+    private void Window_Closing(object? sender, CancelEventArgs e)
     {
-        _pollTimer.Stop();
-        _client.Disconnect();
-        foreach (var signal in _signals)
+        if (!_controller.Dirty || _controller.ModelPath is null)
         {
-            signal.ClearValue();
+            return;
         }
 
-        ConnectionLamp.Fill = DisconnectedBrush;
-        ConnectionText.Text = text;
-        ConnectButton.Content = "Connect";
-        SetConnectionFieldsEnabled(true);
-    }
-
-    private void SetConnectionFieldsEnabled(bool enabled)
-    {
-        PlcSelector.IsEnabled = enabled;
-        IpBox.IsEnabled = enabled;
-        RackBox.IsEnabled = enabled;
-        SlotBox.IsEnabled = enabled;
-        DbBox.IsEnabled = enabled;
-        LayoutExpander.IsEnabled = enabled;
-    }
-
-    private void SetBusy(bool busy, string? status = null)
-    {
-        ConnectButton.IsEnabled = !busy;
-        Cursor = busy ? Cursors.Wait : null;
-        if (status is not null)
+        var answer = MessageBox.Show(this, "The plant model has unsaved changes. Save them?", "Simulator",
+            MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+        if (answer == MessageBoxResult.Cancel)
         {
-            StatusText.Text = status;
+            e.Cancel = true;
+            return;
+        }
+
+        if (answer == MessageBoxResult.Yes)
+        {
+            try
+            {
+                _controller.Save();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "Could not save the model: " + ex.Message, "Simulator", MessageBoxButton.OK, MessageBoxImage.Error);
+                e.Cancel = true;
+            }
         }
     }
 
     private void Window_Closed(object? sender, EventArgs e)
     {
-        _pollTimer.Stop();
-        _client.Dispose();
+        _timer.Stop();
+        foreach (var session in _sessions)
+        {
+            session.Dispose();
+        }
     }
 }

@@ -54,6 +54,11 @@ public sealed class SimulatorS7Client : IDisposable
         return EnsureConnected().WriteBytesAsync(DataType.DataBlock, dbNumber, byteOffset, bytes, cancellationToken);
     }
 
+    public Task WriteBytesAsync(int dbNumber, int byteOffset, byte[] bytes, CancellationToken cancellationToken = default)
+    {
+        return EnsureConnected().WriteBytesAsync(DataType.DataBlock, dbNumber, byteOffset, bytes, cancellationToken);
+    }
+
     public Task WriteRealAsync(int dbNumber, int byteOffset, float value, CancellationToken cancellationToken = default)
     {
         var bits = BitConverter.SingleToInt32Bits(value);

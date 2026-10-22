@@ -9316,7 +9316,8 @@ public partial class MainWindow : Window
             SaveActivePlcDatabase();
 
             var options = SimulatorWindow.CreateOptions(_project, _projectPath ?? _project.ProjectName);
-            var window = new SimulatorWindow(options, GetActivePlcDatabase()?.Name) { Owner = this };
+            var window = new SimulatorWindow(options, GetActivePlcDatabase()?.Name,
+                _projectPath is null ? null : Services.Simulation.Process.ProcessModelStore.PathFor(_projectPath)) { Owner = this };
             window.Show();
         }
         catch (Exception ex)
