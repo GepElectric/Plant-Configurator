@@ -947,15 +947,13 @@ public partial class SimulatorWindow : Window
 
         var kindMatches = KindFilter.SelectedIndex switch
         {
-            1 => signal.IsWritable,
-            2 => !signal.IsWritable,
-            3 => signal.Kind == SimulatorSignalKind.DI,
-            4 => signal.Kind == SimulatorSignalKind.AI,
-            5 => signal.Kind == SimulatorSignalKind.RTD,
-            6 => signal.Kind == SimulatorSignalKind.COUNTER,
-            7 => signal.Kind == SimulatorSignalKind.DO,
-            8 => signal.Kind == SimulatorSignalKind.AO,
-            9 => signal.InDeviceDb,
+            1 => signal.Kind == SimulatorSignalKind.DI,
+            2 => signal.Kind == SimulatorSignalKind.DO,
+            3 => signal.Kind == SimulatorSignalKind.AI,
+            4 => signal.Kind == SimulatorSignalKind.RTD,
+            5 => signal.Kind == SimulatorSignalKind.COUNTER,
+            6 => signal.Kind == SimulatorSignalKind.AO,
+            7 => signal.InDeviceDb,
             _ => true
         };
         if (!kindMatches)

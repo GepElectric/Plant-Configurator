@@ -156,19 +156,49 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Show" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <ComboBox x:Name="KindFilter" Width="250" SelectedIndex="0" SelectionChanged="Filter_Changed">
-                                    <ComboBoxItem Content="All signals"/>
-                                    <ComboBoxItem Content="Simulator outputs (DI, AI, RTD, COUNTER)"/>
-                                    <ComboBoxItem Content="Simulator inputs (DO, AO)"/>
-                                    <ComboBoxItem Content="DI"/>
-                                    <ComboBoxItem Content="AI"/>
-                                    <ComboBoxItem Content="RTD"/>
-                                    <ComboBoxItem Content="COUNTER"/>
-                                    <ComboBoxItem Content="DO"/>
-                                    <ComboBoxItem Content="AO"/>
-                                    <ComboBoxItem Content="Devices (DB27)"/>
-                                </ComboBox>
+                                <!-- signal groups as tabs -->
+                                <ListBox x:Name="KindFilter" SelectedIndex="0" SelectionChanged="Filter_Changed" BorderThickness="0" Background="Transparent"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ListBox.ItemsPanel>
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="Padding" Value="12,4"/>
+                                            <Setter Property="Margin" Value="0,0,2,0"/>
+                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListBoxItem">
+                                                        <Border x:Name="Tab" Background="#F3F4F6" BorderBrush="#D0D7DE" BorderThickness="1,1,1,0"
+                                                                CornerRadius="4,4,0,0" Padding="{TemplateBinding Padding}">
+                                                            <ContentPresenter/>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsSelected" Value="True">
+                                                                <Setter TargetName="Tab" Property="Background" Value="#2563EB"/>
+                                                                <Setter Property="Foreground" Value="White"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="Tab" Property="BorderBrush" Value="#2563EB"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                    <ListBoxItem Content="All"/>
+                                    <ListBoxItem Content="DI"/>
+                                    <ListBoxItem Content="DO"/>
+                                    <ListBoxItem Content="AI"/>
+                                    <ListBoxItem Content="RTD"/>
+                                    <ListBoxItem Content="COUNTER"/>
+                                    <ListBoxItem Content="AO"/>
+                                    <ListBoxItem Content="Devices" ToolTip="Device values of the devices DB (DB27): Sentrons, protection relays, excitation."/>
+                                </ListBox>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,0,0">
                                 <TextBlock Text="Search" VerticalAlignment="Center" Margin="0,0,6,0"/>
