@@ -303,6 +303,57 @@ public class ProcessModelTests
         Assert.Empty(engine.Problems);
     }
 
+    [Fact]
+    public void DevicesDb_UnitTemplateMatchesTia()
+    {
+        // TIA unit DB27: GEN_SENTRON 82 + AUX_SENTRON 82 + GEN_PROT 118 + LINE_PROT 118 + TRAFO_PROT 86 + EXC 66 = 552 bytes (read on PLCSIM).
+        Assert.Equal(552, DeviceLayout.TotalBytes(DeviceLayout.UnitTemplate()));
+
+        var project = new CwcProject();
+        project.DbCatalog.MeasRows.Add(new DbStringRow { Id = 48, PlcName = "I_1", NameEnglish = "Generator current L1" });
+        project.DbCatalog.MeasRows.Add(new DbStringRow { Id = 61, PlcName = "P", NameEnglish = "Active power" });
+        var session = new PlcSession("Unit", project, "test|" + Guid.NewGuid());
+        var devices = session.Signals.Where(signal => signal.InDeviceDb).ToList();
+
+        var current = devices.Single(signal => signal.Kind == SimulatorSignalKind.DEV && signal.Id == 48);
+        Assert.Equal(2, current.ByteOffset);
+        Assert.Equal("I_1", current.PlcName);
+        Assert.Equal("GEN_SENTRON", current.System);
+        Assert.Equal(2 + 13 * 4, devices.Single(signal => signal.Kind == SimulatorSignalKind.DEV && signal.Id == 61).ByteOffset);
+        Assert.Equal(66, devices.Single(signal => signal.Kind == SimulatorSignalKind.DEV && signal.Id == 64).ByteOffset);  // ENERGY[0]
+        Assert.Equal(82 + 2, devices.Single(signal => signal.Kind == SimulatorSignalKind.DEV && signal.Id == 216).ByteOffset); // AUX MEAS[0]
+        var alarm = devices.Single(signal => signal.Kind == SimulatorSignalKind.DEVBIT && signal.Id == DeviceLayout.BitId(2, 9));
+        Assert.Equal((164 + 2 + 1, 1), (alarm.ByteOffset, alarm.BitOffset));                                                     // GEN_PROT ALARMS[9]
+        Assert.Equal(164 + 6, devices.Single(signal => signal.Kind == SimulatorSignalKind.DEV && signal.Id == 72).ByteOffset);  // GEN_PROT MEAS[0]
+        Assert.Equal(486 + 2, devices.Single(signal => signal.Kind == SimulatorSignalKind.DEV && signal.Id == 96).ByteOffset);  // EXC MEAS[0]
+    }
+
+    [Fact]
+    public void Generator_BindsGeneratorValuesToDevices()
+    {
+        var project = new CwcProject();
+        project.DigitalOutputs.Add(new DigitalSignalConfig { ModuleNumber = 0, Port = 0, Id = 195, Config = SignalConfigState.Enabled });
+        project.DbCatalog.DoRows.Add(new DbStringRow { Id = 195, PlcName = "MIV_ON" });
+        foreach (var (id, name) in new[] { (48, "I_1"), (51, "I"), (55, "U_LL"), (61, "P"), (72, "I_1_S1"), (76, "I_1_S2"), (89, "P"), (157, "P"), (229, "P"), (223, "U_LL") })
+        {
+            project.DbCatalog.MeasRows.Add(new DbStringRow { Id = id, PlcName = name });
+        }
+
+        var session = new PlcSession("Unit", project, "test|" + Guid.NewGuid());
+        var result = ModelGenerator.Generate(session, new ProcessModel());
+
+        var generator = result.Objects.Single(item => item.Name == "Generator");
+        Assert.Equal("DEV:48, DEV:72, DEV:76", generator.Ports["I1"]);
+        Assert.Equal("DEV:61, DEV:89, DEV:157", generator.Ports["P"]);
+        Assert.Equal("DEV:55", generator.Ports["U12"]);
+        var aux = result.Objects.Single(item => item.Name == "AuxSupply");
+        Assert.Equal("DEV:229", aux.Ports["P"]);
+        Assert.Equal("DEV:223", aux.Ports["U"]);
+
+        var engine = new ProcessEngine(new Dictionary<string, ProcessModel> { ["Unit"] = new() { Objects = result.Objects } });
+        Assert.Empty(engine.Problems);
+    }
+
     private sealed class FakeIo : ISignalIo
     {
         public Dictionary<(SimulatorSignalKind, int), double> Values { get; } = [];

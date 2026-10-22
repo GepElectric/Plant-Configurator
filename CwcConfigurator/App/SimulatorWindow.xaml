@@ -78,6 +78,44 @@
                         </Expander>
                     </Border>
 
+                    <!-- devices DB = which devices the plant has -->
+                    <Border DockPanel.Dock="Top" Padding="10,4" BorderBrush="#D0D7DE" BorderThickness="0,0,0,1">
+                        <Expander x:Name="DevicesExpander" Header="Devices on the plant (devices DB: Sentron, protection relays, excitation)">
+                            <Grid Margin="0,6,0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="640"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <DataGrid x:Name="DevicesGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="False"
+                                          HeadersVisibility="Column" GridLinesVisibility="Horizontal" MaxHeight="220" SelectionMode="Single">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="DEVICE (as in the TIA DB)" Width="190" Binding="{Binding Name, UpdateSourceTrigger=LostFocus}"/>
+                                        <DataGridComboBoxColumn x:Name="DeviceTypeColumn" Header="TYPE" Width="150" SelectedItemBinding="{Binding Type}"/>
+                                        <DataGridTextColumn Header="FIRST MEAS ID" Width="100" Binding="{Binding FirstMeasId, UpdateSourceTrigger=LostFocus}"/>
+                                        <DataGridTextColumn Header="FIRST ENERGY ID" Width="110" Binding="{Binding FirstEnergyId, UpdateSourceTrigger=LostFocus}"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ComboBox x:Name="DevicePresetBox" Width="170" Height="24" DisplayMemberPath="Name"/>
+                                        <Button Content="Add" MinWidth="50" Height="24" Margin="4,0,0,0" Click="AddDevice_Click"/>
+                                        <Button Content="Remove" MinWidth="60" Height="24" Margin="4,0,0,0" Click="RemoveDevice_Click"/>
+                                        <Button Content="&#x25B2;" Width="26" Height="24" Margin="4,0,0,0" Click="MoveDeviceUp_Click"/>
+                                        <Button Content="&#x25BC;" Width="26" Height="24" Margin="2,0,0,0" Click="MoveDeviceDown_Click"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <TextBlock Text="Devices DB" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBox x:Name="DevicesDbBox" Width="44" Height="24" VerticalContentAlignment="Center"/>
+                                        <Button Content="Unit template" MinWidth="95" Height="24" Margin="10,0,0,0" Click="DeviceTemplate_Click"
+                                                ToolTip="GEN_SENTRON, AUX_SENTRON, GEN_PROT, LINE_PROT, TRAFO_PROT, EXC: the order of the standard unit DB27."/>
+                                        <Button Content="Apply devices" MinWidth="100" Height="24" Margin="6,0,0,0" FontWeight="SemiBold" Click="ApplyDevices_Click"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="DevicesInfoText" Margin="0,6,0,0" Foreground="#57606A" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Grid>
+                        </Expander>
+                    </Border>
+
                     <!-- filters -->
                     <Border DockPanel.Dock="Top" Padding="10,6" BorderBrush="#D0D7DE" BorderThickness="0,0,0,1">
                         <Grid>
@@ -99,6 +137,7 @@
                                     <ComboBoxItem Content="COUNTER"/>
                                     <ComboBoxItem Content="DO"/>
                                     <ComboBoxItem Content="AO"/>
+                                    <ComboBoxItem Content="Devices (DB27)"/>
                                 </ComboBox>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,0,0">

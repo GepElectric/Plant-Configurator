@@ -59,6 +59,9 @@ public partial class SimulatorWindow : Window
             ConstantsPanel.Children.Add(item);
         }
 
+        DeviceTypeColumn.ItemsSource = Enum.GetValues<DeviceType>();
+        DevicePresetBox.ItemsSource = DevicePresets;
+        DevicePresetBox.SelectedIndex = 0;
         _sessions = options.Select(option => new PlcSession(option.Name, option.Project, option.SettingsKey)).ToList();
         _controller = new SimulationController(_sessions, modelPath);
         ProgramPanel.Attach(_controller);
@@ -147,6 +150,7 @@ public partial class SimulatorWindow : Window
         }
 
         LayoutExpander.IsExpanded = session.Settings.Constants is null;
+        ShowDevices(session.Devices, session.DevicesDbNumber);
         ShowSignals();
         UpdateConnectionUi();
         ProgramPanel.ShowPlc(session.Name);
@@ -200,6 +204,114 @@ public partial class SimulatorWindow : Window
         ShowSignals();
         UpdateConnectionUi();
         StatusText.Text = $"{_session.Name}: layout applied: {_session.Layout.Describe()}.";
+    }
+
+    /// <summary>Devices that can be added (names and IDs of our standard PLC program).</summary>
+    private static readonly List<DeviceDefinition> DevicePresets =
+    [
+        new() { Name = "GEN_SENTRON", Type = DeviceType.Measurement, FirstMeasId = 48, FirstEnergyId = 64 },
+        new() { Name = "AUX_SENTRON", Type = DeviceType.Measurement, FirstMeasId = 216, FirstEnergyId = 232 },
+        new() { Name = "LINE_SENTRON", Type = DeviceType.Measurement, FirstMeasId = 120, FirstEnergyId = 136 },
+        new() { Name = "AUX_DIZEL_SENTRON", Type = DeviceType.Measurement, FirstMeasId = 216, FirstEnergyId = 232 },
+        new() { Name = "AUX_GRID_SENTRON", Type = DeviceType.Measurement, FirstMeasId = 216, FirstEnergyId = 232 },
+        new() { Name = "GEN_PROT", Type = DeviceType.Protection, FirstMeasId = 72, FirstEnergyId = 0 },
+        new() { Name = "LINE_PROT", Type = DeviceType.Protection, FirstMeasId = 144, FirstEnergyId = 164 },
+        new() { Name = "TRAFO_PROT", Type = DeviceType.TrafoProtection, FirstMeasId = 120, FirstEnergyId = 0 },
+        new() { Name = "EXC", Type = DeviceType.Excitation, FirstMeasId = 96, FirstEnergyId = 0 }
+    ];
+
+    private System.Collections.ObjectModel.ObservableCollection<DeviceDefinition> _devices = [];
+
+    private void ShowDevices(IEnumerable<DeviceDefinition> devices, int dbNumber)
+    {
+        _devices = new(devices.Select(device => device.Clone()));
+        DevicesGrid.ItemsSource = _devices;
+        DevicesDbBox.Text = dbNumber.ToString(CultureInfo.InvariantCulture);
+        UpdateDevicesInfo();
+    }
+
+    private void UpdateDevicesInfo()
+    {
+        var bytes = DeviceLayout.TotalBytes(_devices);
+        DevicesInfoText.Text = _devices.Count == 0
+            ? "No devices: the devices DB is not used."
+            : $"{_devices.Count} devices, {bytes} bytes (the standard unit DB27 has 552). MEAS[i] of a device is copied by the PLC to FIRST MEAS ID + i, " +
+              "ENERGY[i] to FIRST ENERGY ID + i. Bind model outputs to them as DEV:<MEAS ID>.";
+    }
+
+    private void AddDevice_Click(object sender, RoutedEventArgs e)
+    {
+        if (DevicePresetBox.SelectedItem is DeviceDefinition preset)
+        {
+            _devices.Add(preset.Clone());
+            UpdateDevicesInfo();
+        }
+    }
+
+    private void RemoveDevice_Click(object sender, RoutedEventArgs e)
+    {
+        if (DevicesGrid.SelectedItem is DeviceDefinition device)
+        {
+            _devices.Remove(device);
+            UpdateDevicesInfo();
+        }
+    }
+
+    private void MoveDeviceUp_Click(object sender, RoutedEventArgs e) => MoveDevice(-1);
+
+    private void MoveDeviceDown_Click(object sender, RoutedEventArgs e) => MoveDevice(1);
+
+    private void MoveDevice(int step)
+    {
+        if (DevicesGrid.SelectedItem is not DeviceDefinition device)
+        {
+            return;
+        }
+
+        var index = _devices.IndexOf(device);
+        var target = index + step;
+        if (target >= 0 && target < _devices.Count)
+        {
+            _devices.Move(index, target);
+            DevicesGrid.SelectedItem = device;
+        }
+    }
+
+    private void DeviceTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        _devices = new(DeviceLayout.UnitTemplate());
+        DevicesGrid.ItemsSource = _devices;
+        UpdateDevicesInfo();
+    }
+
+    private void ApplyDevices_Click(object sender, RoutedEventArgs e)
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        DevicesGrid.CommitEdit(DataGridEditingUnit.Row, true);
+        if (!int.TryParse(DevicesDbBox.Text.Trim(), out var dbNumber) || dbNumber <= 0)
+        {
+            StatusText.Text = "Enter a valid devices DB number.";
+            return;
+        }
+
+        if (_devices.Any(device => string.IsNullOrWhiteSpace(device.Name)))
+        {
+            StatusText.Text = "Every device needs a name.";
+            return;
+        }
+
+        var wasConnected = _session.IsConnected;
+        _session.Disconnect();
+        _session.ApplyDevices(_devices, dbNumber);
+        ShowSignals();
+        UpdateConnectionUi();
+        _controller.Rebuild();
+        StatusText.Text = $"{_session.Name}: {_devices.Count} devices applied ({DeviceLayout.TotalBytes(_devices)} bytes in DB{dbNumber})." +
+                          (wasConnected ? " Connect again." : "");
     }
 
     private async void ConnectButton_Click(object sender, RoutedEventArgs e)
@@ -327,6 +439,7 @@ public partial class SimulatorWindow : Window
         SlotBox.IsEnabled = !connected;
         DbBox.IsEnabled = !connected;
         LayoutExpander.IsEnabled = !connected;
+        DevicesExpander.IsEnabled = !connected;
         UpdatePlcStatus();
     }
 
@@ -348,7 +461,7 @@ public partial class SimulatorWindow : Window
             return;
         }
 
-        await WriteAsync(signal, () => _session!.WriteBitAsync(signal.ByteOffset, signal.BitOffset, value),
+        await WriteAsync(signal, () => _session!.WriteBitAsync(signal, value),
             $"{signal.Kind} {signal.Module}.{signal.Channel} {signal.Name} := {(value ? "TRUE" : "FALSE")}");
     }
 
@@ -386,7 +499,7 @@ public partial class SimulatorWindow : Window
         if (signal.IsReal)
         {
             var real = (float)number;
-            await WriteAsync(signal, () => _session!.WriteRealAsync(signal.ByteOffset, real),
+            await WriteAsync(signal, () => _session!.WriteRealAsync(signal, real),
                 $"{signal.Kind} {signal.Module} {signal.Name} := {number.ToString("0.###", CultureInfo.InvariantCulture)} {signal.Unit}");
             return;
         }
@@ -414,7 +527,7 @@ public partial class SimulatorWindow : Window
             description += $" – outside the measuring range {signal.ScalingText}";
         }
 
-        await WriteAsync(signal, () => _session!.WriteIntAsync(signal.ByteOffset, raw), description);
+        await WriteAsync(signal, () => _session!.WriteIntAsync(signal, raw), description);
     }
 
     private async Task WriteAsync(SimulatorSignal signal, Func<Task> write, string description)
@@ -465,6 +578,7 @@ public partial class SimulatorWindow : Window
             6 => signal.Kind == SimulatorSignalKind.COUNTER,
             7 => signal.Kind == SimulatorSignalKind.DO,
             8 => signal.Kind == SimulatorSignalKind.AO,
+            9 => signal.InDeviceDb,
             _ => true
         };
         if (!kindMatches)

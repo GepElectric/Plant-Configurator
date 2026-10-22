@@ -11,6 +11,9 @@ public sealed class SimulatorConnectionSettings
     public int DbNumber { get; set; } = SimulatorLayout.DefaultDbNumber;
     /// <summary>PLC constants of the simulator DB layout (<see cref="SimulatorLayout.ConstantNames"/>); null = proposal.</summary>
     public int[]? Constants { get; set; }
+    public int DevicesDbNumber { get; set; } = DeviceLayout.DefaultDbNumber;
+    /// <summary>Devices in the devices DB, in DB order; null = the standard unit list.</summary>
+    public List<DeviceDefinition>? Devices { get; set; }
 }
 
 /// <summary>Connection settings per project + PLC database, kept in %LocalAppData%\PlantConfigurator\simulator.json.</summary>

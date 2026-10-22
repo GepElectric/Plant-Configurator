@@ -286,11 +286,12 @@ public static class BindingSuggestions
         {
             var kinds = port.Direction == PortDirection.Input
                 ? port.Type == PortType.Bool ? new[] { SimulatorSignalKind.DO, SimulatorSignalKind.DI } : [SimulatorSignalKind.AO, SimulatorSignalKind.AI, SimulatorSignalKind.RTD, SimulatorSignalKind.COUNTER]
-                : port.Type == PortType.Bool ? [SimulatorSignalKind.DI] : [SimulatorSignalKind.AI, SimulatorSignalKind.RTD, SimulatorSignalKind.COUNTER];
+                : port.Type == PortType.Bool ? [SimulatorSignalKind.DI, SimulatorSignalKind.DEVBIT] : [SimulatorSignalKind.AI, SimulatorSignalKind.RTD, SimulatorSignalKind.COUNTER, SimulatorSignalKind.DEV];
             foreach (var signal in session.Signals.Where(signal => signal.IsEnabled && kinds.Contains(signal.Kind))
                          .OrderBy(signal => Array.IndexOf(kinds, signal.Kind)).ThenBy(signal => signal.Id))
             {
-                list.Add($"{signal.Kind}:{signal.Id}{PortRow.Separator}{signal.PlcName} · {signal.Name}");
+                var where = signal.InDeviceDb ? signal.System + " · " : "";
+                list.Add($"{signal.Kind}:{signal.Id}{PortRow.Separator}{where}{signal.PlcName} · {signal.Name}");
             }
         }
 

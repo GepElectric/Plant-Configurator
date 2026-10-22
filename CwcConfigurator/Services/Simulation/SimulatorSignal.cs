@@ -12,7 +12,13 @@ public enum SimulatorSignalKind
     RTD,
     COUNTER,
     DO,
-    AO
+    AO,
+
+    /// <summary>Device measurement (Real) in the devices DB; the ID is the MEAS ID the PLC copies it to.</summary>
+    DEV,
+
+    /// <summary>Device bit (protection alarm, communication alarm) in the devices DB.</summary>
+    DEVBIT
 }
 
 /// <summary>
@@ -37,17 +43,21 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
     public string PlcName { get; init; } = "";
     public string Unit { get; init; } = "";
     public required int ByteOffset { get; init; }
+
+    /// <summary>The signal lives in the devices DB (DB27) instead of the simulator DB.</summary>
+    public bool InDeviceDb { get; init; }
     public int BitOffset { get; init; }
     public AnalogScaling? Scaling { get; init; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public bool IsDigital => Kind is SimulatorSignalKind.DI or SimulatorSignalKind.DO;
-    public bool IsReal => Kind == SimulatorSignalKind.COUNTER;
+    public bool IsDigital => Kind is SimulatorSignalKind.DI or SimulatorSignalKind.DO or SimulatorSignalKind.DEVBIT;
+    public bool IsReal => Kind is SimulatorSignalKind.COUNTER or SimulatorSignalKind.DEV;
     public bool IsEnabled => Config != SignalConfigState.Disabled;
 
     /// <summary>The simulator writes this channel (PLC input).</summary>
-    public bool IsWritable => Kind is SimulatorSignalKind.DI or SimulatorSignalKind.AI or SimulatorSignalKind.RTD or SimulatorSignalKind.COUNTER;
+    public bool IsWritable => Kind is SimulatorSignalKind.DI or SimulatorSignalKind.AI or SimulatorSignalKind.RTD or SimulatorSignalKind.COUNTER
+        or SimulatorSignalKind.DEV or SimulatorSignalKind.DEVBIT;
 
     public bool CanSetBool => IsWritable && IsDigital;
     public bool CanSetAnalog => IsWritable && !IsDigital;
@@ -57,11 +67,11 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
     public string ConfigText => Config switch { SignalConfigState.Inverted => "Inverted", SignalConfigState.Enabled => "", _ => "Disabled" };
     public string DirectionText => IsWritable ? "→ PLC" : "← PLC";
 
-    public string Address => IsDigital
+    public string Address => (InDeviceDb ? "DEV " : "") + (IsDigital
         ? $"DBX{ByteOffset}.{BitOffset}"
-        : IsReal ? $"DBD{ByteOffset}" : $"DBW{ByteOffset}";
+        : IsReal ? $"DBD{ByteOffset}" : $"DBW{ByteOffset}");
 
-    public string ScalingText => IsDigital ? "" : IsReal ? "Real, written as entered" : Scaling?.Describe(Unit) ?? "";
+    public string ScalingText => IsDigital ? "" : IsReal ? (InDeviceDb ? "Real (device value, before the PLC scale factor)" : "Real, written as entered") : Scaling?.Describe(Unit) ?? "";
 
     public string ScalingDetails => IsDigital ? "" : IsReal ? "The counter value is a Real in the simulator DB; the number is written unchanged."
         : Scaling?.Details() ?? "No scaling parameters in DB MEAS / DB PAR: enter raw values.";
@@ -150,7 +160,10 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
 
     public string SearchText => $"{Kind} {Module} {Channel} {Id} {System} {Name} {PlcName} {Address}";
 
-    /// <summary>Updates the live value from a read of the whole simulator DB.</summary>
+    /// <summary>Updates the live value from the reads of the simulator DB and the devices DB.</summary>
+    public void UpdateFrom(byte[] simulatorDb, byte[] devicesDb) => UpdateFrom(InDeviceDb ? devicesDb : simulatorDb);
+
+    /// <summary>Updates the live value from a read of the DB this signal lives in.</summary>
     public void UpdateFrom(byte[] data)
     {
         if (IsDigital)

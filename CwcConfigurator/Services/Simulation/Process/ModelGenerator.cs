@@ -25,6 +25,7 @@ public static class ModelGenerator
         Gates(finder, model);
         Reservoir(session, finder, model);
         Unit(finder, model);
+        Devices(finder, model);
         Feedbacks(finder, model);
         Layout(result.Objects, existing);
         if (result.Objects.Count == 0)
@@ -388,6 +389,52 @@ public static class ModelGenerator
     }
 
     /// <summary>
+    /// Devices DB: the generator values go to the generator-side devices (GEN_SENTRON, GEN_PROT); P/Q/S/PF/f also to the
+    /// line and transformer protection; the auxiliary supply object feeds the AUX Sentron.
+    /// </summary>
+    private static void Devices(Finder find, Builder model)
+    {
+        var map = new (string Port, string Pattern)[]
+        {
+            ("I1", @"^I_?1(_S\d)?$"), ("I2", @"^I_?2(_S\d)?$"), ("I3", @"^I_?3(_S\d)?$"), ("I", @"^I$"),
+            ("U12", @"^U_?12$"), ("U23", @"^U_?23$"), ("U31", @"^U_?(13|31)$"), ("U12", @"^U_LL$"),
+            ("U1", @"^U_?1$"), ("U2", @"^U_?2$"), ("U3", @"^U_?3$"),
+            ("FGen", @"^F(_GEN)?$"), ("FGrid", @"^F_GRID$"), ("GridU", @"^U_GRID$"),
+            ("PF", @"^PF$"), ("P", @"^P$"), ("Q", @"^Q$"), ("S", @"^S$"),
+            ("EnergyExport", @"^E_ACT_EXP$"), ("EnergyImport", @"^E_ACT_IMP$"), ("EnergyReactive", @"^E_RACT_EXP$")
+        };
+        if (model.Get("Generator") is { } generator)
+        {
+            foreach (var (port, pattern) in map)
+            {
+                model.AddTarget(generator, port, find.BindAllIn(Kinds.Dev, pattern, @"^GEN"));
+            }
+
+            foreach (var (port, pattern) in map.Where(item => item.Port is "P" or "Q" or "S" or "PF" or "FGen"))
+            {
+                model.AddTarget(generator, port, find.BindAllIn(Kinds.Dev, pattern, @"^(LINE|TRAFO)"));
+            }
+        }
+
+        if (find.Exists(Kinds.Dev, @"^(U_LL|P)$") && find.BindAllIn(Kinds.Dev, @"^U_LL$", @"^AUX", peek: true) is not null)
+        {
+            var aux = model.Add("AuxSupply", "AuxSupply", "Station service (AUX Sentron)");
+            if (aux is not null)
+            {
+                model.AddTarget(aux, "U", find.BindAllIn(Kinds.Dev, @"^U_?(12|13|23|LL)$", @"^AUX"));
+                model.AddTarget(aux, "I", find.BindAllIn(Kinds.Dev, @"^I(_?[123])?$", @"^AUX"));
+                foreach (var name in new[] { "P", "Q", "S", "PF" })
+                {
+                    model.AddTarget(aux, name, find.BindAllIn(Kinds.Dev, $"^{name}$", @"^AUX"));
+                }
+
+                model.AddTarget(aux, "F", find.BindAllIn(Kinds.Dev, @"^F$", @"^AUX"));
+                model.AddTarget(aux, "Energy", find.BindAllIn(Kinds.Dev, @"^E_ACT_IMP$", @"^AUX"));
+            }
+        }
+    }
+
+    /// <summary>
     /// Remaining feedback contacts: contactor / running feedbacks echo their command; MCB / OK / ready / healthy /
     /// supply / AUTO contacts are TRUE (healthy plant). Alarms, trips and LOCAL positions stay FALSE (not written).
     /// </summary>
@@ -474,6 +521,7 @@ public static class ModelGenerator
         public static readonly SimulatorSignalKind[] Do = [SimulatorSignalKind.DO];
         public static readonly SimulatorSignalKind[] Ao = [SimulatorSignalKind.AO];
         public static readonly SimulatorSignalKind[] Measure = [SimulatorSignalKind.AI, SimulatorSignalKind.RTD, SimulatorSignalKind.COUNTER];
+        public static readonly SimulatorSignalKind[] Dev = [SimulatorSignalKind.DEV];
     }
 
     private sealed class Finder(List<SimulatorSignal> signals)
@@ -496,6 +544,20 @@ public static class ModelGenerator
         {
             var list = Matches(kinds, pattern).Where(item => !_used.Contains(item)).ToList();
             return list.Count == 0 ? null : string.Join(", ", list.Select(Take));
+        }
+
+        /// <summary>All unused matching signals of devices whose name matches <paramref name="devicePattern"/>.</summary>
+        public string? BindAllIn(SimulatorSignalKind[] kinds, string pattern, string devicePattern, bool peek = false)
+        {
+            var list = Matches(kinds, pattern)
+                .Where(item => !_used.Contains(item) && Regex.IsMatch(item.System, devicePattern, RegexOptions.IgnoreCase))
+                .ToList();
+            if (list.Count == 0)
+            {
+                return null;
+            }
+
+            return peek ? "" : string.Join(", ", list.Select(Take));
         }
 
         public string Take(SimulatorSignal signal)
@@ -529,6 +591,20 @@ public static class ModelGenerator
             var item = new ObjectConfig { Name = name, Type = type, Description = description };
             result.Objects.Add(item);
             return item;
+        }
+
+        public ObjectConfig? Get(string name) => result.Objects.FirstOrDefault(item => item.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>Adds signal targets to an output port (an output may drive several signals).</summary>
+        public void AddTarget(ObjectConfig item, string port, string? binding)
+        {
+            if (string.IsNullOrWhiteSpace(binding))
+            {
+                return;
+            }
+
+            item.Ports[port] = item.Ports.TryGetValue(port, out var current) && current.Length > 0 ? current + ", " + binding : binding;
+            result.Report.Add($"{item.Name}.{port} += {binding}");
         }
 
         public bool Exists(string name) =>
