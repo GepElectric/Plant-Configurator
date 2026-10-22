@@ -41,9 +41,8 @@ public partial class ProgramView : UserControl
 
             UpdateProblems();
         };
-        ModelPathText.Text = controller.ModelPath is null
-            ? "The project is not saved: the model cannot be stored until it is."
-            : "Model file: " + controller.ModelPath;
+        controller.FileStateChanged += () => ModelPathText.Text = controller.ModelPath is null ? "Model not saved yet." : "Model file: " + controller.ModelPath;
+        ModelPathText.Text = controller.ModelPath is null ? "Model not saved yet." : "Model file: " + controller.ModelPath;
     }
 
     public void ShowPlc(string plc)
@@ -234,18 +233,10 @@ public partial class ProgramView : UserControl
         _controller.Rebuild();
     }
 
-    private void Save_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            _controller?.Save();
-            ModelPathText.Text = "Saved: " + _controller?.ModelPath;
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(Window.GetWindow(this)!, ex.Message, "Simulator", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-    }
+    /// <summary>Save: the window's Save model (asks for a file when none is chosen yet).</summary>
+    public event RoutedEventHandler? SaveRequested;
+
+    private void Save_Click(object sender, RoutedEventArgs e) => SaveRequested?.Invoke(this, e);
 
     private void Reload_Click(object sender, RoutedEventArgs e)
     {

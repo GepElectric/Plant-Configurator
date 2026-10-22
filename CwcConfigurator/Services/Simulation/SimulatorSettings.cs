@@ -45,6 +45,44 @@ public static class SimulatorSettingsStore
         }
     }
 
+    private static string ModelsPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PlantConfigurator", "simulator-models.json");
+
+    private const string LastProjectKey = "#last-project";
+
+    /// <summary>Project opened last in the Plant Simulator (null = none).</summary>
+    public static string? LoadLastProject() => LoadModelPath(LastProjectKey);
+
+    public static void SaveLastProject(string projectPath) => SaveModelPath(LastProjectKey, projectPath);
+
+    /// <summary>The model file last used with a project (null = none remembered).</summary>
+    public static string? LoadModelPath(string projectKey)
+    {
+        try
+        {
+            var all = File.Exists(ModelsPath) ? JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(ModelsPath)) : null;
+            return all is not null && all.TryGetValue(projectKey, out var path) ? path : null;
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    public static void SaveModelPath(string projectKey, string path)
+    {
+        try
+        {
+            var all = File.Exists(ModelsPath) ? JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(ModelsPath)) ?? [] : [];
+            all[projectKey] = path;
+            Directory.CreateDirectory(Path.GetDirectoryName(ModelsPath)!);
+            File.WriteAllText(ModelsPath, JsonSerializer.Serialize(all, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        {
+        }
+    }
+
     private static Dictionary<string, SimulatorConnectionSettings> ReadAll()
     {
         try

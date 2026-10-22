@@ -78,6 +78,9 @@ public partial class CwcApplication : Application
         e.Handled = true;
     }
 
+    /// <summary>Log file for other entry points (Plant Simulator) that do not run <see cref="Application_Startup"/>.</summary>
+    public static void InitializeLogging() => InitializeLogFile();
+
     private static void InitializeLogFile()
     {
         try

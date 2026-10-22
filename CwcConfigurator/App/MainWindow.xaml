@@ -347,7 +347,7 @@
                 <Separator/>
                 <MenuItem Header="Export _Project Summary" Click="ExportSummary_Click"/>
                 <MenuItem Header="ALM/PAR List PDF Exporter..." Click="AlmParExport_Click"/>
-                <MenuItem Header="_Simulator..." Click="Simulator_Click"
+                <MenuItem Header="_Plant Simulator..." Click="Simulator_Click"
                           ToolTip="Simulate the PLC I/O over S7 (simulator DB30): set DI/AI/RTD, watch DO/AO."/>
                 <MenuItem Header="TIA Trace Studio..." Click="TraceStudio_Click"
                           ToolTip="Commissioning recordings and graphs: test tree per unit, TIA trace CSV import and recording directly from the PLCs, with names and units from this project."/>

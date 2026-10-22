@@ -24,8 +24,11 @@ public sealed class SimulationController
 
     public IReadOnlyList<PlcSession> Sessions { get; }
 
-    /// <summary>"&lt;project&gt;.simulator.yaml"; null when the project has not been saved yet.</summary>
-    public string? ModelPath { get; }
+    /// <summary>The model file in use ("&lt;project&gt;.simulator.yaml" or one opened / saved as); null = not chosen yet.</summary>
+    public string? ModelPath { get; private set; }
+
+    /// <summary>Raised when the model file or its saved state changes (for the title / file display).</summary>
+    public event Action? FileStateChanged;
 
     public Dictionary<string, ProcessModel> Models { get; }
 
@@ -46,12 +49,19 @@ public sealed class SimulationController
     public void Rebuild()
     {
         Engine = new ProcessEngine(Models, Engine);
-        Dirty = true;
+        MarkDirty();
         ModelChanged?.Invoke();
     }
 
     /// <summary>Parameter changes apply immediately (objects read their parameters every step); only marks the model dirty.</summary>
-    public void MarkDirty() => Dirty = true;
+    public void MarkDirty()
+    {
+        if (!Dirty)
+        {
+            Dirty = true;
+            FileStateChanged?.Invoke();
+        }
+    }
 
     public void Reset()
     {
@@ -68,6 +78,42 @@ public sealed class SimulationController
 
         ProcessModelStore.Save(ModelPath, Models);
         Dirty = false;
+        FileStateChanged?.Invoke();
+    }
+
+    /// <summary>Saves the model to another file and keeps working on that file.</summary>
+    public void SaveAs(string path)
+    {
+        ProcessModelStore.Save(path, Models);
+        ModelPath = path;
+        Dirty = false;
+        FileStateChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Opens a model file and continues working on it. Returns the PLC names in the file that have no PLC
+    /// database in this project (their objects are kept in the file but not shown or run).
+    /// </summary>
+    public List<string> Open(string path)
+    {
+        var loaded = ProcessModelStore.Load(path);
+        Models.Clear();
+        foreach (var (plc, model) in loaded)
+        {
+            Models[plc] = model;
+        }
+
+        foreach (var session in Sessions)
+        {
+            Models.TryAdd(session.Name, new ProcessModel());
+        }
+
+        ModelPath = path;
+        Engine = new ProcessEngine(Models, Engine);
+        Dirty = false;
+        ModelChanged?.Invoke();
+        FileStateChanged?.Invoke();
+        return loaded.Keys.Where(plc => Session(plc) is null && loaded[plc].Objects.Count > 0).ToList();
     }
 
     public bool Reload()
@@ -92,6 +138,7 @@ public sealed class SimulationController
         Engine = new ProcessEngine(Models, Engine);
         Dirty = false;
         ModelChanged?.Invoke();
+        FileStateChanged?.Invoke();
         return true;
     }
 

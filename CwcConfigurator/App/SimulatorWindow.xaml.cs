@@ -20,6 +20,9 @@ public sealed class SimulatorPlcOption
     public required CwcProject Project { get; init; }
     public required string SettingsKey { get; init; }
 
+    /// <summary>Identifies the project (its file path) for remembering the last model file.</summary>
+    public string ProjectKey { get; init; } = "";
+
     public override string ToString() => Name;
 }
 
@@ -42,6 +45,7 @@ public partial class SimulatorWindow : Window
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly List<TextBox> _constantBoxes = [];
     private PlcSession? _session;
+    private readonly string _projectKey;
     private ICollectionView? _view;
     private bool _cycleRunning;
     private int _tick;
@@ -63,8 +67,19 @@ public partial class SimulatorWindow : Window
         DevicePresetBox.ItemsSource = DevicePresets;
         DevicePresetBox.SelectedIndex = 0;
         _sessions = options.Select(option => new PlcSession(option.Name, option.Project, option.SettingsKey)).ToList();
+        _projectKey = options.FirstOrDefault()?.ProjectKey ?? "";
+        // Continue with the model file used last time for this project (it may be elsewhere than next to the project).
+        var remembered = _projectKey.Length > 0 ? SimulatorSettingsStore.LoadModelPath(_projectKey) : null;
+        if (remembered is not null && System.IO.File.Exists(remembered))
+        {
+            modelPath = remembered;
+        }
+
         _controller = new SimulationController(_sessions, modelPath);
+        _controller.FileStateChanged += UpdateModelFileText;
+        UpdateModelFileText();
         ProgramPanel.Attach(_controller);
+        ProgramPanel.SaveRequested += SaveModel_Click;
         ScadaPanel.Attach(_controller);
         foreach (var session in _sessions)
         {
@@ -90,11 +105,11 @@ public partial class SimulatorWindow : Window
         {
             var scoped = new CwcProject();
             database.ApplyTo(scoped);
-            return new SimulatorPlcOption { Name = database.Name, Project = scoped, SettingsKey = projectKey + "|" + database.Name };
+            return new SimulatorPlcOption { Name = database.Name, Project = scoped, SettingsKey = projectKey + "|" + database.Name, ProjectKey = projectKey };
         }).ToList();
         if (options.Count == 0)
         {
-            options.Add(new SimulatorPlcOption { Name = "PLC", Project = project, SettingsKey = projectKey + "|PLC" });
+            options.Add(new SimulatorPlcOption { Name = "PLC", Project = project, SettingsKey = projectKey + "|PLC", ProjectKey = projectKey });
         }
 
         return options;
@@ -128,7 +143,8 @@ public partial class SimulatorWindow : Window
         {
             WindowStartupLocation = WindowStartupLocation.CenterScreen
         };
-        window.Title = $"Simulator – {System.IO.Path.GetFileName(fullPath)}";
+        window.Title = $"Plant Simulator – {System.IO.Path.GetFileName(fullPath)}";
+        SimulatorSettingsStore.SaveLastProject(fullPath);
         return window;
     }
 
@@ -451,6 +467,112 @@ public partial class SimulatorWindow : Window
             : string.Join("   ", _sessions.Select(session => $"{(session.IsConnected ? "●" : "○")} {session.Name}"));
     }
 
+    private void UpdateModelFileText()
+    {
+        var path = _controller.ModelPath;
+        ModelFileText.Text = path is null ? "Model: not saved" : (_controller.Dirty ? "● " : "") + "Model: " + System.IO.Path.GetFileName(path);
+        ModelFileText.ToolTip = path ?? "The plant model has not been saved to a file yet.";
+    }
+
+    private void OpenModel_Click(object sender, RoutedEventArgs e)
+    {
+        if (_controller.Dirty && MessageBox.Show(this, "The plant model has unsaved changes. Discard them and open another model?", "Simulator",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Open plant model",
+            Filter = "Plant model (*.simulator.yaml)|*.simulator.yaml|YAML (*.yaml;*.yml)|*.yaml;*.yml|All files (*.*)|*.*",
+            InitialDirectory = _controller.ModelPath is null ? null : System.IO.Path.GetDirectoryName(_controller.ModelPath)
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var session in _sessions)
+            {
+                foreach (var signal in session.Signals)
+                {
+                    signal.ClearForces();
+                }
+            }
+
+            var unknown = _controller.Open(dialog.FileName);
+            RestoreForces();
+            RememberModel();
+            StatusText.Text = $"Opened {dialog.FileName}." + (unknown.Count == 0 ? ""
+                : $" Objects of {string.Join(", ", unknown)} are kept in the file but this project has no PLC database with that name.");
+        }
+        catch (Exception ex)
+        {
+            CwcApplication.LogException("Simulator.OpenModel", ex);
+            StatusText.Text = "Could not open the model: " + ex.Message;
+        }
+    }
+
+    private void SaveModel_Click(object sender, RoutedEventArgs e)
+    {
+        if (_controller.ModelPath is null)
+        {
+            SaveModelAs_Click(sender, e);
+            return;
+        }
+
+        try
+        {
+            _controller.Save();
+            RememberModel();
+            StatusText.Text = "Model saved: " + _controller.ModelPath;
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Could not save the model: " + ex.Message;
+        }
+    }
+
+    private void SaveModelAs_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Save plant model as",
+            Filter = "Plant model (*.simulator.yaml)|*.simulator.yaml|All files (*.*)|*.*",
+            FileName = _controller.ModelPath is null ? "Plant.simulator.yaml" : System.IO.Path.GetFileName(_controller.ModelPath),
+            InitialDirectory = _controller.ModelPath is null ? null : System.IO.Path.GetDirectoryName(_controller.ModelPath)
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var path = dialog.FileName.EndsWith(".simulator.yaml", StringComparison.OrdinalIgnoreCase) || System.IO.Path.HasExtension(System.IO.Path.GetFileNameWithoutExtension(dialog.FileName))
+            ? dialog.FileName
+            : System.IO.Path.ChangeExtension(dialog.FileName, null) + ".simulator.yaml";
+        try
+        {
+            _controller.SaveAs(path);
+            RememberModel();
+            StatusText.Text = "Model saved as " + path;
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Could not save the model: " + ex.Message;
+        }
+    }
+
+    private void RememberModel()
+    {
+        if (_projectKey.Length > 0 && _controller.ModelPath is not null)
+        {
+            SimulatorSettingsStore.SaveModelPath(_projectKey, _controller.ModelPath);
+        }
+    }
+
     /// <summary>SET on an analog signal: press = hold the typed value, press again = release.</summary>
     private void SetAnalogToggle_Click(object sender, RoutedEventArgs e)
     {
@@ -530,15 +652,12 @@ public partial class SimulatorWindow : Window
             model.Forces = session.Signals.Where(signal => signal.IsForced).SelectMany(DescribeForces).ToList();
         }
 
-        try
+        _controller.MarkDirty();
+        SaveModel_Click(sender, e);
+        if (!_controller.Dirty)
         {
-            _controller.Save();
             var count = _sessions.Sum(session => session.Signals.Count(signal => signal.IsForced));
             StatusText.Text = $"Saved {count} forced signal(s) in {_controller.ModelPath}.";
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text = "Could not save the forces: " + ex.Message;
         }
     }
 
@@ -677,7 +796,7 @@ public partial class SimulatorWindow : Window
 
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
-        if (!_controller.Dirty || _controller.ModelPath is null)
+        if (!_controller.Dirty)
         {
             return;
         }
@@ -692,13 +811,9 @@ public partial class SimulatorWindow : Window
 
         if (answer == MessageBoxResult.Yes)
         {
-            try
+            SaveModel_Click(this, new RoutedEventArgs());
+            if (_controller.Dirty)
             {
-                _controller.Save();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(this, "Could not save the model: " + ex.Message, "Simulator", MessageBoxButton.OK, MessageBoxImage.Error);
                 e.Cancel = true;
             }
         }

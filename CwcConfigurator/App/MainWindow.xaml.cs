@@ -9303,6 +9303,10 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Tools → Simulator: starts the separate Plant Simulator application with this project. The simulator reads the
+    /// saved project file, so pending changes are saved first. Without PlantSimulator.exe the simulator opens here.
+    /// </summary>
     private void Simulator_Click(object sender, RoutedEventArgs e)
     {
         if (!_projectOpen)
@@ -9313,16 +9317,46 @@ public partial class MainWindow : Window
 
         try
         {
-            SaveActivePlcDatabase();
+            if (_projectPath is null || HasUnsavedChanges())
+            {
+                var answer = MessageBox.Show(this,
+                    "The Plant Simulator reads the saved project file. Save the project now?",
+                    "Plant Simulator", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (answer != MessageBoxResult.Yes)
+                {
+                    return;
+                }
 
-            var options = SimulatorWindow.CreateOptions(_project, _projectPath ?? _project.ProjectName);
+                SaveProject();
+                if (_projectPath is null || HasUnsavedChanges())
+                {
+                    return;
+                }
+            }
+
+            var exe = Path.Combine(AppContext.BaseDirectory, "PlantSimulator.exe");
+            if (File.Exists(exe))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = exe,
+                    Arguments = $"\"{_projectPath}\"",
+                    WorkingDirectory = AppContext.BaseDirectory,
+                    UseShellExecute = false
+                });
+                ShowMessage("Plant Simulator started.");
+                return;
+            }
+
+            SaveActivePlcDatabase();
+            var options = SimulatorWindow.CreateOptions(_project, _projectPath);
             var window = new SimulatorWindow(options, GetActivePlcDatabase()?.Name,
-                _projectPath is null ? null : Services.Simulation.Process.ProcessModelStore.PathFor(_projectPath)) { Owner = this };
+                Services.Simulation.Process.ProcessModelStore.PathFor(_projectPath)) { Owner = this };
             window.Show();
         }
         catch (Exception ex)
         {
-            ShowError("Could not open the Simulator: " + ex.Message);
+            ShowError("Could not start the Plant Simulator: " + ex.Message);
         }
     }
 

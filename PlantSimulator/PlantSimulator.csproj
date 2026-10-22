@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Plant Simulator: stand-alone simulator application (own exe and icon). It uses the simulator of Plant
+       Configurator and is built into the same folder as PlantConfigurator.exe, so Tools → Simulator starts it and
+       it ships in the same package. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>PlantSimulator</AssemblyName>
+    <RootNamespace>PlantSimulator</RootNamespace>
+    <ApplicationIcon>PlantSimulator.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <OutDir>$(MSBuildThisFileDirectory)..\CwcConfigurator\bin\$(Configuration)\net8.0-windows\</OutDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="PlantSimulator.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CwcConfigurator\CwcConfigurator.csproj" />
+  </ItemGroup>
+</Project>
