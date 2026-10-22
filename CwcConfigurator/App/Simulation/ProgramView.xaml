@@ -161,8 +161,9 @@
                         <DataGridTemplateColumn Header="BINDING" Width="420">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <ComboBox IsEditable="True" ItemsSource="{Binding Suggestions}" Text="{Binding Binding, UpdateSourceTrigger=LostFocus}"
-                                              IsTextSearchEnabled="True" StaysOpenOnEdit="True" Height="24"/>
+                                    <ComboBox ItemsSource="{Binding Suggestions}" Text="{Binding Binding, UpdateSourceTrigger=LostFocus}"
+                                              local:ComboFilter.IsEnabled="True" Height="24"
+                                              ToolTip="Type to narrow the list (all words must match, e.g. gate 1 open); Down opens it, Enter takes the first match."/>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
