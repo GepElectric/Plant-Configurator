@@ -58,6 +58,8 @@ public partial class ScadaView : UserControl
     public ScadaView()
     {
         InitializeComponent();
+        AddTypeBox.ItemsSource = ObjectCatalog.All.OrderBy(info => info.Category).ThenBy(info => info.Title).ToList();
+        AddTypeBox.SelectedIndex = 0;
     }
 
     private static Brush Freeze(Brush brush)
@@ -554,6 +556,74 @@ public partial class ScadaView : UserControl
     private void Disconnect(ObjectConfig config, string port)
     {
         config.Ports.Remove(port);
+        _controller?.Rebuild();
+    }
+
+    // ---- adding objects ----
+
+    private void AddObject_Click(object sender, RoutedEventArgs e)
+    {
+        if (AddTypeBox.SelectedItem is ObjectTypeInfo info)
+        {
+            // Next to the objects already on the screen, in the visible top-left area.
+            var x = 40 + _items.Count % 5 * 40;
+            AddObject(info, new Point(x, 40 + _items.Count % 5 * 30));
+        }
+    }
+
+    /// <summary>Right-click on the empty sheet: add an object of any type at that point.</summary>
+    private void Sheet_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource != Sheet || Model is null)
+        {
+            return;
+        }
+
+        var position = e.GetPosition(Sheet);
+        var add = new MenuItem { Header = "Add object here" };
+        foreach (var category in ObjectCatalog.All.GroupBy(info => info.Category).OrderBy(group => group.Key))
+        {
+            var group = new MenuItem { Header = category.Key };
+            foreach (var info in category.OrderBy(info => info.Title))
+            {
+                var entry = new MenuItem { Header = info.Title, ToolTip = info.Description };
+                entry.Click += (_, _) => AddObject(info, position);
+                group.Items.Add(entry);
+            }
+
+            add.Items.Add(group);
+        }
+
+        new ContextMenu { Items = { add }, PlacementTarget = Sheet, Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint, IsOpen = true };
+        e.Handled = true;
+    }
+
+    private void AddObject(ObjectTypeInfo info, Point position)
+    {
+        if (Model is not { } model)
+        {
+            return;
+        }
+
+        var index = 1;
+        while (model.Find($"{info.Type}{index}") is not null)
+        {
+            index++;
+        }
+
+        var name = $"{info.Type}{index}";
+        model.Screens = model.AllScreens();
+        model.Objects.Add(new ObjectConfig
+        {
+            Name = name,
+            Type = info.Type,
+            Description = info.Title,
+            Screen = _screen,
+            X = Math.Max(0, Math.Round(position.X / 10) * 10),
+            Y = Math.Max(0, Math.Round(position.Y / 10) * 10)
+        });
+        _selection.Clear();
+        _selected = name;
         _controller?.Rebuild();
     }
 

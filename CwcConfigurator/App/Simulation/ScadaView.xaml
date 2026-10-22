@@ -32,6 +32,10 @@
                     <Button Content="Rename…" MinWidth="65" Height="24" Margin="0,0,4,0" Click="RenameScreen_Click"/>
                     <Button Content="Delete" MinWidth="55" Height="24" Click="DeleteScreen_Click"
                             ToolTip="Deletes an empty screen (move its objects to another screen first)."/>
+                    <ComboBox x:Name="AddTypeBox" Width="190" Height="24" Margin="16,0,4,0" DisplayMemberPath="Title"
+                              ToolTip="Object type to add to this screen."/>
+                    <Button Content="Add" MinWidth="45" Height="24" Click="AddObject_Click"
+                            ToolTip="Add the chosen object to this screen (or right-click on the empty sheet: Add object here)."/>
                     <CheckBox x:Name="SldCheck" Content="SLD screen" VerticalAlignment="Center" Margin="16,0,0,0"
                               Checked="SldCheck_Changed" Unchecked="SldCheck_Changed"
                               ToolTip="Draw this screen as a single-line diagram: busbars, breakers, contactors, disconnectors, earthing switches and motors as symbols."/>
@@ -41,7 +45,7 @@
                 </StackPanel>
             </Border>
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#F3F4F6">
-                <Canvas x:Name="Sheet" Width="1600" Height="1000" Background="#F3F4F6" MouseLeftButtonDown="Sheet_MouseLeftButtonDown"
+                <Canvas x:Name="Sheet" Width="1600" Height="1000" Background="#F3F4F6" MouseLeftButtonDown="Sheet_MouseLeftButtonDown" MouseRightButtonUp="Sheet_MouseRightButtonUp"
                         MouseMove="Sheet_MouseMove" MouseLeftButtonUp="Sheet_MouseLeftButtonUp"/>
             </ScrollViewer>
         </DockPanel>
