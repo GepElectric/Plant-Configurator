@@ -79,6 +79,28 @@ public class SimulatorTests
     }
 
     [Fact]
+    public void AiScaling_OffsetShiftsTheMeasuringRange()
+    {
+        // Intake water level: 0…20 m with OFFSET 69.69 → 69.69…89.69 m; 0 m cannot be written.
+        var scaling = new AnalogScaling(0, 27648, 0, 20, Offset: 69.69);
+
+        Assert.Equal((69.69, 89.69), (System.Math.Round(scaling.EngineeringRange.Low, 2), System.Math.Round(scaling.EngineeringRange.High, 2)));
+        Assert.Equal(13824, scaling.ToRaw(79.69));
+        Assert.True(scaling.ToRawExact(0) < short.MinValue);
+        Assert.Equal("69.69…89.69 m = raw 0…27648", scaling.Describe("m"));
+    }
+
+    [Theory]
+    [InlineData(-32768, true)]
+    [InlineData(32000, true)]
+    [InlineData(31999, false)]
+    [InlineData(-4864, false)]
+    public void ErrorRawValues_MatchFbAi(int raw, bool error)
+    {
+        Assert.Equal(error, AnalogScaling.IsErrorRaw(raw));
+    }
+
+    [Fact]
     public void RtdScaling_TemperatureIsTenths()
     {
         var scaling = new AnalogScaling(0, 0, 0, 0, TenthsOfValue: true);

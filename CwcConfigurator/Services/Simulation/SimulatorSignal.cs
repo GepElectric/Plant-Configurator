@@ -57,7 +57,12 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
         ? $"DBX{ByteOffset}.{BitOffset}"
         : $"DBW{ByteOffset}";
 
-    public string ScalingText => IsDigital ? "" : Scaling?.Describe() ?? "";
+    public string ScalingText => IsDigital ? "" : Scaling?.Describe(Unit) ?? "";
+
+    public string ScalingDetails => IsDigital ? "" : Scaling?.Details() ?? "No scaling parameters in DB MEAS / DB PAR: enter raw values.";
+
+    /// <summary>The PLC would report the current raw value as a measurement error (AI, RTD).</summary>
+    public bool IsErrorValue => !IsDigital && Kind != SimulatorSignalKind.AO && _rawValue is { } raw && AnalogScaling.IsErrorRaw(raw);
 
     public bool? BoolValue
     {
@@ -81,6 +86,7 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
             {
                 OnPropertyChanged(nameof(ValueText));
                 OnPropertyChanged(nameof(RawText));
+                OnPropertyChanged(nameof(IsErrorValue));
             }
         }
     }
@@ -102,6 +108,11 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
             if (_rawValue is null)
             {
                 return "";
+            }
+
+            if (IsErrorValue)
+            {
+                return "ERROR";
             }
 
             if (!HasScaling)

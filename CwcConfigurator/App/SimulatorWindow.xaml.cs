@@ -335,12 +335,28 @@ public partial class SimulatorWindow : Window
         }
 
         var useRaw = RawEntryCheck.IsChecked == true || !signal.HasScaling;
-        var raw = useRaw
-            ? (short)Math.Clamp(Math.Round(number), short.MinValue, short.MaxValue)
-            : signal.Scaling!.ToRaw(number);
+        var exactRaw = useRaw ? Math.Round(number) : signal.Scaling!.ToRawExact(number);
+        if (double.IsNaN(exactRaw) || exactRaw < short.MinValue || exactRaw > short.MaxValue)
+        {
+            var range = useRaw ? "" : $" The measuring range is {signal.ScalingText}.";
+            StatusText.Text = $"{signal.SetText} {(useRaw ? "" : signal.Unit)} cannot be written: the raw value would be {exactRaw:0}, outside −32768…32767.{range}";
+            return;
+        }
+
+        var raw = (short)Math.Round(exactRaw, MidpointRounding.AwayFromZero);
         var description = useRaw
             ? $"{signal.Kind} {signal.Module}.{signal.Channel} {signal.Name} := raw {raw}"
             : $"{signal.Kind} {signal.Module}.{signal.Channel} {signal.Name} := {number.ToString("0.###", CultureInfo.InvariantCulture)} {signal.Unit} (raw {raw})";
+        if (AnalogScaling.IsErrorRaw(raw))
+        {
+            description += " – the PLC treats this raw value as a measurement error";
+        }
+        else if (!useRaw && signal.Scaling is { TenthsOfValue: false } scaling
+                 && (raw < Math.Min(scaling.RawLow, scaling.RawHigh) || raw > Math.Max(scaling.RawLow, scaling.RawHigh)))
+        {
+            description += $" – outside the measuring range {signal.ScalingText}";
+        }
+
         await WriteAsync(signal, () => _client.WriteIntAsync(_dbNumber, signal.ByteOffset, raw), description);
     }
 

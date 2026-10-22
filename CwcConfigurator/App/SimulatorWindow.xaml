@@ -111,18 +111,27 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Border x:Name="ValueBorder" CornerRadius="3" Padding="6,1" HorizontalAlignment="Left">
-                                <TextBlock Text="{Binding ValueText}" FontWeight="SemiBold" ToolTip="{Binding ScalingText}"/>
+                                <TextBlock Text="{Binding ValueText}" FontWeight="SemiBold" ToolTip="{Binding ScalingDetails}"/>
                             </Border>
                             <DataTemplate.Triggers>
                                 <DataTrigger Binding="{Binding IsTrue}" Value="True">
                                     <Setter TargetName="ValueBorder" Property="Background" Value="#B7E4C7"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsErrorValue}" Value="True">
+                                    <Setter TargetName="ValueBorder" Property="Background" Value="#FECACA"/>
                                 </DataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="RAW" Width="64" MinWidth="60" Binding="{Binding RawText}"/>
-                <DataGridTextColumn Header="SCALING" Width="170" MinWidth="120" Binding="{Binding ScalingText}"/>
+                <DataGridTemplateColumn Header="SCALING" Width="200" MinWidth="120" SortMemberPath="ScalingText">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding ScalingText}" ToolTip="{Binding ScalingDetails}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTemplateColumn Header="SET" Width="230">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
