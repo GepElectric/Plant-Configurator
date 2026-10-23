@@ -9333,9 +9333,10 @@ public partial class MainWindow : Window
             }
 
             var messages = new List<string>();
+            var typesDone = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var target in selected)
             {
-                messages.Add(await pushService.PushAsync(target, _project.DescriptionTextLists.TextLists, managed));
+                messages.Add(await pushService.PushAsync(target, _project.DescriptionTextLists.TextLists, managed, typesDone));
             }
 
             return string.Join(Environment.NewLine, messages);

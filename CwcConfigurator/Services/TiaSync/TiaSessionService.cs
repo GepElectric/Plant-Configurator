@@ -162,6 +162,16 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         });
     }
 
+    public Task<TiaTextListTypesResult> UpdateTextListTypesAsync(string inputFolder, IReadOnlyList<string> listNames, string comment)
+    {
+        return SendAsync<TiaTextListTypesResult>(RequireActiveVersion(), "UpdateTextListTypes", new
+        {
+            InputFolder = inputFolder,
+            ListNames = listNames,
+            Comment = comment
+        }, LongHelperResponseTimeout);
+    }
+
     public Task<TiaUnifiedScriptResult> ExportUnifiedGraphicsAsync(string outputFolder, string deviceName)
     {
         return SendAsync<TiaUnifiedScriptResult>(RequireActiveVersion(), "ExportUnifiedGraphics", new
