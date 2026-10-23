@@ -42,6 +42,8 @@ public partial class NavigationEditorWindow : Window
         _screenRefresh = screenRefresh;
         _model = ScadaNavigationModel.FromDatabase(database);
         ButtonsList.ItemsSource = _model.Buttons;
+        ButtonCountCombo.ItemsSource = Enumerable.Range(0, ScadaNavigationModel.MaxButtons + 1).ToList();
+        ButtonCountCombo.SelectedItem = _model.ButtonCount;
 
         SetTiaScreens(tiaScreens);
         MergeScreens(screenCatalog);
@@ -134,6 +136,14 @@ public partial class NavigationEditorWindow : Window
         if (e.PropertyName == nameof(ScadaNavButton.Identity))
         {
             UpdateCardScreens();
+        }
+    }
+
+    private void ButtonCount_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ButtonCountCombo.SelectedItem is int count)
+        {
+            _model.ButtonCount = count;
         }
     }
 

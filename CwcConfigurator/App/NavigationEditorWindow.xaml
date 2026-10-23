@@ -24,6 +24,11 @@
             <DockPanel Grid.Column="0" Margin="0,0,10,0">
                 <TextBlock DockPanel.Dock="Top" Text="Main navigation buttons" FontWeight="Bold" Margin="0,0,0,6"/>
                 <TextBlock DockPanel.Dock="Top" Text="Empty identity = button hidden." Foreground="#57606A" Margin="0,0,0,6"/>
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Visible buttons:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox x:Name="ButtonCountCombo" Width="60" SelectionChanged="ButtonCount_SelectionChanged"
+                              ToolTip="MAIN_NAV_BUTTONS_NUM: buttons after this number are hidden."/>
+                </StackPanel>
                 <WrapPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
                     <Button Content="Up" Click="ButtonUp_Click" MinWidth="44" Margin="0,0,4,4"/>
                     <Button Content="Down" Click="ButtonDown_Click" MinWidth="44" Margin="0,0,4,4"/>

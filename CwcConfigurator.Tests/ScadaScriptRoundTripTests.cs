@@ -59,4 +59,31 @@ public class ScadaScriptRoundTripTests
             Directory.Delete(folder, true);
         }
     }
+
+    [Fact]
+    public void Navigation_FollowsTheScreenCountOfEachButton()
+    {
+        var database = new CwcConfigurator.Domain.ScadaDatabase();
+        void Add(string name, string value, string type = "STRING") =>
+            database.Variables.Add(new CwcConfigurator.Domain.ScadaConfigVariable { Id = database.Variables.Count + 1, Name = name, Value = value, Type = type, Section = "MAIN" });
+        Add("MAIN_NAV_BUTTONS_NUM", "1", "INT");
+        Add("MAIN_NAV_BUTTONS_ENTRY_1", "General");
+        Add("BUTTON_1_SCREEN_NUM", "3", "INT");
+        Add("SCREENS_Button_1_ENTRY_1", "General_Overview");
+        Add("SCREENS_Button_1_ENTRY_2", "General_SLD");
+        Add("SCREENS_Button_1_ENTRY_5", "General_Old");          // beyond the count: not a card
+        Add("MAIN_NAV_BUTTONS_ENTRY_2", "Unit 1");
+
+        var model = ScadaNavigationModel.FromDatabase(database);
+        Assert.Equal(1, model.ButtonCount);
+        Assert.Equal(3, model.Buttons[0].Cards.Count);              // 3 screens set on MAINNAV, the third still empty
+        Assert.Equal("", model.Buttons[0].Cards[2].Screen);
+        Assert.False(model.Buttons[1].Visible);
+
+        model.Buttons[0].Cards.RemoveAt(2);
+        model.ButtonCount = 2;
+        model.ApplyTo(database);
+        Assert.Equal("2", database.Variables.First(variable => variable.Name == "BUTTON_1_SCREEN_NUM").Value);
+        Assert.Equal("2", database.Variables.First(variable => variable.Name == "MAIN_NAV_BUTTONS_NUM").Value);
+    }
 }

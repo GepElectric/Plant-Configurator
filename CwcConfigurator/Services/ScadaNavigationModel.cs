@@ -61,6 +61,7 @@ public sealed class ScadaNavButton : ScadaNavItem
     private int _layoutShape;
     private string _firstTopNav = "1";
     private string _sideContentScreen = "";
+    private bool _visible = true;
 
     public ScadaNavButton()
     {
@@ -77,6 +78,9 @@ public sealed class ScadaNavButton : ScadaNavItem
     public string SideContentScreen { get => _sideContentScreen; set => Set(ref _sideContentScreen, value ?? ""); }
     public ObservableCollection<ScadaTopNavCard> Cards { get; } = new();
 
+    /// <summary>Within the visible buttons (MAIN_NAV_BUTTONS_NUM).</summary>
+    public bool Visible { get => _visible; set => Set(ref _visible, value, nameof(Visible), nameof(Display)); }
+
     public string Display
     {
         get
@@ -84,7 +88,7 @@ public sealed class ScadaNavButton : ScadaNavItem
             var label = !string.IsNullOrWhiteSpace(LabelEn) ? LabelEn
                 : !string.IsNullOrWhiteSpace(Identity) ? Identity
                 : "(empty)";
-            return $"{Index}.  {label}   [{Cards.Count}]";
+            return $"{Index}.  {label}   [{Cards.Count}]{(Visible ? "" : "   (hidden)")}";
         }
     }
 }
@@ -101,6 +105,22 @@ public sealed class ScadaNavigationModel
 
     public List<ScadaNavButton> Buttons { get; } = new();
 
+    private int _buttonCount;
+
+    /// <summary>Number of visible main-nav buttons (MAIN_NAV_BUTTONS_NUM); buttons after it are hidden.</summary>
+    public int ButtonCount
+    {
+        get => _buttonCount;
+        set
+        {
+            _buttonCount = Clamp(value, 0, MaxButtons);
+            foreach (var button in Buttons)
+            {
+                button.Visible = button.Index <= _buttonCount;
+            }
+        }
+    }
+
     public static ScadaNavigationModel FromDatabase(ScadaDatabase database)
     {
         var values = database.Variables
@@ -108,6 +128,7 @@ public sealed class ScadaNavigationModel
             .ToDictionary(group => group.Key, group => group.First().Value ?? "", StringComparer.OrdinalIgnoreCase);
 
         string Get(string name) => values.TryGetValue(name, out var value) ? value : "";
+        bool Has(string name) => values.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value);
 
         var model = new ScadaNavigationModel();
         for (var b = 1; b <= MaxButtons; b++)
@@ -124,12 +145,16 @@ public sealed class ScadaNavigationModel
                 SideContentScreen = Get($"SIDE_CONTENT_DEFAULT_SCREENS_ENTRY_{b}")
             };
 
-            for (var c = 1; c <= MaxCards; c++)
+            // The number of screens set for the button (BUTTON_x_SCREEN_NUM) decides how many cards it has;
+            // without it, a card exists where a screen is set.
+            var counted = Has($"BUTTON_{b}_SCREEN_NUM");
+            var cardCount = counted ? Clamp(ParseInt(Get($"BUTTON_{b}_SCREEN_NUM")), 0, MaxCards) : MaxCards;
+            for (var c = 1; c <= cardCount; c++)
             {
                 var screen = Get($"SCREENS_Button_{b}_ENTRY_{c}");
-                if (string.IsNullOrWhiteSpace(screen))
+                if (!counted && string.IsNullOrWhiteSpace(screen))
                 {
-                    continue; // a card exists only where it has a screen
+                    continue;
                 }
 
                 button.Cards.Add(new ScadaTopNavCard
@@ -144,6 +169,9 @@ public sealed class ScadaNavigationModel
             model.Buttons.Add(button);
         }
 
+        model.ButtonCount = Has("MAIN_NAV_BUTTONS_NUM")
+            ? ParseInt(Get("MAIN_NAV_BUTTONS_NUM"))
+            : model.Buttons.Count(button => !string.IsNullOrWhiteSpace(button.Identity));
         return model;
     }
 
@@ -173,6 +201,7 @@ public sealed class ScadaNavigationModel
             byName[name] = created;
         }
 
+        Set("MAIN_NAV_BUTTONS_NUM", ButtonCount.ToString(CultureInfo.InvariantCulture), "INT", "MAIN");
         foreach (var button in Buttons)
         {
             var b = button.Index;
@@ -184,7 +213,9 @@ public sealed class ScadaNavigationModel
             Set($"BUTTON_{b}_FIRST_TOP_NAV", NumOrDefault(button.FirstTopNav, "1"), "INT", "MAIN");
             Set($"SIDE_CONTENT_DEFAULT_SCREENS_ENTRY_{b}", button.SideContentScreen ?? "", "STRING", "SIDE_CONTENT");
 
-            var cards = button.Cards.Where(card => !string.IsNullOrWhiteSpace(card.Screen)).Take(MaxCards).ToList();
+            // Every card counts (also one whose screen is still empty), like BUTTON_x_SCREEN_NUM on the MAINNAV tab.
+            var cards = button.Cards.Take(MaxCards).ToList();
+            Set($"BUTTON_{b}_SCREEN_NUM", cards.Count.ToString(CultureInfo.InvariantCulture), "INT", "MAIN");
             for (var c = 1; c <= MaxCards; c++)
             {
                 var card = c <= cards.Count ? cards[c - 1] : null;
