@@ -488,16 +488,22 @@ public partial class TiaSyncDialog : Window
             {
                 try
                 {
-                    var result = await service.PullFromTiaAsync(_sessionService, row.DeviceName);
                     var index = _project.ScadaDatabases.FindIndex(database => database.Id == row.Binding.ScadaDatabaseId);
                     if (index < 0)
                     {
                         continue;
                     }
 
+                    var previous = _project.ScadaDatabases[index];
+                    var result = await service.PullFromTiaAsync(_sessionService, row.DeviceName, !previous.IsPrimeVolt);
                     var pulled = result.Database;
-                    pulled.Id = _project.ScadaDatabases[index].Id;
-                    pulled.Name = _project.ScadaDatabases[index].Name;
+                    pulled.Id = previous.Id;
+                    pulled.Name = previous.Name;
+                    pulled.Style = previous.Style;
+                    if (previous.IsPrimeVolt)
+                    {
+                        pulled.GraphicLists = previous.GraphicLists;
+                    }
                     pulled.LastImportedAtUtc = DateTime.UtcNow.ToString("O");
                     _project.ScadaDatabases[index] = pulled;
                     if (_project.Scada?.Id == pulled.Id)

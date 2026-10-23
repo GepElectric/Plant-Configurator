@@ -82,7 +82,8 @@ public sealed class ScadaUnifiedSyncService
     /// Pull through the attached TIA project: exports <c>AUX_FUNCTIONS</c> of the mapped Unified device, reads the
     /// <c>_SET_INTERNAL_TAG</c> body into a SCADA database and reads the device's screens.
     /// </summary>
-    public async Task<ScadaUnifiedPullResult> PullFromTiaAsync(ITiaSessionService session, string deviceName)
+    /// <param name="withGraphicLists">Geppert SCADA: also pull the icon graphic lists with their images.</param>
+    public async Task<ScadaUnifiedPullResult> PullFromTiaAsync(ITiaSessionService session, string deviceName, bool withGraphicLists = true)
     {
         var rootPath = CreateWorkspace();
         var modulePath = await ExportModuleAsync(session, deviceName, rootPath);
@@ -93,11 +94,43 @@ public sealed class ScadaUnifiedSyncService
         var database = _scadaService.Import(bodyPath);
         var screens = await session.GetUnifiedScreensAsync(deviceName);
         database.TiaScreens = screens.Screens.ToList();
+        var graphics = "";
+        if (withGraphicLists)
+        {
+            try
+            {
+                database.GraphicLists = await PullGraphicListsAsync(session, deviceName);
+                graphics = $", graphic lists {string.Join(", ", database.GraphicLists.Select(list => $"{list.Name} ({list.Entries.Count})"))}";
+            }
+            catch (Exception ex)
+            {
+                graphics = $" (graphic lists not read: {ex.Message})";
+            }
+        }
+
         return new ScadaUnifiedPullResult
         {
             Database = database,
-            Message = $"Pulled {ModuleName}.{ScadaInternalTagModule.DefaultFunctionName} and {database.TiaScreens.Count} screen(s) from '{deviceName}'."
+            Message = $"Pulled {ModuleName}.{ScadaInternalTagModule.DefaultFunctionName} and {database.TiaScreens.Count} screen(s){graphics} from '{deviceName}'."
         };
+    }
+
+    /// <summary>Graphic lists MAIN_NAV_BUTTONS, TOP_NAV_ICONS and TREND_ICONS of the device, with the images of their graphics.</summary>
+    public async Task<List<ScadaGraphicList>> PullGraphicListsAsync(ITiaSessionService session, string deviceName)
+    {
+        if (session.CurrentSession is null)
+        {
+            throw new InvalidOperationException("Attach to the TIA Portal project (V21) in 'TIA Sync' first.");
+        }
+
+        var folder = Path.Combine(CreateWorkspace(), "graphic_lists");
+        var export = await session.ExportUnifiedGraphicsAsync(folder, deviceName);
+        if (!export.Success)
+        {
+            throw new InvalidOperationException(string.Join(" ", export.Warnings.DefaultIfEmpty("the graphic lists could not be exported.")));
+        }
+
+        return ScadaGraphicLists.Read(folder);
     }
 
     /// <summary>

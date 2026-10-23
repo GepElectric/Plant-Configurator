@@ -69,7 +69,10 @@
                         <TextBlock Grid.Row="1" Grid.Column="2" Text="Label (2nd):" VerticalAlignment="Center" Margin="12,3,6,3"/>
                         <TextBox Grid.Row="1" Grid.Column="3" Margin="0,3" Text="{Binding LabelOther, UpdateSourceTrigger=PropertyChanged}"/>
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Icon (id):" VerticalAlignment="Center" Margin="0,3,6,3"/>
-                        <TextBox Grid.Row="2" Grid.Column="1" Margin="0,3" Text="{Binding IconId, UpdateSourceTrigger=PropertyChanged}"/>
+                        <DockPanel Grid.Row="2" Grid.Column="1" Margin="0,3">
+                            <Button DockPanel.Dock="Right" Content="…" Width="26" Margin="3,0,0,0" Click="PickButtonIcon_Click" ToolTip="Choose the icon (MAIN_NAV_BUTTONS)"/>
+                            <TextBox Text="{Binding IconId, UpdateSourceTrigger=PropertyChanged}"/>
+                        </DockPanel>
                         <TextBlock Grid.Row="2" Grid.Column="2" Text="First top nav:" VerticalAlignment="Center" Margin="12,3,6,3"/>
                         <ComboBox Grid.Row="2" Grid.Column="3" Margin="0,3" IsEditable="True"
                                   ItemsSource="{Binding FirstTopNavChoices, ElementName=Root}"
@@ -119,7 +122,16 @@
                         </DataGridTemplateColumn>
                         <DataGridTextColumn Header="Label EN" Width="*" Binding="{Binding LabelEn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                         <DataGridTextColumn Header="Label 2nd" Width="*" Binding="{Binding LabelOther, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                        <DataGridTextColumn Header="Icon (id)" Width="90" Binding="{Binding IconId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        <DataGridTemplateColumn x:Name="CardIconColumn" Header="Icon (id)" Width="100">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Content="…" Width="24" Margin="3,0,0,0" Click="PickCardIcon_Click" ToolTip="Choose the icon (TOP_NAV_ICONS)"/>
+                                        <TextBox Text="{Binding IconId, UpdateSourceTrigger=PropertyChanged}" BorderThickness="0" VerticalContentAlignment="Center"/>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                     </DataGrid.Columns>
                 </DataGrid>
             </DockPanel>

@@ -587,6 +587,22 @@ public sealed class ProjectPaths
     public string UnifiedJsConnectorServerPath { get; set; } = "";
 }
 
+/// <summary>A WinCC Unified graphic list (icon id → graphic).</summary>
+public sealed class ScadaGraphicList
+{
+    public string Name { get; set; } = "";
+    public List<ScadaGraphicEntry> Entries { get; set; } = [];
+}
+
+public sealed class ScadaGraphicEntry
+{
+    public int Value { get; set; }
+    public string Graphic { get; set; } = "";
+    /// <summary>Image of the graphic, base64 ("svg" or "png" in <see cref="ImageType"/>); empty = no image.</summary>
+    public string Image { get; set; } = "";
+    public string ImageType { get; set; } = "";
+}
+
 public sealed class ScadaDatabase
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
@@ -600,6 +616,18 @@ public sealed class ScadaDatabase
 
     /// <summary>Screens of the mapped WinCC Unified device (read on pull), offered when configuring the SCADA.</summary>
     public List<string> TiaScreens { get; set; } = [];
+
+    /// <summary>"Geppert" or "PrimeVolt": which icons the SCADA uses (Prime Volt: fixed icons, only on the main navigation).</summary>
+    public string Style { get; set; } = GeppertStyle;
+
+    public const string GeppertStyle = "Geppert";
+    public const string PrimeVoltStyle = "PrimeVolt";
+
+    [JsonIgnore]
+    public bool IsPrimeVolt => Style == PrimeVoltStyle;
+
+    /// <summary>Geppert SCADA: graphic lists of the device (MAIN_NAV_BUTTONS, TOP_NAV_ICONS, TREND_ICONS) with their images.</summary>
+    public List<ScadaGraphicList> GraphicLists { get; set; } = [];
 
     public static ScadaDatabase CreateDefault()
     {
@@ -621,6 +649,11 @@ public sealed class ScadaDatabase
         Variables ??= [];
         TagWrites ??= [];
         TiaScreens ??= [];
+        GraphicLists ??= [];
+        if (Style != PrimeVoltStyle)
+        {
+            Style = GeppertStyle;
+        }
         var usedIds = new HashSet<int>();
         var nextId = 1;
         foreach (var variable in Variables)

@@ -408,7 +408,14 @@ public partial class MainWindow : Window
         }
     }
 
-    private sealed class ScadaMainNavRow
+    /// <summary>A SCADA row/cell with an icon id (GRAPHIC_LIST_ID), set by the icon picker.</summary>
+    private interface IScadaIconCell
+    {
+        string GraphicListId { get; set; }
+        string IconWhat { get; }
+    }
+
+    private sealed class ScadaMainNavRow : IScadaIconCell
     {
         private readonly ScadaConfigVariable _entry;
         private readonly ScadaConfigVariable _text1;
@@ -470,6 +477,8 @@ public partial class MainWindow : Window
             set => _graphicListId.Value = NormalizeIntText(value);
         }
 
+        public string IconWhat => $"main nav button {Index}";
+
         public string ScreenShape
         {
             get => _screenShape.Value;
@@ -518,12 +527,14 @@ public partial class MainWindow : Window
         public IReadOnlyList<ScadaScreenMatrixCell> Cells { get; }
     }
 
-    private sealed class ScadaScreenMatrixCell
+    private sealed class ScadaScreenMatrixCell : IScadaIconCell
     {
         private readonly ScadaConfigVariable _screenEntry;
         private readonly ScadaConfigVariable _text1;
         private readonly ScadaConfigVariable _text2;
         private readonly ScadaConfigVariable _graphicListId;
+
+        public string IconWhat => $"button {Button}, top-nav card {TopNav}";
 
         public ScadaScreenMatrixCell(int button, int topNav, ScadaConfigVariable screenEntry, ScadaConfigVariable text1, ScadaConfigVariable text2, ScadaConfigVariable graphicListId)
         {
@@ -597,7 +608,7 @@ public partial class MainWindow : Window
         public IReadOnlyList<ScadaLocationMatrixCell> Cells { get; }
     }
 
-    private sealed class ScadaLocationMatrixCell
+    private sealed class ScadaLocationMatrixCell : IScadaIconCell
     {
         private readonly ScadaConfigVariable _systemName;
         private readonly ScadaConfigVariable _systemName2;
@@ -615,6 +626,7 @@ public partial class MainWindow : Window
         public int Location { get; }
         public int System { get; }
         public string SystemNameHeader => $"SYSTEM {System.ToString(CultureInfo.InvariantCulture)}";
+        public string IconWhat => $"location {Location}, system {System}";
 
         public string Name1
         {
@@ -3620,6 +3632,12 @@ public partial class MainWindow : Window
         {
             imported.Id = active.Id;
             imported.Name = active.Name;
+            imported.Style = active.Style;   // a setting of the database, not of the script
+            if (imported.GraphicLists.Count == 0)
+            {
+                imported.GraphicLists = active.GraphicLists;
+            }
+
             if (imported.TiaScreens.Count == 0)
             {
                 imported.TiaScreens = active.TiaScreens;   // a pull without screens keeps the known ones
@@ -3653,7 +3671,7 @@ public partial class MainWindow : Window
             var service = new ScadaUnifiedSyncService();
             // Attached TIA project (TIA Sync): through TIA Openness; otherwise through the JS Connector.
             var result = _tiaSessionService.CurrentSession is not null
-                ? await service.PullFromTiaAsync(_tiaSessionService, GetActiveScadaDeviceName())
+                ? await service.PullFromTiaAsync(_tiaSessionService, GetActiveScadaDeviceName(), !(GetActiveScadaDatabase()?.IsPrimeVolt ?? false))
                 : await service.PullAsync(_project.Paths.UnifiedJsConnectorServerPath, GetActiveScadaDeviceName());
             ApplyImportedScadaDatabase(result.Database);
             ShowMessage($"{result.Message} ({_project.Scada.Variables.Count} variables, {_project.Scada.TagWrites.Count} tag writes).");
@@ -3866,6 +3884,7 @@ public partial class MainWindow : Window
         };
 
         var dialog = new NavigationEditorWindow(_project.Scada, screens, refresh, TiaScreenNames) { Owner = this };
+        dialog.ShowCardIcons(!_project.Scada.IsPrimeVolt);
         if (dialog.ShowDialog() == true && dialog.Applied)
         {
             NormalizeScadaDatabase();
@@ -7940,10 +7959,108 @@ public partial class MainWindow : Window
         RefreshTextListComments();
     }
 
+    // ---- SCADA style and icons ----
+
+    public static readonly DependencyProperty ScadaIconsVisibleProperty =
+        DependencyProperty.Register(nameof(ScadaIconsVisible), typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
+
+    /// <summary>Icons of top-nav cards and location systems: only on a Geppert SCADA (Prime Volt has them only on the main navigation).</summary>
+    public bool ScadaIconsVisible
+    {
+        get => (bool)GetValue(ScadaIconsVisibleProperty);
+        set => SetValue(ScadaIconsVisibleProperty, value);
+    }
+
+    private bool _bindingScadaStyle;
+
+    private void BindScadaStyle()
+    {
+        _bindingScadaStyle = true;
+        ScadaStyleCombo.ItemsSource ??= new[] { "Geppert", "Prime Volt" };
+        ScadaStyleCombo.SelectedIndex = _project.Scada.IsPrimeVolt ? 1 : 0;
+        _bindingScadaStyle = false;
+        ScadaIconsVisible = !_project.Scada.IsPrimeVolt;
+        RefreshGraphicListsButton.Visibility = _project.Scada.IsPrimeVolt ? Visibility.Collapsed : Visibility.Visible;
+        ScadaGraphicListsInfo.Text = _project.Scada.IsPrimeVolt
+            ? "Prime Volt: fixed CWC icons on the main navigation."
+            : _project.Scada.GraphicLists.Count == 0
+                ? "Graphic lists not loaded."
+                : string.Join(", ", _project.Scada.GraphicLists.Select(list => $"{list.Name} ({list.Entries.Count})"));
+    }
+
+    private void ScadaStyleCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_bindingScadaStyle || ScadaStyleCombo.SelectedIndex < 0)
+        {
+            return;
+        }
+
+        var style = ScadaStyleCombo.SelectedIndex == 1 ? ScadaDatabase.PrimeVoltStyle : ScadaDatabase.GeppertStyle;
+        if (_project.Scada.Style == style)
+        {
+            return;
+        }
+
+        _project.Scada.Style = style;
+        BindScadaStyle();
+    }
+
+    private async void RefreshGraphicLists_Click(object sender, RoutedEventArgs e)
+    {
+        if (_tiaSessionService.CurrentSession is null)
+        {
+            ShowError("Attach to the TIA Portal project (V21) in 'TIA Sync' first.");
+            return;
+        }
+
+        try
+        {
+            System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+            _project.Scada.GraphicLists = await new ScadaUnifiedSyncService().PullGraphicListsAsync(_tiaSessionService, GetActiveScadaDeviceName());
+            BindScadaStyle();
+            ShowMessage($"Graphic lists read from TIA: {ScadaGraphicListsInfo.Text}");
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            System.Windows.Input.Mouse.OverrideCursor = null;
+        }
+    }
+
+    /// <summary>"…" next to a GRAPHIC_LIST_ID: the icon picker of the list in the button's Tag.</summary>
+    private void PickScadaIcon_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string list, DataContext: IScadaIconCell cell } button)
+        {
+            return;
+        }
+
+        var value = IconPickerWindow.Pick(this, _project.Scada, list, cell.GraphicListId, cell.IconWhat);
+        if (value is null || value == cell.GraphicListId)
+        {
+            return;
+        }
+
+        cell.GraphicListId = value;
+        // The row objects do not notify: refresh the text box next to the button.
+        if (button.Parent is Panel panel)
+        {
+            foreach (var box in panel.Children.OfType<TextBox>())
+            {
+                box.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+            }
+        }
+
+    }
+
     private void BindScadaViews()
     {
         _project.Scada ??= ScadaDatabase.CreateDefault();
         _project.Scada.EnsureDefaults();
+        BindScadaStyle();
         ScadaConfigFileService.ApplyTagsToVariables(_project.Scada);
         BindScadaGeneralView();
         BindScadaHeaderView();

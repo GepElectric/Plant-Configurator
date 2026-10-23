@@ -21,6 +21,7 @@ using Siemens.Engineering.SW.Blocks;
 using Siemens.Engineering.SW.ExternalSources;
 using Siemens.Engineering.SW.Types;
 #if TIA_V21
+using Siemens.Engineering.Hmi.Globalization;
 using Siemens.Engineering.HmiUnified;
 using Siemens.Engineering.HmiUnified.UI.ScreenGroup;
 #endif
@@ -105,6 +106,8 @@ namespace CwcConfigurator.TiaHelper
                     return ExportUnifiedScript(request.Payload);
                 case "ImportUnifiedScript":
                     return ImportUnifiedScript(request.Payload);
+                case "ExportUnifiedGraphics":
+                    return ExportUnifiedGraphics(request.Payload);
                 case "Disconnect":
                     Disconnect();
                     return new { };
@@ -412,6 +415,92 @@ namespace CwcConfigurator.TiaHelper
             result.Warnings.Add("Unified script import requires the TIA V21 helper.");
 #endif
             return result;
+        }
+
+        // Exports the graphic lists of a Unified device (one *.hmi.yml) and every project graphic they use
+        // (graphics\<name>.xml + "<name> files\*.svg/png"), for the icon pickers of the SCADA configuration.
+        private static TiaUnifiedScriptResult ExportUnifiedGraphics(IDictionary<string, object> payload)
+        {
+            RequireAttachedProject();
+            var outputFolder = GetString(payload, "OutputFolder");
+            var result = new TiaUnifiedScriptResult();
+            if (string.IsNullOrWhiteSpace(outputFolder))
+            {
+                result.Warnings.Add("No output folder was supplied for the graphic lists.");
+                return result;
+            }
+
+            Directory.CreateDirectory(outputFolder);
+#if TIA_V21
+            var hmi = FindHmiSoftware(GetString(payload, "DeviceName"));
+            if (hmi == null)
+            {
+                result.Warnings.Add(UnifiedDeviceNotFoundMessage(GetString(payload, "DeviceName")));
+                return result;
+            }
+
+            result.HmiSoftwareName = hmi.Name;
+            try
+            {
+                foreach (var file in hmi.HmiGraphicLists.Export(new DirectoryInfo(outputFolder), ""))
+                {
+                    result.Files.Add(file.FullName);
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Warnings.Add(hmi.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+                return result;
+            }
+
+            // Graphics referenced by the lists: "Graphic: GraphicLibrary.<name>".
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in result.Files.Where(path => path.EndsWith(".yml", StringComparison.OrdinalIgnoreCase)))
+            {
+                foreach (var line in File.ReadAllLines(file))
+                {
+                    var trimmed = line.Trim();
+                    if (trimmed.StartsWith("Graphic:", StringComparison.Ordinal))
+                    {
+                        var name = trimmed.Substring("Graphic:".Length).Trim().Trim('"', '\'');
+                        var dot = name.IndexOf('.');
+                        names.Add(dot >= 0 ? name.Substring(dot + 1) : name);
+                    }
+                }
+            }
+
+            var graphicsFolder = Path.Combine(outputFolder, "graphics");
+            Directory.CreateDirectory(graphicsFolder);
+            var provider = _project.GetService<GraphicsProvider>();
+            foreach (var graphic in provider.Graphics.Where(item => names.Contains(item.Name)))
+            {
+                try
+                {
+                    var target = Path.Combine(graphicsFolder, MakeFileName(graphic.Name) + ".xml");
+                    graphic.Export(new FileInfo(target), ExportOptions.None);
+                    result.Files.Add(target);
+                }
+                catch (Exception ex)
+                {
+                    result.Warnings.Add(graphic.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+                }
+            }
+
+            result.Success = true;
+#else
+            result.Warnings.Add("Graphic list export requires the TIA V21 helper.");
+#endif
+            return result;
+        }
+
+        private static string MakeFileName(string name)
+        {
+            foreach (var invalid in Path.GetInvalidFileNameChars())
+            {
+                name = name.Replace(invalid, '_');
+            }
+
+            return name;
         }
 
         private static TiaUnifiedDevicesResult GetUnifiedDevices()

@@ -73,6 +73,7 @@ public interface ITiaSessionService
     Task<TiaUnifiedDevicesResult> GetUnifiedDevicesAsync();
     Task<TiaUnifiedScriptResult> ExportUnifiedScriptAsync(string outputFolder, string deviceName, string moduleName);
     Task<TiaUnifiedScriptResult> ImportUnifiedScriptAsync(string inputFolder, string deviceName);
+    Task<TiaUnifiedScriptResult> ExportUnifiedGraphicsAsync(string outputFolder, string deviceName);
 }
 
 public sealed class TiaSourceArtifactRequest

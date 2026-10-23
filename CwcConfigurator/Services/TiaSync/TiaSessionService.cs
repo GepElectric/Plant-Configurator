@@ -158,6 +158,15 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         });
     }
 
+    public Task<TiaUnifiedScriptResult> ExportUnifiedGraphicsAsync(string outputFolder, string deviceName)
+    {
+        return SendAsync<TiaUnifiedScriptResult>(RequireActiveVersion(), "ExportUnifiedGraphics", new
+        {
+            OutputFolder = outputFolder,
+            DeviceName = deviceName ?? ""
+        });
+    }
+
     public Task<TiaUnifiedScriptResult> ImportUnifiedScriptAsync(string inputFolder, string deviceName)
     {
         return SendAsync<TiaUnifiedScriptResult>(RequireActiveVersion(), "ImportUnifiedScript", new

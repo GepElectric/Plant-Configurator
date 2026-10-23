@@ -139,6 +139,26 @@ public partial class NavigationEditorWindow : Window
         }
     }
 
+    /// <summary>Prime Volt SCADA: no icons on the top-nav cards.</summary>
+    public void ShowCardIcons(bool show) => CardIconColumn.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+
+    private void PickButtonIcon_Click(object sender, RoutedEventArgs e)
+    {
+        if (Selected is { } button && IconPickerWindow.Pick(this, _database, ScadaGraphicLists.MainNav, button.IconId, $"main nav button {button.Index}") is { } value)
+        {
+            button.IconId = value;
+        }
+    }
+
+    private void PickCardIcon_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ScadaTopNavCard card } && Selected is { } button
+            && IconPickerWindow.Pick(this, _database, ScadaGraphicLists.TopNav, card.IconId, $"button {button.Index}, top-nav card {button.Cards.IndexOf(card) + 1}") is { } value)
+        {
+            card.IconId = value;
+        }
+    }
+
     private void ButtonCount_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (ButtonCountCombo.SelectedItem is int count)
