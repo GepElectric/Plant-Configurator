@@ -314,10 +314,11 @@ public partial class MainWindow : Window
             set => _source.Value = NormalizeIntText(value);
         }
 
+        /// <summary>Location entry: a text (e.g. "Common", "Intake 1"), written to LOCATION_x.ENTRY.</summary>
         public string Entry
         {
             get => _entry.Value;
-            set => _entry.Value = IsActive ? NormalizeOptionalIntText(value) : "";
+            set => _entry.Value = (value ?? "").Trim();
         }
 
         public string LocalRemoteValue
@@ -3864,7 +3865,7 @@ public partial class MainWindow : Window
             return result.Screens;
         };
 
-        var dialog = new NavigationEditorWindow(_project.Scada, screens, refresh) { Owner = this };
+        var dialog = new NavigationEditorWindow(_project.Scada, screens, refresh, TiaScreenNames) { Owner = this };
         if (dialog.ShowDialog() == true && dialog.Applied)
         {
             NormalizeScadaDatabase();

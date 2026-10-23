@@ -1,15 +1,50 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using CwcConfigurator.Domain;
 
 namespace CwcConfigurator.Services;
 
-/// <summary>One top-nav card under a main-nav button: the screen it opens plus its label and icon.</summary>
-public sealed class ScadaTopNavCard
+/// <summary>Base for the editable navigation items: raises PropertyChanged so the editor updates live.</summary>
+public abstract class ScadaNavItem : INotifyPropertyChanged
 {
-    public string Screen { get; set; } = "";
-    public string LabelEn { get; set; } = "";
-    public string LabelOther { get; set; } = "";
-    public string IconId { get; set; } = "0"; // index into the TOP_NAV_ICONS graphic list
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    protected void Set<T>(ref T field, T value, [CallerMemberName] string? name = null, params string[] also)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+        {
+            return;
+        }
+
+        field = value;
+        Raise(name);
+        foreach (var other in also)
+        {
+            Raise(other);
+        }
+    }
+
+    protected void Raise(string? name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+}
+
+/// <summary>One top-nav card under a main-nav button: the screen it opens plus its label and icon.</summary>
+public sealed class ScadaTopNavCard : ScadaNavItem
+{
+    private string _screen = "";
+    private string _labelEn = "";
+    private string _labelOther = "";
+    private string _iconId = "0";
+    private bool _screenKnown = true;
+
+    public string Screen { get => _screen; set => Set(ref _screen, value ?? ""); }
+    public string LabelEn { get => _labelEn; set => Set(ref _labelEn, value ?? ""); }
+    public string LabelOther { get => _labelOther; set => Set(ref _labelOther, value ?? ""); }
+    public string IconId { get => _iconId; set => Set(ref _iconId, value ?? "0"); } // index into the TOP_NAV_ICONS graphic list
+
+    /// <summary>False when the screen does not exist on the SCADA (set by the editor from the TIA screens).</summary>
+    public bool ScreenKnown { get => _screenKnown; set => Set(ref _screenKnown, value); }
 }
 
 /// <summary>
@@ -17,17 +52,30 @@ public sealed class ScadaTopNavCard
 /// label (2 languages), icon, content layout shape, side-content default screen, first open
 /// top-nav, and its ordered top-nav cards.
 /// </summary>
-public sealed class ScadaNavButton
+public sealed class ScadaNavButton : ScadaNavItem
 {
+    private string _identity = "";
+    private string _labelEn = "";
+    private string _labelOther = "";
+    private string _iconId = "0";
+    private int _layoutShape;
+    private string _firstTopNav = "1";
+    private string _sideContentScreen = "";
+
+    public ScadaNavButton()
+    {
+        Cards.CollectionChanged += (_, _) => Raise(nameof(Display));
+    }
+
     public int Index { get; init; }
-    public string Identity { get; set; } = "";       // MAIN_NAV_BUTTONS_ENTRY_X (prefix; empty = button hidden)
-    public string LabelEn { get; set; } = "";
-    public string LabelOther { get; set; } = "";
-    public string IconId { get; set; } = "0";        // index into the MAIN_NAV_BUTTONS graphic list
-    public int LayoutShape { get; set; }             // 0 with top nav, 1 without top nav, 2 without side content, 3 content only
-    public string FirstTopNav { get; set; } = "1";
-    public string SideContentScreen { get; set; } = "";
-    public List<ScadaTopNavCard> Cards { get; } = new();
+    public string Identity { get => _identity; set => Set(ref _identity, value ?? "", nameof(Identity), nameof(Display)); }       // MAIN_NAV_BUTTONS_ENTRY_X (prefix; empty = button hidden)
+    public string LabelEn { get => _labelEn; set => Set(ref _labelEn, value ?? "", nameof(LabelEn), nameof(Display)); }
+    public string LabelOther { get => _labelOther; set => Set(ref _labelOther, value ?? ""); }
+    public string IconId { get => _iconId; set => Set(ref _iconId, value ?? "0"); }        // index into the MAIN_NAV_BUTTONS graphic list
+    public int LayoutShape { get => _layoutShape; set => Set(ref _layoutShape, value); }   // 0 with top nav, 1 without top nav, 2 without side content, 3 content only
+    public string FirstTopNav { get => _firstTopNav; set => Set(ref _firstTopNav, value ?? "1"); }
+    public string SideContentScreen { get => _sideContentScreen; set => Set(ref _sideContentScreen, value ?? ""); }
+    public ObservableCollection<ScadaTopNavCard> Cards { get; } = new();
 
     public string Display
     {
