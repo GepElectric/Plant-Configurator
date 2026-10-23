@@ -1,11 +1,14 @@
 <Window x:Class="CwcConfigurator.App.IconPickerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Name="Root"
         Title="Choose icon" Height="560" Width="760"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <DockPanel Margin="10">
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
             <TextBlock Text="Search" VerticalAlignment="Center" Margin="0,0,6,0"/>
+            <CheckBox x:Name="DarkCheck" DockPanel.Dock="Right" Content="Dark background" VerticalAlignment="Center" Margin="12,0,0,0"
+                      Checked="DarkCheck_Changed" Unchecked="DarkCheck_Changed" ToolTip="White icons (e.g. main navigation) are visible on a dark background."/>
             <TextBox x:Name="SearchBox" Height="24" VerticalContentAlignment="Center" TextChanged="SearchBox_TextChanged"
                      ToolTip="Filter by icon id or graphic name."/>
         </DockPanel>
@@ -24,7 +27,7 @@
                 <DataTemplate>
                     <Border Width="118" Height="104" Padding="4" ToolTip="{Binding Graphic}">
                         <StackPanel HorizontalAlignment="Center">
-                            <Border Width="52" Height="52" Background="#F3F4F6" CornerRadius="4">
+                            <Border Width="52" Height="52" Background="{Binding TileBackground, ElementName=Root}" CornerRadius="4">
                                 <Grid>
                                     <Image Source="{Binding Image}" Width="44" Height="44" Stretch="Uniform"/>
                                     <TextBlock Text="{Binding Placeholder}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#9CA3AF" FontSize="18"/>

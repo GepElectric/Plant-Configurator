@@ -23,9 +23,31 @@ public partial class IconPickerWindow : Window
 
     public string SelectedValue { get; private set; } = "";
 
-    public IconPickerWindow(string title, IReadOnlyList<ScadaGraphicEntry> entries, string current, string info)
+    private static readonly Brush LightTile = Freeze(new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6)));
+    private static readonly Brush DarkTile = Freeze(new SolidColorBrush(Color.FromRgb(0x2B, 0x34, 0x40)));
+
+    public static readonly DependencyProperty TileBackgroundProperty =
+        DependencyProperty.Register(nameof(TileBackground), typeof(Brush), typeof(IconPickerWindow), new PropertyMetadata(LightTile));
+
+    /// <summary>Background behind the icons (dark for white icons such as the main navigation).</summary>
+    public Brush TileBackground
+    {
+        get => (Brush)GetValue(TileBackgroundProperty);
+        set => SetValue(TileBackgroundProperty, value);
+    }
+
+    private static Brush Freeze(Brush brush)
+    {
+        brush.Freeze();
+        return brush;
+    }
+
+    private void DarkCheck_Changed(object sender, RoutedEventArgs e) => TileBackground = DarkCheck.IsChecked == true ? DarkTile : LightTile;
+
+    public IconPickerWindow(string title, IReadOnlyList<ScadaGraphicEntry> entries, string current, string info, bool dark = false)
     {
         InitializeComponent();
+        DarkCheck.IsChecked = dark;
         Title = title;
         InfoText.Text = info;
         _items = [new IconItem(0, "(no icon)", null), .. entries.Select(entry => new IconItem(entry.Value, entry.Graphic, ToImage(entry)))];
@@ -52,7 +74,8 @@ public partial class IconPickerWindow : Window
         var info = database.IsPrimeVolt
             ? "Prime Volt SCADA: icons of the CWC (icon_settings)."
             : $"Geppert SCADA: graphic list {list} of the WinCC Unified device.";
-        var picker = new IconPickerWindow($"Icon — {what}", entries, current, info) { Owner = owner };
+        // Main-navigation icons are white (they sit on the dark navigation bar).
+        var picker = new IconPickerWindow($"Icon — {what}", entries, current, info, dark: list == ScadaGraphicLists.MainNav) { Owner = owner };
         return picker.ShowDialog() == true ? picker.SelectedValue : null;
     }
 
