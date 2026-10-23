@@ -1,5 +1,6 @@
 using System.IO;
 using CwcConfigurator.Domain;
+using CwcConfigurator.Services.TiaSync;
 
 namespace CwcConfigurator.Services;
 
@@ -11,7 +12,8 @@ public sealed class ScadaUnifiedPullResult
 
 /// <summary>
 /// Round-trips the SCADA navigation/config script (<c>AUX_FUNCTIONS._SET_INTERNAL_TAG</c>)
-/// between the app and the live WinCC Unified project over the Openness REST service.
+/// between the app and the live WinCC Unified project: through the attached TIA session (TIA Openness,
+/// <see cref="PullFromTiaAsync"/> / <see cref="PushToTiaAsync"/>) or over the Openness REST service (JS Connector).
 ///
 /// Pull: export the module → isolate the owned function body → parse it with
 /// <see cref="ScadaConfigFileService"/>. Push: regenerate the body from the app, then
@@ -74,6 +76,81 @@ public sealed class ScadaUnifiedSyncService
 
         var serverResponse = await runtime.ImportScriptModuleAsync(processId, device, ModuleName, rootPath, cancellationToken);
         return $"Pushed {ModuleName}.{ScadaInternalTagModule.DefaultFunctionName} to WinCC Unified device '{device.DisplayName}/{device.DeviceName}'. Backup: {modulePath}.bak{Environment.NewLine}{serverResponse}";
+    }
+
+    /// <summary>
+    /// Pull through the attached TIA project: exports <c>AUX_FUNCTIONS</c> of the mapped Unified device, reads the
+    /// <c>_SET_INTERNAL_TAG</c> body into a SCADA database and reads the device's screens.
+    /// </summary>
+    public async Task<ScadaUnifiedPullResult> PullFromTiaAsync(ITiaSessionService session, string deviceName)
+    {
+        var rootPath = CreateWorkspace();
+        var modulePath = await ExportModuleAsync(session, deviceName, rootPath);
+        var module = ScadaInternalTagModule.SplitFile(modulePath);
+        var bodyPath = Path.Combine(rootPath, "_set_internal_tag_body.js");
+        File.WriteAllText(bodyPath, module.Body);
+
+        var database = _scadaService.Import(bodyPath);
+        var screens = await session.GetUnifiedScreensAsync(deviceName);
+        database.TiaScreens = screens.Screens.ToList();
+        return new ScadaUnifiedPullResult
+        {
+            Database = database,
+            Message = $"Pulled {ModuleName}.{ScadaInternalTagModule.DefaultFunctionName} and {database.TiaScreens.Count} screen(s) from '{deviceName}'."
+        };
+    }
+
+    /// <summary>
+    /// Push through the attached TIA project: re-exports the live module, replaces only the
+    /// <c>_SET_INTERNAL_TAG</c> body and imports the module back (a copy of the replaced module is kept).
+    /// The TIA project is not saved.
+    /// </summary>
+    public async Task<string> PushToTiaAsync(ITiaSessionService session, ScadaDatabase database, string deviceName)
+    {
+        if (database is null)
+        {
+            throw new ArgumentNullException(nameof(database));
+        }
+
+        var rootPath = CreateWorkspace();
+        var moduleFolder = Path.Combine(rootPath, "module");
+        var modulePath = await ExportModuleAsync(session, deviceName, moduleFolder);
+        var module = ScadaInternalTagModule.SplitFile(modulePath);
+
+        // Backup outside the import folder, so only the module itself is imported.
+        var backupPath = Path.Combine(rootPath, Path.GetFileName(modulePath) + ".bak");
+        File.Copy(modulePath, backupPath, overwrite: true);
+
+        var bodyPath = Path.Combine(rootPath, "_set_internal_tag_body.js");
+        _scadaService.Export(database, bodyPath);
+        File.WriteAllText(modulePath, module.Rewrap(File.ReadAllText(bodyPath)));
+
+        var import = await session.ImportUnifiedScriptAsync(moduleFolder, deviceName);
+        if (!import.Success)
+        {
+            throw new InvalidOperationException($"Push to '{deviceName}' failed: {string.Join(" ", import.Warnings)}");
+        }
+
+        return $"Pushed {ModuleName}.{ScadaInternalTagModule.DefaultFunctionName} to '{deviceName}' (TIA project not saved). Backup: {backupPath}";
+    }
+
+    private static async Task<string> ExportModuleAsync(ITiaSessionService session, string deviceName, string folder)
+    {
+        if (session.CurrentSession is null)
+        {
+            throw new InvalidOperationException("Attach to the TIA Portal project (V21) in 'TIA Sync' first.");
+        }
+
+        Directory.CreateDirectory(folder);
+        var export = await session.ExportUnifiedScriptAsync(folder, deviceName, ModuleName);
+        var modulePath = export.Files.FirstOrDefault(file => file.EndsWith(".hmi.js", StringComparison.OrdinalIgnoreCase));
+        if (!export.Success || modulePath is null)
+        {
+            throw new InvalidOperationException(
+                $"Could not export {ModuleName} from '{deviceName}': {string.Join(" ", export.Warnings.DefaultIfEmpty("no script file was exported."))}");
+        }
+
+        return modulePath;
     }
 
     private static async Task<(int ProcessId, UnifiedDeviceInfo Device)> ResolveScadaDeviceAsync(

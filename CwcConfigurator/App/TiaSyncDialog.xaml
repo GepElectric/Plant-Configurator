@@ -131,6 +131,17 @@
                     </GroupBox>
                     <GroupBox Grid.Row="1" Header="3 · SCADA database → WinCC Unified device" Margin="0,8,0,0"
                               ToolTip="Map each SCADA database to one WinCC Unified device. To pull from another device, add a new SCADA database and map it.">
+                        <DockPanel>
+                        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                            <Button Content="Create SCADA databases from TIA" Padding="10,3" Margin="0,0,6,0" Click="CreateScadaDatabases_Click"
+                                    ToolTip="For every WinCC Unified device of the TIA project without a SCADA database: create one, map it and pull it."/>
+                            <Button Content="Auto-map SCADA" Padding="10,3" Margin="0,0,6,0" Click="AutoMapScada_Click"
+                                    ToolTip="Map SCADA databases without a device to the Unified device with the same name (or the only one)."/>
+                            <Button Content="Pull SCADA from TIA" Padding="10,3" Margin="0,0,6,0" Click="PullScada_Click"
+                                    ToolTip="For every mapped SCADA database: read AUX_FUNCTIONS._SET_INTERNAL_TAG into the database and read the device's screens."/>
+                            <Button Content="Push SCADA to TIA" Padding="10,3" Click="PushScada_Click"
+                                    ToolTip="For every mapped SCADA database: write the database back into AUX_FUNCTIONS._SET_INTERNAL_TAG of its device (the rest of the module stays; the TIA project is not saved)."/>
+                        </WrapPanel>
                         <DataGrid x:Name="ScadaMappingGrid"
                                   AutoGenerateColumns="False"
                                   CanUserAddRows="False"
@@ -173,6 +184,7 @@
                                 </DataGridTextColumn>
                             </DataGrid.Columns>
                         </DataGrid>
+                        </DockPanel>
                     </GroupBox>
                 </Grid>
 

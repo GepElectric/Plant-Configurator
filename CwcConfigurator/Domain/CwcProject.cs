@@ -598,6 +598,9 @@ public sealed class ScadaDatabase
     public List<ScadaConfigVariable> Variables { get; set; } = [];
     public List<ScadaTagWrite> TagWrites { get; set; } = [];
 
+    /// <summary>Screens of the mapped WinCC Unified device (read on pull), offered when configuring the SCADA.</summary>
+    public List<string> TiaScreens { get; set; } = [];
+
     public static ScadaDatabase CreateDefault()
     {
         return new ScadaDatabase();
@@ -617,6 +620,7 @@ public sealed class ScadaDatabase
 
         Variables ??= [];
         TagWrites ??= [];
+        TiaScreens ??= [];
         var usedIds = new HashSet<int>();
         var nextId = 1;
         foreach (var variable in Variables)

@@ -71,6 +71,8 @@ public interface ITiaSessionService
     Task<TiaTextListExportResult> ExportTextListsAsync(string outputFolder, string deviceName);
     Task<TiaTextListImportResult> ImportTextListsAsync(string inputFolder, string deviceName);
     Task<TiaUnifiedDevicesResult> GetUnifiedDevicesAsync();
+    Task<TiaUnifiedScriptResult> ExportUnifiedScriptAsync(string outputFolder, string deviceName, string moduleName);
+    Task<TiaUnifiedScriptResult> ImportUnifiedScriptAsync(string inputFolder, string deviceName);
 }
 
 public sealed class TiaSourceArtifactRequest
@@ -120,6 +122,15 @@ public sealed class TiaUnifiedScreensResult
 public sealed class TiaTextListExportResult
 {
     public string HmiSoftwareName { get; set; } = "";
+    public List<string> Files { get; set; } = [];
+    public List<string> Warnings { get; set; } = [];
+}
+
+/// <summary>Export / import of a WinCC Unified script module (e.g. AUX_FUNCTIONS) through the TIA helper.</summary>
+public sealed class TiaUnifiedScriptResult
+{
+    public string HmiSoftwareName { get; set; } = "";
+    public bool Success { get; set; }
     public List<string> Files { get; set; } = [];
     public List<string> Warnings { get; set; } = [];
 }

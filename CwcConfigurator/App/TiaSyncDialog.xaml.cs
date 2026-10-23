@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using CwcConfigurator.Domain;
+using CwcConfigurator.Services;
 using CwcConfigurator.Services.TiaSync;
 
 namespace CwcConfigurator.App;
@@ -102,10 +103,16 @@ public partial class TiaSyncDialog : Window
             RefreshDiscoveredNames(session);
             RebuildMappingRows();
             await RefreshUnifiedDevicesAsync();
+            var scadaMapped = AutoMapScada();
 
             var autoMapNote = autoMapped > 0
                 ? $"Auto-mapped {autoMapped} PLC database(s) by name — review the mapping and save."
                 : "Existing mapping left unchanged.";
+            if (UnifiedDeviceNames.Count > 0)
+            {
+                autoMapNote += $" WinCC Unified devices: {string.Join(", ", UnifiedDeviceNames)}" +
+                               (scadaMapped > 0 ? $"; auto-mapped {scadaMapped} SCADA database(s)." : ".");
+            }
             WriteOutput($"Attached to {session.ProjectName}. {autoMapNote} Loaded {session.Plcs.Sum(plc => plc.Objects.Count)} OBJECTS block(s).{Environment.NewLine}{Environment.NewLine}{FormatObjectsSummary(session)}");
         }
         catch (Exception ex)
@@ -359,6 +366,234 @@ public partial class TiaSyncDialog : Window
         }
 
         UpdateScadaRowStates();
+    }
+
+    // ---- SCADA: WinCC Unified devices ↔ SCADA databases (AUX_FUNCTIONS._SET_INTERNAL_TAG + screens) ----
+
+    /// <summary>Maps SCADA databases without a device to the Unified device of the same name, or to the only one.</summary>
+    private int AutoMapScada()
+    {
+        if (UnifiedDeviceNames.Count == 0)
+        {
+            return 0;
+        }
+
+        var mapped = 0;
+        foreach (var row in _scadaRows.Where(row => string.IsNullOrWhiteSpace(row.DeviceName)))
+        {
+            var used = _scadaRows.Select(item => item.DeviceName).Where(name => !string.IsNullOrWhiteSpace(name)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var free = UnifiedDeviceNames.Where(name => !used.Contains(name)).ToList();
+            var match = free.FirstOrDefault(name => name.Equals(row.ScadaName, StringComparison.OrdinalIgnoreCase))
+                        ?? (free.Count == 1 && _scadaRows.Count(item => string.IsNullOrWhiteSpace(item.DeviceName)) == 1 ? free[0] : null);
+            if (match is not null)
+            {
+                row.DeviceName = match;
+                mapped++;
+            }
+        }
+
+        UpdateScadaRowStates();
+        return mapped;
+    }
+
+    private void AutoMapScada_Click(object sender, RoutedEventArgs e)
+    {
+        if (!RequireUnifiedDevices())
+        {
+            return;
+        }
+
+        ScadaMappingGrid.CommitEdit();
+        var mapped = AutoMapScada();
+        WriteOutput(mapped > 0 ? $"Auto-mapped {mapped} SCADA database(s)." : "Nothing to auto-map: no SCADA database without a device has a matching Unified device.");
+    }
+
+    private async void CreateScadaDatabases_Click(object sender, RoutedEventArgs e)
+    {
+        if (!RequireUnifiedDevices())
+        {
+            return;
+        }
+
+        ScadaMappingGrid.CommitEdit();
+        var mapped = _project.TiaSync.ScadaBindings.Select(binding => binding.DeviceName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var missing = UnifiedDeviceNames.Where(name => !mapped.Contains(name)).ToList();
+        if (missing.Count == 0)
+        {
+            WriteOutput("Every WinCC Unified device already has a SCADA database.");
+            return;
+        }
+
+        var created = new List<ScadaDatabase>();
+        foreach (var device in missing)
+        {
+            var database = ScadaDatabase.CreateDefault();
+            database.Name = UniqueScadaName(device);
+            _project.ScadaDatabases.Add(database);
+            _project.TiaSync.SyncWithScadaDatabases(_project.ScadaDatabases);
+            _project.TiaSync.ScadaBindings.First(binding => binding.ScadaDatabaseId == database.Id).DeviceName = device;
+            created.Add(database);
+        }
+
+        if (string.IsNullOrWhiteSpace(_project.ActiveScadaDatabaseId) || _project.ScadaDatabases.All(database => database.Id != _project.ActiveScadaDatabaseId))
+        {
+            _project.ActiveScadaDatabaseId = created[0].Id;
+        }
+
+        _databasesCreated = true;
+        RebuildScadaMappingRows();
+        await PullScadaAsync(created.Select(database => database.Id).ToHashSet());
+        TakeMappingSnapshot();
+    }
+
+    private string UniqueScadaName(string baseName)
+    {
+        var name = baseName;
+        for (var index = 2; _project.ScadaDatabases.Any(database => database.Name.Equals(name, StringComparison.OrdinalIgnoreCase)); index++)
+        {
+            name = $"{baseName} {index}";
+        }
+
+        return name;
+    }
+
+    private async void PullScada_Click(object sender, RoutedEventArgs e)
+    {
+        if (!RequireUnifiedDevices())
+        {
+            return;
+        }
+
+        ScadaMappingGrid.CommitEdit();
+        await PullScadaAsync(null);
+        TakeMappingSnapshot();
+    }
+
+    /// <summary>Pulls the mapped SCADA databases (all, or only <paramref name="ids"/>): script into the database, plus screens.</summary>
+    private async Task PullScadaAsync(HashSet<string>? ids)
+    {
+        var rows = _scadaRows.Where(row => row.State == "OK" && (ids is null || ids.Contains(row.Binding.ScadaDatabaseId))).ToList();
+        if (rows.Count == 0)
+        {
+            WriteOutput("No SCADA database is mapped to a WinCC Unified device of the attached project.");
+            return;
+        }
+
+        var service = new ScadaUnifiedSyncService();
+        var lines = new List<string>();
+        SetBusy(true, "Pulling SCADA from TIA...");
+        try
+        {
+            foreach (var row in rows)
+            {
+                try
+                {
+                    var result = await service.PullFromTiaAsync(_sessionService, row.DeviceName);
+                    var index = _project.ScadaDatabases.FindIndex(database => database.Id == row.Binding.ScadaDatabaseId);
+                    if (index < 0)
+                    {
+                        continue;
+                    }
+
+                    var pulled = result.Database;
+                    pulled.Id = _project.ScadaDatabases[index].Id;
+                    pulled.Name = _project.ScadaDatabases[index].Name;
+                    pulled.LastImportedAtUtc = DateTime.UtcNow.ToString("O");
+                    _project.ScadaDatabases[index] = pulled;
+                    if (_project.Scada?.Id == pulled.Id)
+                    {
+                        _project.Scada = pulled;
+                    }
+
+                    row.Binding.SyncState = "Pulled";
+                    lines.Add($"{row.ScadaName}: {result.Message} {pulled.Variables.Count} variables, {pulled.TagWrites.Count} tag writes.");
+                }
+                catch (Exception ex)
+                {
+                    lines.Add($"{row.ScadaName}: {FormatException(ex)}");
+                }
+            }
+
+            _databasesCreated = true;
+            WriteOutput(string.Join(Environment.NewLine, lines));
+        }
+        finally
+        {
+            SetBusy(false);
+            RefreshSessionUi();
+        }
+    }
+
+    private async void PushScada_Click(object sender, RoutedEventArgs e)
+    {
+        if (!RequireUnifiedDevices())
+        {
+            return;
+        }
+
+        ScadaMappingGrid.CommitEdit();
+        var rows = _scadaRows.Where(row => row.State == "OK").ToList();
+        var empty = rows.Where(row => _project.ScadaDatabases.FirstOrDefault(database => database.Id == row.Binding.ScadaDatabaseId)?.Variables.Count is null or 0).ToList();
+        rows = rows.Except(empty).ToList();
+        if (rows.Count == 0)
+        {
+            WriteOutput("Nothing to push: no mapped SCADA database with data (pull or import it first).");
+            return;
+        }
+
+        var targets = string.Join(Environment.NewLine, rows.Select(row => $"  {row.ScadaName} → {row.DeviceName}"));
+        if (MessageBox.Show(this,
+                $"Write {ScadaUnifiedSyncService.ModuleName}.{ScadaInternalTagModule.DefaultFunctionName} into:{Environment.NewLine}{targets}{Environment.NewLine}{Environment.NewLine}" +
+                "Only that function is replaced; the rest of the module stays. The TIA project is not saved — check it in TIA and save it there.",
+                "Push SCADA to TIA", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        var service = new ScadaUnifiedSyncService();
+        var lines = empty.Select(row => $"{row.ScadaName}: skipped (empty database).").ToList();
+        SetBusy(true, "Pushing SCADA to TIA...");
+        try
+        {
+            foreach (var row in rows)
+            {
+                try
+                {
+                    var database = _project.ScadaDatabases.First(item => item.Id == row.Binding.ScadaDatabaseId);
+                    lines.Add($"{row.ScadaName}: {await service.PushToTiaAsync(_sessionService, database, row.DeviceName)}");
+                    row.Binding.SyncState = "Pushed";
+                }
+                catch (Exception ex)
+                {
+                    lines.Add($"{row.ScadaName}: {FormatException(ex)}");
+                }
+            }
+
+            WriteOutput(string.Join(Environment.NewLine, lines));
+        }
+        finally
+        {
+            SetBusy(false);
+            RefreshSessionUi();
+        }
+    }
+
+    private bool RequireUnifiedDevices()
+    {
+        if (_sessionService.CurrentSession is null)
+        {
+            MessageBox.Show(this, "Attach to the TIA Portal project first.", "SCADA", MessageBoxButton.OK, MessageBoxImage.Information);
+            return false;
+        }
+
+        if (UnifiedDeviceNames.Count == 0)
+        {
+            MessageBox.Show(this, "No WinCC Unified device was found in the attached project (WinCC Unified needs the TIA V21 helper).",
+                "SCADA", MessageBoxButton.OK, MessageBoxImage.Information);
+            return false;
+        }
+
+        return true;
     }
 
     private void UpdateScadaRowStates()

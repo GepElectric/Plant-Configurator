@@ -3619,6 +3619,11 @@ public partial class MainWindow : Window
         {
             imported.Id = active.Id;
             imported.Name = active.Name;
+            if (imported.TiaScreens.Count == 0)
+            {
+                imported.TiaScreens = active.TiaScreens;   // a pull without screens keeps the known ones
+            }
+
             var index = _project.ScadaDatabases.FindIndex(database => database.Id == active.Id);
             if (index >= 0)
             {
@@ -3645,7 +3650,10 @@ public partial class MainWindow : Window
             SaveActivePlcDatabase();
             SaveActiveScadaDatabase();
             var service = new ScadaUnifiedSyncService();
-            var result = await service.PullAsync(_project.Paths.UnifiedJsConnectorServerPath, GetActiveScadaDeviceName());
+            // Attached TIA project (TIA Sync): through TIA Openness; otherwise through the JS Connector.
+            var result = _tiaSessionService.CurrentSession is not null
+                ? await service.PullFromTiaAsync(_tiaSessionService, GetActiveScadaDeviceName())
+                : await service.PullAsync(_project.Paths.UnifiedJsConnectorServerPath, GetActiveScadaDeviceName());
             ApplyImportedScadaDatabase(result.Database);
             ShowMessage($"{result.Message} ({_project.Scada.Variables.Count} variables, {_project.Scada.TagWrites.Count} tag writes).");
         }
@@ -3687,7 +3695,9 @@ public partial class MainWindow : Window
             System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
             NormalizeScadaDatabase();
             var service = new ScadaUnifiedSyncService();
-            var message = await service.PushAsync(_project.Scada, _project.Paths.UnifiedJsConnectorServerPath, GetActiveScadaDeviceName());
+            var message = _tiaSessionService.CurrentSession is not null
+                ? await service.PushToTiaAsync(_tiaSessionService, _project.Scada, GetActiveScadaDeviceName())
+                : await service.PushAsync(_project.Scada, _project.Paths.UnifiedJsConnectorServerPath, GetActiveScadaDeviceName());
             BindScadaViews();
             ShowMessage(message);
         }
@@ -3745,14 +3755,14 @@ public partial class MainWindow : Window
         }
     }
 
-    // Catalog of WinCC Unified screen names, pulled from the attached TIA project, used as
-    // the dropdown for the SCREENS matrix VALUE cells. Always also includes the cells'
-    // current values so existing entries stay selectable.
-    private readonly List<string> _tiaScreenNames = new();
+    // Catalog of WinCC Unified screen names of the active SCADA database (read from TIA on pull or
+    // 'Refresh screens from TIA'), used as the dropdown for the SCREENS matrix VALUE cells. Always also
+    // includes the cells' current values so existing entries stay selectable.
+    private List<string> TiaScreenNames => _project.Scada.TiaScreens ??= [];
 
     private void RebuildScadaScreenCatalog()
     {
-        var catalog = new List<string>(_tiaScreenNames);
+        var catalog = new List<string>(TiaScreenNames);
         if (_scadaScreensView is not null)
         {
             foreach (var item in _scadaScreensView)
@@ -3777,8 +3787,8 @@ public partial class MainWindow : Window
 
         if (ScadaScreenCatalogInfo is not null)
         {
-            ScadaScreenCatalogInfo.Text = _tiaScreenNames.Count > 0
-                ? $"{_tiaScreenNames.Count} screen(s) loaded from TIA."
+            ScadaScreenCatalogInfo.Text = TiaScreenNames.Count > 0
+                ? $"{TiaScreenNames.Count} screen(s) of the SCADA in TIA."
                 : "No TIA screens loaded — attach a V21 project in 'TIA Sync', then click 'Refresh screens from TIA'.";
         }
     }
@@ -3799,8 +3809,7 @@ public partial class MainWindow : Window
         {
             System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
             var result = await _tiaSessionService.GetUnifiedScreensAsync(GetActiveScadaDeviceName());
-            _tiaScreenNames.Clear();
-            _tiaScreenNames.AddRange(result.Screens);
+            _project.Scada.TiaScreens = result.Screens.ToList();
             RebuildScadaScreenCatalog();
             ShowMessage(result.Warnings.Count > 0
                 ? string.Join(Environment.NewLine, result.Warnings)
@@ -3823,7 +3832,7 @@ public partial class MainWindow : Window
         // Screen catalog for the editor dropdowns: TIA-fetched screens plus whatever the
         // current config already references (so existing entries stay selectable offline).
         var model = ScadaNavigationModel.FromDatabase(_project.Scada);
-        var catalog = new List<string>(_tiaScreenNames);
+        var catalog = new List<string>(TiaScreenNames);
         foreach (var button in model.Buttons)
         {
             if (!string.IsNullOrWhiteSpace(button.SideContentScreen))
@@ -3851,8 +3860,7 @@ public partial class MainWindow : Window
             }
 
             var result = await _tiaSessionService.GetUnifiedScreensAsync(GetActiveScadaDeviceName());
-            _tiaScreenNames.Clear();
-            _tiaScreenNames.AddRange(result.Screens);
+            _project.Scada.TiaScreens = result.Screens.ToList();
             return result.Screens;
         };
 
@@ -7984,7 +7992,7 @@ public partial class MainWindow : Window
                 GetOrCreateScadaVariable($"LOCATION_{index}_NAME_1", "STRING", "MAIN", "", $"LOCATION_{index}.LOCATION_NAME", "Location name"),
                 GetOrCreateScadaVariable($"LOCATION_{index}_NAME_2", "STRING", "MAIN", "", $"LOCATION_{index}.LOCATION_NAME_2", "Location name second language"),
                 GetOrCreateScadaVariable($"LOCATION_{index}_SOURCE", "INT", "MAIN", "0", $"LOCATION_{index}.SOURCE", "Location source"),
-                GetOrCreateScadaVariable($"LOCATION_{index}_ENTRY", "INT", "MAIN", "", $"LOCATION_{index}.ENTRY", "Location entry"),
+                GetOrCreateScadaVariable($"LOCATION_{index}_ENTRY", "STRING", "MAIN", "", $"LOCATION_{index}.ENTRY", "Location entry"),
                 GetOrCreateScadaVariable($"LOCATION_{index}_LOCAL_REMOTE", "INT", "MAIN", "0", $"LOCATION_{index}_LOCAL_REMOTE", "0 - Local, 1 - Remote")))
             .ToList();
 

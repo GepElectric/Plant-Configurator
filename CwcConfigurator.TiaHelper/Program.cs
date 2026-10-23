@@ -101,6 +101,10 @@ namespace CwcConfigurator.TiaHelper
                     return ExportTextLists(request.Payload);
                 case "ImportTextLists":
                     return ImportTextLists(request.Payload);
+                case "ExportUnifiedScript":
+                    return ExportUnifiedScript(request.Payload);
+                case "ImportUnifiedScript":
+                    return ImportUnifiedScript(request.Payload);
                 case "Disconnect":
                     Disconnect();
                     return new { };
@@ -320,6 +324,96 @@ namespace CwcConfigurator.TiaHelper
             return result;
         }
 
+        // Exports one WinCC Unified script module (e.g. AUX_FUNCTIONS → AUX_FUNCTIONS.hmi.yml + .hmi.js).
+        private static TiaUnifiedScriptResult ExportUnifiedScript(IDictionary<string, object> payload)
+        {
+            RequireAttachedProject();
+            var outputFolder = GetString(payload, "OutputFolder");
+            var moduleName = GetString(payload, "ModuleName");
+            var result = new TiaUnifiedScriptResult();
+            if (string.IsNullOrWhiteSpace(outputFolder) || string.IsNullOrWhiteSpace(moduleName))
+            {
+                result.Warnings.Add("Output folder and script module name are required.");
+                return result;
+            }
+
+            Directory.CreateDirectory(outputFolder);
+#if TIA_V21
+            var hmi = FindHmiSoftware(GetString(payload, "DeviceName"));
+            if (hmi == null)
+            {
+                result.Warnings.Add(UnifiedDeviceNotFoundMessage(GetString(payload, "DeviceName")));
+                return result;
+            }
+
+            result.HmiSoftwareName = hmi.Name;
+            var module = hmi.Scripts.FirstOrDefault(item => item.Name.Equals(moduleName, StringComparison.OrdinalIgnoreCase));
+            if (module == null)
+            {
+                result.Warnings.Add("Script module '" + moduleName + "' was not found on '" + hmi.Name + "'. Modules: " +
+                                    string.Join(", ", hmi.Scripts.Select(item => item.Name)));
+                return result;
+            }
+
+            try
+            {
+                foreach (var file in module.Export(new DirectoryInfo(outputFolder)))
+                {
+                    result.Files.Add(file.FullName);
+                }
+
+                result.Success = true;
+            }
+            catch (Exception ex)
+            {
+                result.Warnings.Add(hmi.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+            }
+#else
+            result.Warnings.Add("Unified script export requires the TIA V21 helper.");
+#endif
+            return result;
+        }
+
+        // Imports the script module files of a folder (*.hmi.yml + *.hmi.js) into the Unified device; a module with the
+        // same name is replaced. The project is not saved.
+        private static TiaUnifiedScriptResult ImportUnifiedScript(IDictionary<string, object> payload)
+        {
+            RequireAttachedProject();
+            var inputFolder = GetString(payload, "InputFolder");
+            var result = new TiaUnifiedScriptResult();
+            if (string.IsNullOrWhiteSpace(inputFolder) || !Directory.Exists(inputFolder))
+            {
+                result.Warnings.Add("Script input folder was not found: " + inputFolder);
+                return result;
+            }
+
+#if TIA_V21
+            var hmi = FindHmiSoftware(GetString(payload, "DeviceName"));
+            if (hmi == null)
+            {
+                result.Warnings.Add(UnifiedDeviceNotFoundMessage(GetString(payload, "DeviceName")));
+                return result;
+            }
+
+            result.HmiSoftwareName = hmi.Name;
+            try
+            {
+                result.Success = hmi.Scripts.Import(new DirectoryInfo(inputFolder));
+                if (!result.Success)
+                {
+                    result.Warnings.Add(hmi.Name + ": TIA Portal reported that the script import did not succeed.");
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Warnings.Add(hmi.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+            }
+#else
+            result.Warnings.Add("Unified script import requires the TIA V21 helper.");
+#endif
+            return result;
+        }
+
         private static TiaUnifiedDevicesResult GetUnifiedDevices()
         {
             RequireAttachedProject();
@@ -348,7 +442,7 @@ namespace CwcConfigurator.TiaHelper
 
         private static IEnumerable<HmiSoftware> EnumerateHmiSoftware()
         {
-            foreach (var device in _project.Devices)
+            foreach (var device in AllDevices(_project.Devices, _project.DeviceGroups))
             {
                 foreach (var item in device.DeviceItems)
                 {
@@ -356,6 +450,23 @@ namespace CwcConfigurator.TiaHelper
                     {
                         yield return hmi;
                     }
+                }
+            }
+        }
+
+        // Devices of the project, including those in device groups (and their subgroups).
+        private static IEnumerable<Device> AllDevices(DeviceComposition devices, DeviceUserGroupComposition groups)
+        {
+            foreach (var device in devices)
+            {
+                yield return device;
+            }
+
+            foreach (var group in groups)
+            {
+                foreach (var device in AllDevices(group.Devices, group.Groups))
+                {
+                    yield return device;
                 }
             }
         }
@@ -2211,6 +2322,21 @@ namespace CwcConfigurator.TiaHelper
         public List<string> Warnings { get; set; }
 
         public TiaTextListExportResult()
+        {
+            HmiSoftwareName = "";
+            Files = new List<string>();
+            Warnings = new List<string>();
+        }
+    }
+
+    public sealed class TiaUnifiedScriptResult
+    {
+        public string HmiSoftwareName { get; set; }
+        public bool Success { get; set; }
+        public List<string> Files { get; set; }
+        public List<string> Warnings { get; set; }
+
+        public TiaUnifiedScriptResult()
         {
             HmiSoftwareName = "";
             Files = new List<string>();

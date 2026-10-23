@@ -99,7 +99,9 @@ public sealed class ScadaConfigFileService
         database.SourceTextPath = path;
         database.LastImportedAtUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
 
-        var currentSection = "";
+        // The variables at the top of _SET_INTERNAL_TAG (RUNTIME_NAME, LOCATION_x_...) have no section header in
+        // the SCADA script: they belong to MAIN, the section the app keeps them in (and writes first on export).
+        var currentSection = "MAIN";
         var nextVariableId = 1;
         var nextTagId = 1;
         for (var index = 0; index < lines.Length; index++)
@@ -837,7 +839,7 @@ public sealed class ScadaConfigFileService
                 database,
                 $"LOCATION_{text}_ENTRY",
                 $"LOCATION_{text}.ENTRY",
-                "INT",
+                "STRING",
                 "",
                 "MAIN",
                 "Location entry");
@@ -901,7 +903,12 @@ public sealed class ScadaConfigFileService
         }
         else
         {
-            variable.Type = type;
+            // Never turn a text that is in the script into a number (it would be written as 0).
+            if (!(type == "INT" && variable.Type == "STRING" && !int.TryParse(variable.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out _)))
+            {
+                variable.Type = type;
+            }
+
             if (string.IsNullOrWhiteSpace(variable.Section))
             {
                 variable.Section = section;

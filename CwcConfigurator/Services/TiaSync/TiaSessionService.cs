@@ -148,6 +148,25 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         return SendAsync<TiaUnifiedDevicesResult>(RequireActiveVersion(), "GetUnifiedDevices", null);
     }
 
+    public Task<TiaUnifiedScriptResult> ExportUnifiedScriptAsync(string outputFolder, string deviceName, string moduleName)
+    {
+        return SendAsync<TiaUnifiedScriptResult>(RequireActiveVersion(), "ExportUnifiedScript", new
+        {
+            OutputFolder = outputFolder,
+            DeviceName = deviceName ?? "",
+            ModuleName = moduleName
+        });
+    }
+
+    public Task<TiaUnifiedScriptResult> ImportUnifiedScriptAsync(string inputFolder, string deviceName)
+    {
+        return SendAsync<TiaUnifiedScriptResult>(RequireActiveVersion(), "ImportUnifiedScript", new
+        {
+            InputFolder = inputFolder,
+            DeviceName = deviceName ?? ""
+        });
+    }
+
     public void AbortHelper()
     {
         CurrentSession = null;
