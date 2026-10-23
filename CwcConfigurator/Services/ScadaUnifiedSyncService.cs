@@ -156,7 +156,15 @@ public sealed class ScadaUnifiedSyncService
 
         var bodyPath = Path.Combine(rootPath, "_set_internal_tag_body.js");
         _scadaService.Export(database, bodyPath);
-        File.WriteAllText(modulePath, module.Rewrap(File.ReadAllText(bodyPath)));
+        var newBody = File.ReadAllText(bodyPath);
+
+        // The import takes TIA Portal ~2 minutes: skip it when the function in TIA already has this content.
+        if (Normalize(newBody) == Normalize(module.Body))
+        {
+            return $"{ModuleName}.{ScadaInternalTagModule.DefaultFunctionName} on '{deviceName}' is already up to date — nothing pushed.";
+        }
+
+        File.WriteAllText(modulePath, module.Rewrap(newBody));
 
         var import = await session.ImportUnifiedScriptAsync(moduleFolder, deviceName);
         if (!import.Success)
@@ -166,6 +174,17 @@ public sealed class ScadaUnifiedSyncService
 
         return $"Pushed {ModuleName}.{ScadaInternalTagModule.DefaultFunctionName} to '{deviceName}' (TIA project not saved). Backup: {backupPath}";
     }
+
+    /// <summary>Content without blank lines, indentation, line endings or spacing around comments.</summary>
+    private static string Normalize(string body) => string.Join("
+", body
+        .Replace("
+", "
+")
+        .Split('
+')
+        .Select(line => System.Text.RegularExpressions.Regex.Replace(line.Trim(), @"\s*//\s*", " // "))
+        .Where(line => line.Length > 0));
 
     private static async Task<string> ExportModuleAsync(ITiaSessionService session, string deviceName, string folder)
     {
