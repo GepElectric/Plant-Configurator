@@ -110,6 +110,10 @@ namespace CwcConfigurator.TiaHelper
                     return ExportUnifiedGraphics(request.Payload);
                 case "UpdateTextListTypes":
                     return UpdateTextListTypes(request.Payload);
+                case "ExportTextListTypeTexts":
+                    return ExportTextListTypeTexts(request.Payload);
+                case "ImportTextListTypeTexts":
+                    return ImportTextListTypeTexts(request.Payload);
                 case "Disconnect":
                     Disconnect();
                     return new { };
@@ -579,6 +583,163 @@ namespace CwcConfigurator.TiaHelper
             result.Success = result.Warnings.Count == 0;
 #else
             result.NotTypes.AddRange(names);
+            result.Warnings.Add("Text lists as library types require the TIA V21 helper.");
+#endif
+            return result;
+        }
+
+        // Texts of text lists that are library types, through "Export project texts" (xlsx, one row per entry with the
+        // ViewPath ...\<type>\V x.y.z\<list>\Text_list_entry_<ID+1>\Text). InWork=false exports the latest released
+        // versions (read-only, to compare); InWork=true first opens a new in-work version of each type (Edit) and
+        // exports that one, to be changed and passed to ImportTextListTypeTexts. Names that are not library types are
+        // returned in NotTypes.
+        private static TiaTextListTypesResult ExportTextListTypeTexts(IDictionary<string, object> payload)
+        {
+            RequireAttachedProject();
+            var result = new TiaTextListTypesResult();
+            var outputFile = GetString(payload, "OutputFile");
+            var inWork = GetString(payload, "InWork").Equals("true", StringComparison.OrdinalIgnoreCase);
+            var names = GetStringList(payload, "ListNames");
+#if TIA_V21
+            var objects = new List<IEngineeringObject>();
+            foreach (var name in names)
+            {
+                var type = FindLibraryType(_project.ProjectLibrary.TypeFolder, name);
+                if (type == null)
+                {
+                    result.NotTypes.Add(name);
+                    continue;
+                }
+
+                if (type.Versions.Any(version => version.State == Siemens.Engineering.Library.Types.LibraryTypeVersionState.InWork))
+                {
+                    result.Warnings.Add(name + ": the library type is being edited (in-work version) — finish or discard it in TIA first.");
+                    continue;
+                }
+
+                var latest = type.Versions.OrderByDescending(version => version.VersionNumber).FirstOrDefault();
+                if (latest == null)
+                {
+                    result.Warnings.Add(name + ": the library type has no version.");
+                    continue;
+                }
+
+                try
+                {
+                    objects.Add(inWork ? latest.Edit() : latest);
+                    result.Updated.Add(name);
+                }
+                catch (Exception ex)
+                {
+                    result.Warnings.Add(name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+                }
+            }
+
+            if (objects.Count > 0)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputFile)));
+                var languages = _project.LanguageSettings;
+                var source = languages.EditingLanguage;
+                var targets = languages.ActiveLanguages.Where(language => language.Culture.Name != source.Culture.Name).ToList();
+                _project.ExportProjectTexts(new FileInfo(Path.GetFullPath(outputFile)), source, targets, _project.TextCategories.ToList(), objects);
+            }
+
+            result.Success = true;
+#else
+            result.NotTypes.AddRange(names);
+            result.Warnings.Add("Text lists as library types require the TIA V21 helper.");
+#endif
+            return result;
+        }
+
+        // Finishes ExportTextListTypeTexts(InWork=true): imports the changed xlsx into the in-work versions (Import
+        // project texts), releases each with the next version number and updates every WinCC Unified device. Without
+        // InputFile (or when the import fails) the in-work versions are discarded. The project is not saved.
+        private static TiaTextListTypesResult ImportTextListTypeTexts(IDictionary<string, object> payload)
+        {
+            RequireAttachedProject();
+            var result = new TiaTextListTypesResult();
+            var inputFile = GetString(payload, "InputFile");
+            var comment = GetString(payload, "Comment");
+            var names = GetStringList(payload, "ListNames");
+#if TIA_V21
+            var work = new List<Siemens.Engineering.Library.Types.LibraryTypeVersion>();
+            foreach (var name in names)
+            {
+                var type = FindLibraryType(_project.ProjectLibrary.TypeFolder, name);
+                var version = type == null ? null : type.Versions.FirstOrDefault(item => item.State == Siemens.Engineering.Library.Types.LibraryTypeVersionState.InWork);
+                if (version == null)
+                {
+                    result.Warnings.Add(name + ": no in-work version to finish.");
+                    continue;
+                }
+
+                work.Add(version);
+            }
+
+            var release = !string.IsNullOrWhiteSpace(inputFile);
+            if (release)
+            {
+                try
+                {
+                    var import = _project.ImportProjectTexts(new FileInfo(Path.GetFullPath(inputFile)), true);
+                    if (!import.State.ToString().Equals("Info", StringComparison.OrdinalIgnoreCase)
+                        && !import.State.ToString().Equals("Success", StringComparison.OrdinalIgnoreCase))
+                    {
+                        result.Warnings.Add("Import texts: " + import.State + " — nothing released, see " + import.Path);
+                        release = false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.Warnings.Add("Import texts: " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+                    release = false;
+                }
+            }
+
+            var released = new List<Siemens.Engineering.Library.Types.LibraryType>();
+            foreach (var version in work)
+            {
+                var type = version.TypeObject;
+                try
+                {
+                    if (!release)
+                    {
+                        version.Discard();
+                        continue;
+                    }
+
+                    var latest = type.Versions.Where(item => item.State != Siemens.Engineering.Library.Types.LibraryTypeVersionState.InWork)
+                        .Select(item => item.VersionNumber).DefaultIfEmpty(new Version(0, 0, 0)).Max();
+                    var next = new Version(latest.Major, latest.Minor, Math.Max(0, latest.Build) + 1);
+                    version.Release(Siemens.Engineering.Library.Types.CreateOrReleaseDependenciesMode.AutomaticallyCreateOrReleaseDependenciesIfRequired,
+                        next, "Plant Configurator", string.IsNullOrWhiteSpace(comment) ? "Texts from Plant Configurator" : comment);
+                    result.Updated.Add(type.Name + " " + next);
+                    released.Add(type);
+                }
+                catch (Exception ex)
+                {
+                    result.Warnings.Add(type.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+                }
+            }
+
+            foreach (var hmi in EnumerateHmiSoftware())
+            {
+                foreach (var type in released)
+                {
+                    try
+                    {
+                        type.UpdateProject(hmi);
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Warnings.Add(hmi.Name + " / " + type.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+                    }
+                }
+            }
+
+            result.Success = result.Warnings.Count == 0;
+#else
             result.Warnings.Add("Text lists as library types require the TIA V21 helper.");
 #endif
             return result;

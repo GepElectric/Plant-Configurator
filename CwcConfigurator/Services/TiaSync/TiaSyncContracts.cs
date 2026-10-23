@@ -75,6 +75,8 @@ public interface ITiaSessionService
     Task<TiaUnifiedScriptResult> ImportUnifiedScriptAsync(string inputFolder, string deviceName);
     Task<TiaUnifiedScriptResult> ExportUnifiedGraphicsAsync(string outputFolder, string deviceName);
     Task<TiaTextListTypesResult> UpdateTextListTypesAsync(string inputFolder, IReadOnlyList<string> listNames, string comment);
+    Task<TiaTextListTypesResult> ExportTextListTypeTextsAsync(string outputFile, IReadOnlyList<string> listNames, bool inWork);
+    Task<TiaTextListTypesResult> ImportTextListTypeTextsAsync(string? inputFile, IReadOnlyList<string> listNames, string comment);
 }
 
 /// <summary>New versions of text lists that are library types (project library), created from exported documents.</summary>

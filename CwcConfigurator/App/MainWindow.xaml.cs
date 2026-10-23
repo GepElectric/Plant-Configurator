@@ -9312,30 +9312,39 @@ public partial class MainWindow : Window
 
             _descriptionTextListService.PushDescriptionsIntoTextLists(_project); // PLC row edits -> text-list data
             var managed = GetManagedDescriptionListNames();
+
+            // Text lists that are library types are project-wide (a new version updates every SCADA): pushed through
+            // Export/Import project texts, no SCADA is involved.
+            var pushService = new ScadaTextListPushService(_tiaSessionService);
+            var notTypes = new List<string>();
+            var messages = new List<string> { await pushService.PushLibraryTypesAsync(_project.DescriptionTextLists.TextLists, managed, notTypes,
+                (languages, english, other) => TextLanguageChoiceDialog.Choose(owner, languages, english, other)) };
+            if (notTypes.Count == 0)
+            {
+                return string.Join(Environment.NewLine, messages.Where(message => message.Length > 0));
+            }
+
+            // Lists that are not library types are written into every mapped SCADA that has them.
             var devices = GetMappedScadaDeviceNames();
             if (devices.Count == 0)
             {
-                return "No mapped SCADA devices. Map SCADA databases to Unified devices in 'TIA Sync' first.";
+                messages.Add($"Not library types ({string.Join(", ", notTypes)}) and no mapped SCADA devices — map SCADA databases to Unified devices in 'TIA Sync' first.");
+                return string.Join(Environment.NewLine, messages);
             }
 
-            // Text lists that are library types are project-wide (a new version updates every SCADA), so no SCADA is
-            // chosen: the first one that has the lists is the source; lists that are not types are written into every
-            // SCADA that has them.
-            var pushService = new ScadaTextListPushService(_tiaSessionService);
-            var targets = (await pushService.ScanAsync(devices, managed)).Where(target => target.FoundLists.Count > 0).ToList();
+            var targets = (await pushService.ScanAsync(devices, notTypes)).Where(target => target.FoundLists.Count > 0).ToList();
             if (targets.Count == 0)
             {
-                return "None of the mapped SCADA devices has the description text lists of the PLC databases.";
+                messages.Add($"None of the mapped SCADA devices has the lists {string.Join(", ", notTypes)}.");
             }
 
-            var messages = new List<string>();
             var typesDone = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var target in targets)
             {
-                messages.Add(await pushService.PushAsync(target, _project.DescriptionTextLists.TextLists, managed, typesDone));
+                messages.Add(await pushService.PushAsync(target, _project.DescriptionTextLists.TextLists, notTypes, typesDone));
             }
 
-            return string.Join(Environment.NewLine, messages);
+            return string.Join(Environment.NewLine, messages.Where(message => message.Length > 0));
         };
 
         var dialog = new DescriptionTextListsDialog(_project, _descriptionTextListService, pullFromTia, GetMappedScadaDeviceNames(), pushToTia)

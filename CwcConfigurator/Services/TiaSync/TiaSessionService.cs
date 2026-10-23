@@ -172,6 +172,26 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         }, LongHelperResponseTimeout);
     }
 
+    public Task<TiaTextListTypesResult> ExportTextListTypeTextsAsync(string outputFile, IReadOnlyList<string> listNames, bool inWork)
+    {
+        return SendAsync<TiaTextListTypesResult>(RequireActiveVersion(), "ExportTextListTypeTexts", new
+        {
+            OutputFile = outputFile,
+            ListNames = listNames,
+            InWork = inWork
+        }, LongHelperResponseTimeout);
+    }
+
+    public Task<TiaTextListTypesResult> ImportTextListTypeTextsAsync(string? inputFile, IReadOnlyList<string> listNames, string comment)
+    {
+        return SendAsync<TiaTextListTypesResult>(RequireActiveVersion(), "ImportTextListTypeTexts", new
+        {
+            InputFile = inputFile ?? "",
+            ListNames = listNames,
+            Comment = comment
+        }, LongHelperResponseTimeout);
+    }
+
     public Task<TiaUnifiedScriptResult> ExportUnifiedGraphicsAsync(string outputFolder, string deviceName)
     {
         return SendAsync<TiaUnifiedScriptResult>(RequireActiveVersion(), "ExportUnifiedGraphics", new
