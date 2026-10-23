@@ -9318,23 +9318,19 @@ public partial class MainWindow : Window
                 return "No mapped SCADA devices. Map SCADA databases to Unified devices in 'TIA Sync' first.";
             }
 
+            // Text lists that are library types are project-wide (a new version updates every SCADA), so no SCADA is
+            // chosen: the first one that has the lists is the source; lists that are not types are written into every
+            // SCADA that has them.
             var pushService = new ScadaTextListPushService(_tiaSessionService);
-            var targets = await pushService.ScanAsync(devices, managed);
-            var selector = new PushTargetsDialog(targets) { Owner = owner };
-            if (selector.ShowDialog() != true)
+            var targets = (await pushService.ScanAsync(devices, managed)).Where(target => target.FoundLists.Count > 0).ToList();
+            if (targets.Count == 0)
             {
-                return "Push cancelled.";
-            }
-
-            var selected = targets.Where(target => target.Selected).ToList();
-            if (selected.Count == 0)
-            {
-                return "No SCADA selected — nothing pushed.";
+                return "None of the mapped SCADA devices has the description text lists of the PLC databases.";
             }
 
             var messages = new List<string>();
             var typesDone = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var target in selected)
+            foreach (var target in targets)
             {
                 messages.Add(await pushService.PushAsync(target, _project.DescriptionTextLists.TextLists, managed, typesDone));
             }
