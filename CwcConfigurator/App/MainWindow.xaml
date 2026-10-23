@@ -360,6 +360,8 @@
                 </MenuItem>
             </MenuItem>
             <MenuItem Header="_Descriptions">
+                <MenuItem Header="TIA 21 and newest text list configuration..." Click="DescriptionTextLists_Click"
+                          ToolTip="Pull the description text lists of every PLC database from TIA and push them back without Excel: lists that are library types (Types/SCADA_TEXT_LIST) get a new released version and every SCADA is updated."/>
                 <MenuItem Header="Text lists — pull / push / Excel..." Click="DescriptionTextLists_Click"
                           ToolTip="The descriptions hub: pull/push ALM/PAR descriptions to/from WinCC Unified (Openness), or load/save the Excel workbook."/>
                 <MenuItem Header="Text lists — write descriptions into an exported Excel..." Click="ExportDescriptionTextLists_Click"
@@ -2310,6 +2312,8 @@
                 <TabItem Header="Text lists">
                     <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,6,8,6">
+                        <Button Content="TIA 21 and newest text list configuration..." MinWidth="260" Height="28" Margin="0,0,6,0" Click="DescriptionTextLists_Click" FontWeight="SemiBold"
+                                ToolTip="Pull / push the description text lists of every PLC database directly from / to TIA (library types in Types/SCADA_TEXT_LIST), without Excel."/>
                         <Button Content="Pull / Push / Excel..." MinWidth="140" Height="28" Margin="0,0,6,0" Click="DescriptionTextLists_Click"
                                 ToolTip="The descriptions hub: pull/push descriptions to/from WinCC Unified, or load/save the Excel workbook."/>
                         <Button Content="Write to exported Excel..." MinWidth="160" Height="28" Click="ExportDescriptionTextLists_Click"
