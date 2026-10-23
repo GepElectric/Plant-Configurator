@@ -129,64 +129,31 @@ public sealed class ScadaTextListPushService
 
     /// <summary>
     /// TIA V21+: description text lists that are library types (Types/SCADA_TEXT_LIST/...) are pushed through
-    /// "Export/Import project texts": the released texts are exported and compared; only the changed types get a new
-    /// in-work version, whose texts are exported, changed and imported, then released (every device follows).
-    /// Lists that are not library types are returned in <paramref name="notTypes"/> for the device push.
+    /// "Export/Import project texts": every mapped type gets a new in-work version, whose exported texts are set from
+    /// the app (ID = Text_list_entry_N - 1), imported and released (every device follows). Nothing is skipped as
+    /// "unchanged". Lists that are not library types are returned in <paramref name="notTypes"/> for the device push.
     /// </summary>
     /// <param name="chooseOtherLanguage">Asked when TIA has more than one language: (TIA languages, app English, app other
     /// language) → the TIA language that gets the other-language texts, "" for English only, null to cancel.</param>
     public async Task<string> PushLibraryTypesAsync(DescriptionTextListData appData, IReadOnlyCollection<string> managedListNames, List<string> notTypes,
         Func<IReadOnlyList<string>, string, string, string?> chooseOtherLanguage)
     {
+        var lines = new List<string>();
         var names = managedListNames.Where(name => appData.Lists.ContainsKey(name)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var missing = managedListNames.Except(names, StringComparer.OrdinalIgnoreCase).ToList();
+        if (missing.Count > 0)
+        {
+            lines.Add($"No texts loaded for {string.Join(", ", missing)} — pull from TIA first.");
+        }
+
         if (names.Count == 0)
         {
-            return "No description texts to push.";
+            return lines.Count > 0 ? string.Join(Environment.NewLine, lines) : "No description texts to push.";
         }
 
-        var folder = NewWorkspace();
-        var lines = new List<string>();
-        var current = Path.Combine(folder, "released.xlsx");
-        var export = await _session.ExportTextListTypeTextsAsync(current, names, inWork: false);
-        notTypes.AddRange(export.NotTypes);
-        lines.AddRange(export.Warnings);
-        if (export.Updated.Count == 0)
-        {
-            return string.Join(Environment.NewLine, lines);
-        }
-
-        // English always goes to the English (or editing-language) column; the other language only where the user says.
-        var (english, other) = DescriptionTextListService.GetLanguagePair(appData);
-        var tiaLanguages = ProjectTextsWorkbook.Languages(current);
-        var sources = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            [tiaLanguages.FirstOrDefault(language => language.Equals(english, StringComparison.OrdinalIgnoreCase)) ?? tiaLanguages[0]] = english
-        };
-        if (tiaLanguages.Count > 1 && !other.Equals(english, StringComparison.OrdinalIgnoreCase))
-        {
-            var target = chooseOtherLanguage(tiaLanguages, english, other);
-            if (target is null)
-            {
-                return "Push cancelled.";
-            }
-
-            if (target.Length > 0)
-            {
-                sources[target] = other;
-            }
-        }
-
-        var languageNote = string.Join(", ", sources.Select(source => $"{source.Value} → TIA {source.Key}"));
-        var changes = ProjectTextsWorkbook.Apply(current, appData, sources, save: false);
-        var changed = changes.Where(change => change.Value > 0).Select(change => change.Key).ToList();
-        if (changed.Count == 0)
-        {
-            lines.Insert(0, $"Library text lists already up to date ({export.Updated.Count} checked; {languageNote}) — nothing pushed.");
-            return string.Join(Environment.NewLine, lines);
-        }
-
-        var edit = Path.Combine(folder, "in_work.xlsx");
-        var opened = await _session.ExportTextListTypeTextsAsync(edit, changed, inWork: true);
+        var edit = Path.Combine(NewWorkspace(), "in_work.xlsx");
+        var opened = await _session.ExportTextListTypeTextsAsync(edit, names, inWork: true);
+        notTypes.AddRange(opened.NotTypes);
         lines.AddRange(opened.Warnings);
         if (opened.Updated.Count == 0)
         {
@@ -195,9 +162,34 @@ public sealed class ScadaTextListPushService
 
         string? input = edit;
         var count = 0;
+        var languageNote = "";
         try
         {
-            count = ProjectTextsWorkbook.Apply(edit, appData, sources, save: true).Values.Sum();
+            // English always goes to the English (or editing-language) column; the other language only where the user says.
+            var (english, other) = DescriptionTextListService.GetLanguagePair(appData);
+            var tiaLanguages = ProjectTextsWorkbook.Languages(edit);
+            var sources = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [tiaLanguages.FirstOrDefault(language => language.Equals(english, StringComparison.OrdinalIgnoreCase)) ?? tiaLanguages[0]] = english
+            };
+            var target = tiaLanguages.Count > 1 && !other.Equals(english, StringComparison.OrdinalIgnoreCase)
+                ? chooseOtherLanguage(tiaLanguages, english, other)
+                : "";
+            if (target is null)
+            {
+                lines.Insert(0, "Push cancelled — the in-work versions were discarded.");
+                input = null;
+            }
+            else
+            {
+                if (target.Length > 0)
+                {
+                    sources[target] = other;
+                }
+
+                languageNote = string.Join(", ", sources.Select(source => $"{source.Value} → TIA {source.Key}"));
+                count = ProjectTextsWorkbook.Apply(edit, appData, sources, save: true).Values.Sum();
+            }
         }
         catch (Exception ex)
         {
@@ -208,7 +200,7 @@ public sealed class ScadaTextListPushService
         var finished = await _session.ImportTextListTypeTextsAsync(input, opened.Updated, "Texts from Plant Configurator");
         if (finished.Updated.Count > 0)
         {
-            lines.Insert(0, $"{count} changed text(s) ({languageNote}) — released: {string.Join(", ", finished.Updated)}.");
+            lines.Insert(0, $"{count} text(s) changed ({languageNote}) — released: {string.Join(", ", finished.Updated)}.");
         }
 
         lines.AddRange(finished.Warnings);

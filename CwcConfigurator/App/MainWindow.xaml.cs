@@ -9291,6 +9291,16 @@ public partial class MainWindow : Window
             }
 
             var folder = Path.Combine(Path.GetTempPath(), "PlantConfigurator", "TextListsExport", Guid.NewGuid().ToString("N"));
+
+            // TIA V21+: the description text lists are library types (Types/SCADA_TEXT_LIST); their texts come from
+            // "Export project texts". Only without such types the lists of a SCADA device are read.
+            var texts = Path.Combine(folder, "library_types.xlsx");
+            var types = await _tiaSessionService.ExportTextListTypeTextsAsync(texts, [], inWork: false);
+            if (types.Updated.Count > 0 && File.Exists(texts))
+            {
+                return ProjectTextsWorkbook.Read(texts);
+            }
+
             var result = await _tiaSessionService.ExportTextListsAsync(folder, device);
             var listsFile = result.Files.FirstOrDefault(f => Path.GetFileName(f).Equals("TextLists.hmi.yml", StringComparison.OrdinalIgnoreCase));
             var libraryFile = result.Files.FirstOrDefault(f => Path.GetFileName(f).Equals("TextLists.TextLibrary.hmi.yml", StringComparison.OrdinalIgnoreCase));

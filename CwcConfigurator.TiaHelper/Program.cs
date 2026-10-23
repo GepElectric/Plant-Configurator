@@ -601,6 +601,12 @@ namespace CwcConfigurator.TiaHelper
             var inWork = GetString(payload, "InWork").Equals("true", StringComparison.OrdinalIgnoreCase);
             var names = GetStringList(payload, "ListNames");
 #if TIA_V21
+            if (names.Count == 0)
+            {
+                // No names: every type in the SCADA_TEXT_LIST type folder(s).
+                names = TextListTypeFolders(_project.ProjectLibrary.TypeFolder).SelectMany(AllTypes).Select(type => type.Name).ToList();
+            }
+
             var objects = new List<IEngineeringObject>();
             foreach (var name in names)
             {
@@ -746,6 +752,29 @@ namespace CwcConfigurator.TiaHelper
         }
 
 #if TIA_V21
+        private static IEnumerable<Siemens.Engineering.Library.Types.LibraryTypeFolder> TextListTypeFolders(Siemens.Engineering.Library.Types.LibraryTypeFolder folder)
+        {
+            foreach (var sub in folder.Folders)
+            {
+                if (sub.Name.Equals("SCADA_TEXT_LIST", StringComparison.OrdinalIgnoreCase))
+                {
+                    yield return sub;
+                }
+                else
+                {
+                    foreach (var found in TextListTypeFolders(sub))
+                    {
+                        yield return found;
+                    }
+                }
+            }
+        }
+
+        private static IEnumerable<Siemens.Engineering.Library.Types.LibraryType> AllTypes(Siemens.Engineering.Library.Types.LibraryTypeFolder folder)
+        {
+            return folder.Types.Concat(folder.Folders.SelectMany(AllTypes));
+        }
+
         private static Siemens.Engineering.Library.Types.LibraryType FindLibraryType(Siemens.Engineering.Library.Types.LibraryTypeFolder folder, string name)
         {
             var found = folder.Types.FirstOrDefault(type => type.Name.Equals(name, StringComparison.OrdinalIgnoreCase));

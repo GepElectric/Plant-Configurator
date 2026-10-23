@@ -38,6 +38,10 @@ public sealed class ProjectTextsWorkbookTests
         try
         {
             Assert.Equal(new[] { "en-US", "nb-NO" }, ProjectTextsWorkbook.Languages(path));
+            var read = ProjectTextsWorkbook.Read(path);
+            Assert.Equal(new[] { "Intake_ALARM_DESCRIPTIONS" }, read.AllListNames);
+            Assert.Equal("Spare", read.GetText("Intake_ALARM_DESCRIPTIONS", 439, "en-US"));
+            Assert.Equal("Første", read.GetText("Intake_ALARM_DESCRIPTIONS", 0, "nb-NO"));
             Assert.Equal(1, ProjectTextsWorkbook.Apply(path, data, englishOnly, save: false)["Intake_ALARM_DESCRIPTIONS"]);
             Assert.Equal(1, ProjectTextsWorkbook.Apply(path, data, englishOnly, save: true)["Intake_ALARM_DESCRIPTIONS"]);
             Assert.Equal(0, ProjectTextsWorkbook.Apply(path, data, englishOnly, save: false)["Intake_ALARM_DESCRIPTIONS"]);

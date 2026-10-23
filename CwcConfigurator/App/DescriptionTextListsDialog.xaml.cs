@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
@@ -250,47 +250,47 @@ public partial class DescriptionTextListsDialog : Window, INotifyPropertyChanged
         var listNames = _project.DescriptionTextLists.TextLists.AllListNames;
         foreach (var mapping in _mappings)
         {
-            if (string.IsNullOrWhiteSpace(mapping.AlmDescriptionsList))
+            if (NeedsMapping(mapping.AlmDescriptionsList, listNames))
             {
                 mapping.AlmDescriptionsList = FindBestListName(listNames, mapping.PlcName, "ALARM_DESCRIPTIONS", "ALM_DESCRIPTIONS");
             }
 
-            if (string.IsNullOrWhiteSpace(mapping.ParDescriptionsList))
+            if (NeedsMapping(mapping.ParDescriptionsList, listNames))
             {
                 mapping.ParDescriptionsList = FindBestListName(listNames, mapping.PlcName, "PARAMETER_DESCRIPTION_LIST", "PAR_DESCRIPTIONS", "PARAMETER_DESCRIPTIONS");
             }
 
-            if (string.IsNullOrWhiteSpace(mapping.SequenceControlStatusList))
+            if (NeedsMapping(mapping.SequenceControlStatusList, listNames))
             {
                 mapping.SequenceControlStatusList = FindBestListName(listNames, mapping.PlcName, "CONTROL_STATUS", "CTRL_STS", "SEQUENCE_CONTROL_STATUS");
             }
 
-            if (string.IsNullOrWhiteSpace(mapping.SequenceCommandList))
+            if (NeedsMapping(mapping.SequenceCommandList, listNames))
             {
                 mapping.SequenceCommandList = FindBestListName(listNames, mapping.PlcName, "SEQUENCE_COMMAND", "SEQUENCE_COMMANDS", "SEQ_CMD");
             }
 
-            if (string.IsNullOrWhiteSpace(mapping.AlmBlockingClassList))
+            if (NeedsMapping(mapping.AlmBlockingClassList, listNames))
             {
                 mapping.AlmBlockingClassList = FindBestListName(listNames, mapping.PlcName, "ALM_BLOCKING_CLASS", "ALARM_BLOCKING_CLASS", "BLOCKING_CLASS");
             }
 
-            if (string.IsNullOrWhiteSpace(mapping.CabinetsList))
+            if (NeedsMapping(mapping.CabinetsList, listNames))
             {
                 mapping.CabinetsList = FindBestListName(listNames, mapping.PlcName, "CABINETS", "CABINET");
             }
 
-            if (string.IsNullOrWhiteSpace(mapping.PortConfigurationList))
+            if (NeedsMapping(mapping.PortConfigurationList, listNames))
             {
                 mapping.PortConfigurationList = FindBestListName(listNames, mapping.PlcName, "PORT_CONFIGURATION", "PORT_CONFIG");
             }
 
-            if (string.IsNullOrWhiteSpace(mapping.SeqCmdList))
+            if (NeedsMapping(mapping.SeqCmdList, listNames))
             {
                 mapping.SeqCmdList = FindBestListName(listNames, mapping.PlcName, "SEQ_CMD", "SEQUENCE_CMD", "SEQUENCE_COMMAND_ON_OFF");
             }
 
-            if (string.IsNullOrWhiteSpace(mapping.SeqConfigList))
+            if (NeedsMapping(mapping.SeqConfigList, listNames))
             {
                 mapping.SeqConfigList = FindBestListName(listNames, mapping.PlcName, "SEQ_CONFIG", "SEQUENCE_CONFIG", "SEQUENCE_CONFIGURATION");
             }
@@ -306,6 +306,13 @@ public partial class DescriptionTextListsDialog : Window, INotifyPropertyChanged
             target.SeqCmdList = NormalizeListName(mapping.SeqCmdList);
             target.SeqConfigList = NormalizeListName(mapping.SeqConfigList);
         }
+    }
+
+    // Empty, or a list that is not among the loaded lists (e.g. a SCADA device list after pulling the library types).
+    private static bool NeedsMapping(string listName, IReadOnlyList<string> listNames)
+    {
+        var name = NormalizeListName(listName);
+        return string.IsNullOrWhiteSpace(name) || !listNames.Contains(name, StringComparer.OrdinalIgnoreCase);
     }
 
     private static string FindBestListName(IReadOnlyList<string> listNames, string plcName, params string[] suffixes)

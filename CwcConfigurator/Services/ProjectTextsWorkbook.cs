@@ -24,6 +24,35 @@ public static class ProjectTextsWorkbook
             .ToList();
     }
 
+    /// <summary>All texts of the workbook as text-list data: list = type name, ID = entry number - 1.</summary>
+    public static DescriptionTextListData Read(string path)
+    {
+        var data = new DescriptionTextListData { SourcePath = path };
+        using var workbook = new XLWorkbook(path);
+        var sheet = workbook.Worksheets.First();
+        var columns = ReadColumns(sheet, out var pathColumn);
+        data.Languages = columns.Values.Select(column => column.Language).Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(language => language, StringComparer.OrdinalIgnoreCase).ToList();
+        var lastRow = sheet.LastRowUsed()?.RowNumber() ?? 1;
+        for (var row = 2; row <= lastRow; row++)
+        {
+            var match = EntryPath.Match(sheet.Cell(row, pathColumn).GetString());
+            if (!match.Success)
+            {
+                continue;
+            }
+
+            var id = int.Parse(match.Groups[2].Value) - 1;
+            foreach (var (column, info) in columns)
+            {
+                data.SetText(match.Groups[1].Value, id, info.Language, sheet.Cell(row, column).GetString());
+            }
+        }
+
+        data.AllListNames = data.Lists.Keys.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList();
+        return data;
+    }
+
     /// <summary>Counts (and with <paramref name="save"/> writes) the texts that differ from the app's texts, per type.
     /// <paramref name="sources"/> maps a TIA language (column) to the app language whose texts go there; other columns
     /// and texts the app does not have stay as exported.</summary>
