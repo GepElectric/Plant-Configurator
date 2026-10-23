@@ -176,13 +176,9 @@ public sealed class ScadaUnifiedSyncService
     }
 
     /// <summary>Content without blank lines, indentation, line endings or spacing around comments.</summary>
-    private static string Normalize(string body) => string.Join("
-", body
-        .Replace("
-", "
-")
-        .Split('
-')
+    private static string Normalize(string body) => string.Join("\n", body
+        .Replace("\r\n", "\n")
+        .Split('\n')
         .Select(line => System.Text.RegularExpressions.Regex.Replace(line.Trim(), @"\s*//\s*", " // "))
         .Where(line => line.Length > 0));
 
