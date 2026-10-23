@@ -7,6 +7,10 @@ namespace CwcConfigurator.Services.TiaSync;
 public sealed class TiaSessionService : ITiaSessionService, IDisposable
 {
     private static readonly TimeSpan HelperResponseTimeout = TimeSpan.FromMinutes(2);
+
+    // TIA Portal needs ~2 minutes to import a large Unified script module (AUX_FUNCTIONS ≈ 1 MB); killing the helper
+    // in the middle of an import leaves the project in an unknown state, so these commands may take much longer.
+    private static readonly TimeSpan LongHelperResponseTimeout = TimeSpan.FromMinutes(15);
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     // One helper process per installed TIA version ("V18"/"V21"). Each helper build
@@ -140,7 +144,7 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         {
             InputFolder = inputFolder,
             DeviceName = deviceName ?? ""
-        });
+        }, LongHelperResponseTimeout);
     }
 
     public Task<TiaUnifiedDevicesResult> GetUnifiedDevicesAsync()
@@ -164,7 +168,7 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         {
             OutputFolder = outputFolder,
             DeviceName = deviceName ?? ""
-        });
+        }, LongHelperResponseTimeout);
     }
 
     public Task<TiaUnifiedScriptResult> ImportUnifiedScriptAsync(string inputFolder, string deviceName)
@@ -173,7 +177,7 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         {
             InputFolder = inputFolder,
             DeviceName = deviceName ?? ""
-        });
+        }, LongHelperResponseTimeout);
     }
 
     public void AbortHelper()
@@ -206,8 +210,9 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         return TiaApiLocator.GetInstalledVersions().FirstOrDefault() ?? "";
     }
 
-    private async Task<T> SendAsync<T>(string version, string command, object? payload)
+    private async Task<T> SendAsync<T>(string version, string command, object? payload, TimeSpan? timeout = null)
     {
+        var limit = timeout ?? HelperResponseTimeout;
         await _gate.WaitAsync();
         try
         {
@@ -224,11 +229,11 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
             await helper.StandardInput.FlushAsync();
 
             var readTask = helper.StandardOutput.ReadLineAsync();
-            var completedTask = await Task.WhenAny(readTask, Task.Delay(HelperResponseTimeout));
+            var completedTask = await Task.WhenAny(readTask, Task.Delay(limit));
             if (completedTask != readTask)
             {
                 KillHelper(version);
-                throw new TimeoutException($"TIA helper ({version}) did not respond within {HelperResponseTimeout.TotalMinutes:0} minute(s). Attach to TIA Portal again before retrying.");
+                throw new TimeoutException($"TIA helper ({version}) did not respond within {limit.TotalMinutes:0} minute(s). Attach to TIA Portal again before retrying.");
             }
 
             var responseLine = await readTask;

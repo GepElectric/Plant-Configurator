@@ -558,7 +558,7 @@ public partial class TiaSyncDialog : Window
 
         var service = new ScadaUnifiedSyncService();
         var lines = empty.Select(row => $"{row.ScadaName}: skipped (empty database).").ToList();
-        SetBusy(true, "Pushing SCADA to TIA...");
+        SetBusy(true, "Pushing SCADA to TIA... TIA Portal imports the script module, this takes about 2 minutes per SCADA.");
         try
         {
             foreach (var row in rows)
