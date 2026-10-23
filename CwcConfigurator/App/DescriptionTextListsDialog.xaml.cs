@@ -16,7 +16,7 @@ public partial class DescriptionTextListsDialog : Window, INotifyPropertyChanged
 
     private readonly CwcProject _project;
     private readonly DescriptionTextListService _service;
-    private readonly Func<string, Task<DescriptionTextListData>>? _pullFromTia;
+    private readonly Func<Window, string, Task<DescriptionTextListData>>? _pullFromTia;
     private readonly Func<Window, Task<string>>? _pushToTia;
     private readonly ObservableCollection<DescriptionTextListMapping> _mappings;
 
@@ -27,9 +27,10 @@ public partial class DescriptionTextListsDialog : Window, INotifyPropertyChanged
     public DescriptionTextListsDialog(
         CwcProject project,
         DescriptionTextListService service,
-        Func<string, Task<DescriptionTextListData>>? pullFromTia = null,
+        Func<Window, string, Task<DescriptionTextListData>>? pullFromTia = null,
         IReadOnlyList<string>? scadaDevices = null,
-        Func<Window, Task<string>>? pushToTia = null)
+        Func<Window, Task<string>>? pushToTia = null,
+        bool libraryTypes = false)
     {
         InitializeComponent();
         _project = project;
@@ -56,6 +57,17 @@ public partial class DescriptionTextListsDialog : Window, INotifyPropertyChanged
         }
 
         ScadaSourceCombo.SelectedIndex = 0;
+        if (libraryTypes)
+        {
+            // TIA 21 and newer: texts of the library types — no workbook and no SCADA device to choose.
+            Title = "TIA 21 and newest text list configuration";
+            WorkbookRow.Visibility = Visibility.Collapsed;
+            PullFromLabel.Visibility = Visibility.Collapsed;
+            ScadaSourceCombo.Visibility = Visibility.Collapsed;
+            PullFromTiaButton.Margin = new Thickness(0);
+            PullFromTiaButton.ToolTip = "Reads the texts of the text-list library types (Project library → Types → SCADA_TEXT_LIST).";
+            PushToTiaButton.ToolTip = "Writes the descriptions of the PLC databases into the text-list library types: a new released version of every mapped type, and every SCADA is updated to it.";
+        }
         PullFromTiaButton.IsEnabled = _pullFromTia is not null;
         PushToTiaButton.IsEnabled = _pushToTia is not null;
         RefreshAvailableLists();
@@ -98,7 +110,7 @@ public partial class DescriptionTextListsDialog : Window, INotifyPropertyChanged
             System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
             var selected = ScadaSourceCombo.SelectedItem as string ?? "";
             var device = selected == AutoSourceLabel ? "" : selected;
-            var data = await _pullFromTia(device);
+            var data = await _pullFromTia(this, device);
             _project.DescriptionTextLists.TextLists = data;
             _project.DescriptionTextLists.WorkbookPath = "";
             RefreshAvailableLists();

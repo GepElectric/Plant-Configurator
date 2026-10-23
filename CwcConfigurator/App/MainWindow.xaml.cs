@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Globalization;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -9273,7 +9273,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void DescriptionTextLists_Click(object sender, RoutedEventArgs e)
+    private void DescriptionTextLists_Click(object sender, RoutedEventArgs e) => OpenDescriptionTextLists(libraryTypes: false);
+
+    // TIA 21 and newer: the description text lists are library types (Types/SCADA_TEXT_LIST); no workbook, no SCADA.
+    private void DescriptionTextListsTia21_Click(object sender, RoutedEventArgs e) => OpenDescriptionTextLists(libraryTypes: true);
+
+    private void OpenDescriptionTextLists(bool libraryTypes)
     {
         if (!_projectOpen)
         {
@@ -9283,7 +9288,7 @@ public partial class MainWindow : Window
 
         SaveActivePlcDatabase();
 
-        Func<string, Task<DescriptionTextListData>> pullFromTia = async device =>
+        Func<Window, string, Task<DescriptionTextListData>> pullFromTia = async (owner, device) =>
         {
             if (_tiaSessionService.CurrentSession is null)
             {
@@ -9291,14 +9296,35 @@ public partial class MainWindow : Window
             }
 
             var folder = Path.Combine(Path.GetTempPath(), "PlantConfigurator", "TextListsExport", Guid.NewGuid().ToString("N"));
-
-            // TIA V21+: the description text lists are library types (Types/SCADA_TEXT_LIST); their texts come from
-            // "Export project texts". Only without such types the lists of a SCADA device are read.
-            var texts = Path.Combine(folder, "library_types.xlsx");
-            var types = await _tiaSessionService.ExportTextListTypeTextsAsync(texts, [], inWork: false);
-            if (types.Updated.Count > 0 && File.Exists(texts))
+            if (libraryTypes)
             {
-                return ProjectTextsWorkbook.Read(texts);
+                // Texts of the library types through "Export project texts"; the user says which TIA language is the
+                // other language (English is always English).
+                var texts = Path.Combine(folder, "library_types.xlsx");
+                var types = await _tiaSessionService.ExportTextListTypeTextsAsync(texts, [], inWork: false);
+                if (types.Updated.Count == 0 || !File.Exists(texts))
+                {
+                    throw new InvalidOperationException("No text-list library types were found in Project library → Types → SCADA_TEXT_LIST."
+                        + (types.Warnings.Count > 0 ? " " + string.Join("; ", types.Warnings) : ""));
+                }
+
+                var data = ProjectTextsWorkbook.Read(texts);
+                var tiaLanguages = ProjectTextsWorkbook.Languages(texts);
+                var english = tiaLanguages.FirstOrDefault(language => language.Equals("en-US", StringComparison.OrdinalIgnoreCase)) ?? tiaLanguages[0];
+                var keep = new List<string> { english };
+                if (tiaLanguages.Count > 1)
+                {
+                    var current = DescriptionTextListService.GetLanguagePair(_project.DescriptionTextLists?.TextLists ?? new DescriptionTextListData()).Other;
+                    var other = TextLanguageChoiceDialog.Choose(owner, tiaLanguages, english, current, pull: true)
+                                ?? throw new OperationCanceledException("Pull cancelled.");
+                    if (other.Length > 0)
+                    {
+                        keep.Add(other);
+                    }
+                }
+
+                ProjectTextsWorkbook.KeepLanguages(data, keep);
+                return data;
             }
 
             var result = await _tiaSessionService.ExportTextListsAsync(folder, device);
@@ -9322,42 +9348,47 @@ public partial class MainWindow : Window
 
             _descriptionTextListService.PushDescriptionsIntoTextLists(_project); // PLC row edits -> text-list data
             var managed = GetManagedDescriptionListNames();
-
-            // Text lists that are library types are project-wide (a new version updates every SCADA): pushed through
-            // Export/Import project texts, no SCADA is involved.
             var pushService = new ScadaTextListPushService(_tiaSessionService);
-            var notTypes = new List<string>();
-            var messages = new List<string> { await pushService.PushLibraryTypesAsync(_project.DescriptionTextLists.TextLists, managed, notTypes,
-                (languages, english, other) => TextLanguageChoiceDialog.Choose(owner, languages, english, other)) };
-            if (notTypes.Count == 0)
+            var messages = new List<string>();
+            var deviceLists = managed;
+            if (libraryTypes)
             {
-                return string.Join(Environment.NewLine, messages.Where(message => message.Length > 0));
+                // Library types are project-wide (a new version updates every SCADA): Export/Import project texts.
+                var notTypes = new List<string>();
+                messages.Add(await pushService.PushLibraryTypesAsync(_project.DescriptionTextLists.TextLists, managed, notTypes,
+                    (languages, english, other) => TextLanguageChoiceDialog.Choose(owner, languages, english, other, pull: false)));
+                if (notTypes.Count == 0)
+                {
+                    return string.Join(Environment.NewLine, messages.Where(message => message.Length > 0));
+                }
+
+                deviceLists = notTypes;
             }
 
-            // Lists that are not library types are written into every mapped SCADA that has them.
+            // Lists of the SCADA devices: written into every mapped SCADA that has them.
             var devices = GetMappedScadaDeviceNames();
             if (devices.Count == 0)
             {
-                messages.Add($"Not library types ({string.Join(", ", notTypes)}) and no mapped SCADA devices — map SCADA databases to Unified devices in 'TIA Sync' first.");
+                messages.Add($"{string.Join(", ", deviceLists)}: no mapped SCADA devices — map SCADA databases to Unified devices in 'TIA Sync' first.");
                 return string.Join(Environment.NewLine, messages);
             }
 
-            var targets = (await pushService.ScanAsync(devices, notTypes)).Where(target => target.FoundLists.Count > 0).ToList();
+            var targets = (await pushService.ScanAsync(devices, deviceLists)).Where(target => target.FoundLists.Count > 0).ToList();
             if (targets.Count == 0)
             {
-                messages.Add($"None of the mapped SCADA devices has the lists {string.Join(", ", notTypes)}.");
+                messages.Add($"None of the mapped SCADA devices has the lists {string.Join(", ", deviceLists)}.");
             }
 
             var typesDone = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var target in targets)
             {
-                messages.Add(await pushService.PushAsync(target, _project.DescriptionTextLists.TextLists, notTypes, typesDone));
+                messages.Add(await pushService.PushAsync(target, _project.DescriptionTextLists.TextLists, deviceLists, typesDone));
             }
 
             return string.Join(Environment.NewLine, messages.Where(message => message.Length > 0));
         };
 
-        var dialog = new DescriptionTextListsDialog(_project, _descriptionTextListService, pullFromTia, GetMappedScadaDeviceNames(), pushToTia)
+        var dialog = new DescriptionTextListsDialog(_project, _descriptionTextListService, pullFromTia, GetMappedScadaDeviceNames(), pushToTia, libraryTypes)
         {
             Owner = EditorOwner
         };

@@ -1,3 +1,5 @@
+using System.IO;
+using System.IO.Compression;
 using System.Text.RegularExpressions;
 using ClosedXML.Excel;
 using CwcConfigurator.Domain;
@@ -53,6 +55,20 @@ public static class ProjectTextsWorkbook
         return data;
     }
 
+    /// <summary>Drops every language except <paramref name="languages"/> (English first, then the other language).</summary>
+    public static void KeepLanguages(DescriptionTextListData data, IReadOnlyCollection<string> languages)
+    {
+        foreach (var byLanguage in data.Lists.Values)
+        {
+            foreach (var language in byLanguage.Keys.Where(language => !languages.Contains(language, StringComparer.OrdinalIgnoreCase)).ToList())
+            {
+                byLanguage.Remove(language);
+            }
+        }
+
+        data.Languages = data.Languages.Where(language => languages.Contains(language, StringComparer.OrdinalIgnoreCase)).ToList();
+    }
+
     /// <summary>Counts (and with <paramref name="save"/> writes) the texts that differ from the app's texts, per type.
     /// <paramref name="sources"/> maps a TIA language (column) to the app language whose texts go there; other columns
     /// and texts the app does not have stay as exported.</summary>
@@ -94,10 +110,42 @@ public static class ProjectTextsWorkbook
 
         if (save)
         {
+            var customProperties = ReadEntry(path, CustomPropertiesEntry);
             workbook.Save();
+            if (customProperties is not null)
+            {
+                WriteEntry(path, CustomPropertiesEntry, customProperties);
+            }
         }
 
         return result;
+    }
+
+    // TIA checks the custom property TIA_Version (text "1.3"); ClosedXML rewrites it as a number with the current
+    // culture ("13"), and TIA then rejects the import ("Invalid XLSX version"). The exported part is put back as is.
+    private const string CustomPropertiesEntry = "docProps/custom.xml";
+
+    private static byte[]? ReadEntry(string path, string name)
+    {
+        using var zip = ZipFile.OpenRead(path);
+        var entry = zip.GetEntry(name);
+        if (entry is null)
+        {
+            return null;
+        }
+
+        using var stream = entry.Open();
+        using var buffer = new MemoryStream();
+        stream.CopyTo(buffer);
+        return buffer.ToArray();
+    }
+
+    private static void WriteEntry(string path, string name, byte[] content)
+    {
+        using var zip = ZipFile.Open(path, ZipArchiveMode.Update);
+        zip.GetEntry(name)?.Delete();
+        using var stream = zip.CreateEntry(name).Open();
+        stream.Write(content);
     }
 
     private static Dictionary<int, (string Language, bool Editing)> ReadColumns(IXLWorksheet sheet, out int pathColumn)
