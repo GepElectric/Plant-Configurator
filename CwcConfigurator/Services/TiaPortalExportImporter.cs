@@ -1199,7 +1199,7 @@ public sealed class TiaPortalExportImporter
 
     private static IEnumerable<string> ReadLines(string path)
     {
-        return File.ReadLines(path, TiaEncoding);
+        return File.ReadLines(path, TiaEncoding).Select(TextEncodingRepair.Fix);
     }
 
     private static bool TryReadInt(StructFields fields, string key, out int value)

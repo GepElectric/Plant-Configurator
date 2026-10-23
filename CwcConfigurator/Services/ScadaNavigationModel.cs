@@ -1,15 +1,50 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using CwcConfigurator.Domain;
 
 namespace CwcConfigurator.Services;
 
-/// <summary>One top-nav card under a main-nav button: the screen it opens plus its label and icon.</summary>
-public sealed class ScadaTopNavCard
+/// <summary>Base for the editable navigation items: raises PropertyChanged so the editor updates live.</summary>
+public abstract class ScadaNavItem : INotifyPropertyChanged
 {
-    public string Screen { get; set; } = "";
-    public string LabelEn { get; set; } = "";
-    public string LabelOther { get; set; } = "";
-    public string IconId { get; set; } = "0"; // index into the TOP_NAV_ICONS graphic list
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    protected void Set<T>(ref T field, T value, [CallerMemberName] string? name = null, params string[] also)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+        {
+            return;
+        }
+
+        field = value;
+        Raise(name);
+        foreach (var other in also)
+        {
+            Raise(other);
+        }
+    }
+
+    protected void Raise(string? name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+}
+
+/// <summary>One top-nav card under a main-nav button: the screen it opens plus its label and icon.</summary>
+public sealed class ScadaTopNavCard : ScadaNavItem
+{
+    private string _screen = "";
+    private string _labelEn = "";
+    private string _labelOther = "";
+    private string _iconId = "0";
+    private bool _screenKnown = true;
+
+    public string Screen { get => _screen; set => Set(ref _screen, value ?? ""); }
+    public string LabelEn { get => _labelEn; set => Set(ref _labelEn, value ?? ""); }
+    public string LabelOther { get => _labelOther; set => Set(ref _labelOther, value ?? ""); }
+    public string IconId { get => _iconId; set => Set(ref _iconId, value ?? "0"); } // index into the TOP_NAV_ICONS graphic list
+
+    /// <summary>False when the screen does not exist on the SCADA (set by the editor from the TIA screens).</summary>
+    public bool ScreenKnown { get => _screenKnown; set => Set(ref _screenKnown, value); }
 }
 
 /// <summary>
@@ -17,17 +52,34 @@ public sealed class ScadaTopNavCard
 /// label (2 languages), icon, content layout shape, side-content default screen, first open
 /// top-nav, and its ordered top-nav cards.
 /// </summary>
-public sealed class ScadaNavButton
+public sealed class ScadaNavButton : ScadaNavItem
 {
+    private string _identity = "";
+    private string _labelEn = "";
+    private string _labelOther = "";
+    private string _iconId = "0";
+    private int _layoutShape;
+    private string _firstTopNav = "1";
+    private string _sideContentScreen = "";
+    private bool _visible = true;
+
+    public ScadaNavButton()
+    {
+        Cards.CollectionChanged += (_, _) => Raise(nameof(Display));
+    }
+
     public int Index { get; init; }
-    public string Identity { get; set; } = "";       // MAIN_NAV_BUTTONS_ENTRY_X (prefix; empty = button hidden)
-    public string LabelEn { get; set; } = "";
-    public string LabelOther { get; set; } = "";
-    public string IconId { get; set; } = "0";        // index into the MAIN_NAV_BUTTONS graphic list
-    public int LayoutShape { get; set; }             // 0 with top nav, 1 without top nav, 2 without side content, 3 content only
-    public string FirstTopNav { get; set; } = "1";
-    public string SideContentScreen { get; set; } = "";
-    public List<ScadaTopNavCard> Cards { get; } = new();
+    public string Identity { get => _identity; set => Set(ref _identity, value ?? "", nameof(Identity), nameof(Display)); }       // MAIN_NAV_BUTTONS_ENTRY_X (prefix; empty = button hidden)
+    public string LabelEn { get => _labelEn; set => Set(ref _labelEn, value ?? "", nameof(LabelEn), nameof(Display)); }
+    public string LabelOther { get => _labelOther; set => Set(ref _labelOther, value ?? ""); }
+    public string IconId { get => _iconId; set => Set(ref _iconId, value ?? "0"); }        // index into the MAIN_NAV_BUTTONS graphic list
+    public int LayoutShape { get => _layoutShape; set => Set(ref _layoutShape, value); }   // 0 with top nav, 1 without top nav, 2 without side content, 3 content only
+    public string FirstTopNav { get => _firstTopNav; set => Set(ref _firstTopNav, value ?? "1"); }
+    public string SideContentScreen { get => _sideContentScreen; set => Set(ref _sideContentScreen, value ?? ""); }
+    public ObservableCollection<ScadaTopNavCard> Cards { get; } = new();
+
+    /// <summary>Within the visible buttons (MAIN_NAV_BUTTONS_NUM).</summary>
+    public bool Visible { get => _visible; set => Set(ref _visible, value, nameof(Visible), nameof(Display)); }
 
     public string Display
     {
@@ -36,7 +88,7 @@ public sealed class ScadaNavButton
             var label = !string.IsNullOrWhiteSpace(LabelEn) ? LabelEn
                 : !string.IsNullOrWhiteSpace(Identity) ? Identity
                 : "(empty)";
-            return $"{Index}.  {label}   [{Cards.Count}]";
+            return $"{Index}.  {label}   [{Cards.Count}]{(Visible ? "" : "   (hidden)")}";
         }
     }
 }
@@ -53,6 +105,22 @@ public sealed class ScadaNavigationModel
 
     public List<ScadaNavButton> Buttons { get; } = new();
 
+    private int _buttonCount;
+
+    /// <summary>Number of visible main-nav buttons (MAIN_NAV_BUTTONS_NUM); buttons after it are hidden.</summary>
+    public int ButtonCount
+    {
+        get => _buttonCount;
+        set
+        {
+            _buttonCount = Clamp(value, 0, MaxButtons);
+            foreach (var button in Buttons)
+            {
+                button.Visible = button.Index <= _buttonCount;
+            }
+        }
+    }
+
     public static ScadaNavigationModel FromDatabase(ScadaDatabase database)
     {
         var values = database.Variables
@@ -60,6 +128,7 @@ public sealed class ScadaNavigationModel
             .ToDictionary(group => group.Key, group => group.First().Value ?? "", StringComparer.OrdinalIgnoreCase);
 
         string Get(string name) => values.TryGetValue(name, out var value) ? value : "";
+        bool Has(string name) => values.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value);
 
         var model = new ScadaNavigationModel();
         for (var b = 1; b <= MaxButtons; b++)
@@ -76,12 +145,16 @@ public sealed class ScadaNavigationModel
                 SideContentScreen = Get($"SIDE_CONTENT_DEFAULT_SCREENS_ENTRY_{b}")
             };
 
-            for (var c = 1; c <= MaxCards; c++)
+            // The number of screens set for the button (BUTTON_x_SCREEN_NUM) decides how many cards it has;
+            // without it, a card exists where a screen is set.
+            var counted = Has($"BUTTON_{b}_SCREEN_NUM");
+            var cardCount = counted ? Clamp(ParseInt(Get($"BUTTON_{b}_SCREEN_NUM")), 0, MaxCards) : MaxCards;
+            for (var c = 1; c <= cardCount; c++)
             {
                 var screen = Get($"SCREENS_Button_{b}_ENTRY_{c}");
-                if (string.IsNullOrWhiteSpace(screen))
+                if (!counted && string.IsNullOrWhiteSpace(screen))
                 {
-                    continue; // a card exists only where it has a screen
+                    continue;
                 }
 
                 button.Cards.Add(new ScadaTopNavCard
@@ -96,6 +169,9 @@ public sealed class ScadaNavigationModel
             model.Buttons.Add(button);
         }
 
+        model.ButtonCount = Has("MAIN_NAV_BUTTONS_NUM")
+            ? ParseInt(Get("MAIN_NAV_BUTTONS_NUM"))
+            : model.Buttons.Count(button => !string.IsNullOrWhiteSpace(button.Identity));
         return model;
     }
 
@@ -125,6 +201,7 @@ public sealed class ScadaNavigationModel
             byName[name] = created;
         }
 
+        Set("MAIN_NAV_BUTTONS_NUM", ButtonCount.ToString(CultureInfo.InvariantCulture), "INT", "MAIN");
         foreach (var button in Buttons)
         {
             var b = button.Index;
@@ -136,7 +213,9 @@ public sealed class ScadaNavigationModel
             Set($"BUTTON_{b}_FIRST_TOP_NAV", NumOrDefault(button.FirstTopNav, "1"), "INT", "MAIN");
             Set($"SIDE_CONTENT_DEFAULT_SCREENS_ENTRY_{b}", button.SideContentScreen ?? "", "STRING", "SIDE_CONTENT");
 
-            var cards = button.Cards.Where(card => !string.IsNullOrWhiteSpace(card.Screen)).Take(MaxCards).ToList();
+            // Every card counts (also one whose screen is still empty), like BUTTON_x_SCREEN_NUM on the MAINNAV tab.
+            var cards = button.Cards.Take(MaxCards).ToList();
+            Set($"BUTTON_{b}_SCREEN_NUM", cards.Count.ToString(CultureInfo.InvariantCulture), "INT", "MAIN");
             for (var c = 1; c <= MaxCards; c++)
             {
                 var card = c <= cards.Count ? cards[c - 1] : null;

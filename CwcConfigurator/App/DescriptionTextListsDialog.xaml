@@ -10,7 +10,7 @@
     <DockPanel Margin="14">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
             <TextBlock Text="Descriptions text lists" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,10"/>
-            <Grid>
+            <Grid x:Name="WorkbookRow">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -28,12 +28,13 @@
         </StackPanel>
 
         <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
-            <TextBlock DockPanel.Dock="Left" Text="Pull from:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,6,0"/>
+            <TextBlock x:Name="PullFromLabel" DockPanel.Dock="Left" Text="Pull from:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,6,0"/>
             <ComboBox x:Name="ScadaSourceCombo" DockPanel.Dock="Left" Width="170" VerticalAlignment="Center"
                       ItemsSource="{Binding ScadaSourceDevices}"
                       ToolTip="WinCC Unified device to pull the description text lists from. Pick the SCADA that has all units (typically the main one); lists are distributed to PLCs by name."/>
             <Button x:Name="PullFromTiaButton" DockPanel.Dock="Left" Content="Pull from TIA" Width="120" Margin="8,0,0,0" FontWeight="SemiBold" Click="PullFromTia_Click"/>
-            <Button x:Name="PushToTiaButton" DockPanel.Dock="Left" Content="Push to TIA" Width="110" Margin="8,0,0,0" FontWeight="SemiBold" Click="PushToTia_Click"/>
+            <Button x:Name="PushToTiaButton" DockPanel.Dock="Left" Content="Push to TIA" Width="110" Margin="8,0,0,0" FontWeight="SemiBold" Click="PushToTia_Click"
+                    ToolTip="Writes the descriptions of the PLC databases into TIA. Text lists that are library types (TIA 21+, Types/SCADA_TEXT_LIST) get a new released version only when their texts changed, and every SCADA is updated to it; other lists are imported into the device."/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Apply descriptions" Width="132" Margin="0,0,8,0" Click="Apply_Click"/>
                 <Button Content="OK" Width="86" Margin="0,0,8,0" IsDefault="True" Click="Ok_Click"/>

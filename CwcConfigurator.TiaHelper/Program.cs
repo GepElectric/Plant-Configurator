@@ -21,6 +21,7 @@ using Siemens.Engineering.SW.Blocks;
 using Siemens.Engineering.SW.ExternalSources;
 using Siemens.Engineering.SW.Types;
 #if TIA_V21
+using Siemens.Engineering.Hmi.Globalization;
 using Siemens.Engineering.HmiUnified;
 using Siemens.Engineering.HmiUnified.UI.ScreenGroup;
 #endif
@@ -101,6 +102,18 @@ namespace CwcConfigurator.TiaHelper
                     return ExportTextLists(request.Payload);
                 case "ImportTextLists":
                     return ImportTextLists(request.Payload);
+                case "ExportUnifiedScript":
+                    return ExportUnifiedScript(request.Payload);
+                case "ImportUnifiedScript":
+                    return ImportUnifiedScript(request.Payload);
+                case "ExportUnifiedGraphics":
+                    return ExportUnifiedGraphics(request.Payload);
+                case "UpdateTextListTypes":
+                    return UpdateTextListTypes(request.Payload);
+                case "ExportTextListTypeTexts":
+                    return ExportTextListTypeTexts(request.Payload);
+                case "ImportTextListTypeTexts":
+                    return ImportTextListTypeTexts(request.Payload);
                 case "Disconnect":
                     Disconnect();
                     return new { };
@@ -320,6 +333,479 @@ namespace CwcConfigurator.TiaHelper
             return result;
         }
 
+        // Exports one WinCC Unified script module (e.g. AUX_FUNCTIONS → AUX_FUNCTIONS.hmi.yml + .hmi.js).
+        private static TiaUnifiedScriptResult ExportUnifiedScript(IDictionary<string, object> payload)
+        {
+            RequireAttachedProject();
+            var outputFolder = GetString(payload, "OutputFolder");
+            var moduleName = GetString(payload, "ModuleName");
+            var result = new TiaUnifiedScriptResult();
+            if (string.IsNullOrWhiteSpace(outputFolder) || string.IsNullOrWhiteSpace(moduleName))
+            {
+                result.Warnings.Add("Output folder and script module name are required.");
+                return result;
+            }
+
+            Directory.CreateDirectory(outputFolder);
+#if TIA_V21
+            var hmi = FindHmiSoftware(GetString(payload, "DeviceName"));
+            if (hmi == null)
+            {
+                result.Warnings.Add(UnifiedDeviceNotFoundMessage(GetString(payload, "DeviceName")));
+                return result;
+            }
+
+            result.HmiSoftwareName = hmi.Name;
+            var module = hmi.Scripts.FirstOrDefault(item => item.Name.Equals(moduleName, StringComparison.OrdinalIgnoreCase));
+            if (module == null)
+            {
+                result.Warnings.Add("Script module '" + moduleName + "' was not found on '" + hmi.Name + "'. Modules: " +
+                                    string.Join(", ", hmi.Scripts.Select(item => item.Name)));
+                return result;
+            }
+
+            try
+            {
+                foreach (var file in module.Export(new DirectoryInfo(outputFolder)))
+                {
+                    result.Files.Add(file.FullName);
+                }
+
+                result.Success = true;
+            }
+            catch (Exception ex)
+            {
+                result.Warnings.Add(hmi.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+            }
+#else
+            result.Warnings.Add("Unified script export requires the TIA V21 helper.");
+#endif
+            return result;
+        }
+
+        // Imports the script module files of a folder (*.hmi.yml + *.hmi.js) into the Unified device; a module with the
+        // same name is replaced. The project is not saved.
+        private static TiaUnifiedScriptResult ImportUnifiedScript(IDictionary<string, object> payload)
+        {
+            RequireAttachedProject();
+            var inputFolder = GetString(payload, "InputFolder");
+            var result = new TiaUnifiedScriptResult();
+            if (string.IsNullOrWhiteSpace(inputFolder) || !Directory.Exists(inputFolder))
+            {
+                result.Warnings.Add("Script input folder was not found: " + inputFolder);
+                return result;
+            }
+
+#if TIA_V21
+            var hmi = FindHmiSoftware(GetString(payload, "DeviceName"));
+            if (hmi == null)
+            {
+                result.Warnings.Add(UnifiedDeviceNotFoundMessage(GetString(payload, "DeviceName")));
+                return result;
+            }
+
+            result.HmiSoftwareName = hmi.Name;
+            try
+            {
+                result.Success = hmi.Scripts.Import(new DirectoryInfo(inputFolder));
+                if (!result.Success)
+                {
+                    result.Warnings.Add(hmi.Name + ": TIA Portal reported that the script import did not succeed.");
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Warnings.Add(hmi.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+            }
+#else
+            result.Warnings.Add("Unified script import requires the TIA V21 helper.");
+#endif
+            return result;
+        }
+
+        // Exports the graphic lists of a Unified device (one *.hmi.yml) and every project graphic they use
+        // (graphics\<name>.xml + "<name> files\*.svg/png"), for the icon pickers of the SCADA configuration.
+        private static TiaUnifiedScriptResult ExportUnifiedGraphics(IDictionary<string, object> payload)
+        {
+            RequireAttachedProject();
+            var outputFolder = GetString(payload, "OutputFolder");
+            var result = new TiaUnifiedScriptResult();
+            if (string.IsNullOrWhiteSpace(outputFolder))
+            {
+                result.Warnings.Add("No output folder was supplied for the graphic lists.");
+                return result;
+            }
+
+            Directory.CreateDirectory(outputFolder);
+#if TIA_V21
+            var hmi = FindHmiSoftware(GetString(payload, "DeviceName"));
+            if (hmi == null)
+            {
+                result.Warnings.Add(UnifiedDeviceNotFoundMessage(GetString(payload, "DeviceName")));
+                return result;
+            }
+
+            result.HmiSoftwareName = hmi.Name;
+            try
+            {
+                foreach (var file in hmi.HmiGraphicLists.Export(new DirectoryInfo(outputFolder), ""))
+                {
+                    result.Files.Add(file.FullName);
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Warnings.Add(hmi.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+                return result;
+            }
+
+            // Graphics referenced by the lists: "Graphic: GraphicLibrary.<name>".
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in result.Files.Where(path => path.EndsWith(".yml", StringComparison.OrdinalIgnoreCase)))
+            {
+                foreach (var line in File.ReadAllLines(file))
+                {
+                    var trimmed = line.Trim();
+                    if (trimmed.StartsWith("Graphic:", StringComparison.Ordinal))
+                    {
+                        var name = trimmed.Substring("Graphic:".Length).Trim().Trim('"', '\'');
+                        var dot = name.IndexOf('.');
+                        names.Add(dot >= 0 ? name.Substring(dot + 1) : name);
+                    }
+                }
+            }
+
+            var graphicsFolder = Path.Combine(outputFolder, "graphics");
+            Directory.CreateDirectory(graphicsFolder);
+            var provider = _project.GetService<GraphicsProvider>();
+            foreach (var graphic in provider.Graphics.Where(item => names.Contains(item.Name)))
+            {
+                try
+                {
+                    var target = Path.Combine(graphicsFolder, MakeFileName(graphic.Name) + ".xml");
+                    graphic.Export(new FileInfo(target), ExportOptions.None);
+                    result.Files.Add(target);
+                }
+                catch (Exception ex)
+                {
+                    result.Warnings.Add(graphic.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+                }
+            }
+
+            result.Success = true;
+#else
+            result.Warnings.Add("Graphic list export requires the TIA V21 helper.");
+#endif
+            return result;
+        }
+
+        // Text lists that are library types (e.g. Types/SCADA_TEXT_LIST/Unit 1_ALARM_DESCRIPTIONS): a new version is
+        // created from the exported text-list documents of a device (CreateFromDocuments), released with the next
+        // version number, and every WinCC Unified device of the project is updated to it. Names that are not library
+        // types are returned in NotTypes. The project is not saved.
+        private static TiaTextListTypesResult UpdateTextListTypes(IDictionary<string, object> payload)
+        {
+            RequireAttachedProject();
+            var result = new TiaTextListTypesResult();
+            var inputFolder = GetString(payload, "InputFolder");
+            var comment = GetString(payload, "Comment");
+            var names = GetStringList(payload, "ListNames");
+            if (string.IsNullOrWhiteSpace(inputFolder) || !Directory.Exists(inputFolder))
+            {
+                result.Warnings.Add("Text-list input folder was not found: " + inputFolder);
+                return result;
+            }
+
+#if TIA_V21
+            var released = new List<Siemens.Engineering.Library.Types.LibraryType>();
+            foreach (var name in names)
+            {
+                var type = FindLibraryType(_project.ProjectLibrary.TypeFolder, name);
+                if (type == null)
+                {
+                    result.NotTypes.Add(name);
+                    continue;
+                }
+
+                if (type.Versions.Any(version => version.State == Siemens.Engineering.Library.Types.LibraryTypeVersionState.InWork))
+                {
+                    result.Warnings.Add(name + ": the library type is being edited (in-work version) — finish or discard it in TIA first.");
+                    continue;
+                }
+
+                try
+                {
+                    var created = type.Versions.CreateFromDocuments(new DirectoryInfo(inputFolder), name,
+                        Siemens.Engineering.Library.Types.CreateOptions.None, Siemens.Engineering.Library.LibraryImportOptions.None);
+                    if (created.TransferResultState != Siemens.Engineering.Library.TransferResultState.Success || created.CreatedVersion == null)
+                    {
+                        result.Warnings.Add(name + ": new version not created (" + created.TransferResultState + ") " +
+                                            string.Join(" ", created.Messages.Select(message => message.Message)));
+                        if (created.CreatedVersion != null && created.CreatedVersion.State == Siemens.Engineering.Library.Types.LibraryTypeVersionState.InWork)
+                        {
+                            created.CreatedVersion.Discard();
+                        }
+
+                        continue;
+                    }
+
+                    // Next number after the released versions (the new in-work version itself is not counted).
+                    var latest = type.Versions.Where(version => version.State != Siemens.Engineering.Library.Types.LibraryTypeVersionState.InWork)
+                        .Select(version => version.VersionNumber).DefaultIfEmpty(new Version(0, 0, 0)).Max();
+                    var next = new Version(latest.Major, latest.Minor, Math.Max(0, latest.Build) + 1);
+                    created.CreatedVersion.Release(Siemens.Engineering.Library.Types.CreateOrReleaseDependenciesMode.AutomaticallyCreateOrReleaseDependenciesIfRequired,
+                        next, "Plant Configurator", string.IsNullOrWhiteSpace(comment) ? "Texts from Plant Configurator" : comment);
+                    result.Updated.Add(name + " " + next);
+                    released.Add(type);
+                }
+                catch (Exception ex)
+                {
+                    result.Warnings.Add(name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+                }
+            }
+
+            // Instances on every WinCC Unified device follow the new versions.
+            foreach (var hmi in EnumerateHmiSoftware())
+            {
+                foreach (var type in released)
+                {
+                    try
+                    {
+                        type.UpdateProject(hmi);
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Warnings.Add(hmi.Name + " / " + type.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+                    }
+                }
+            }
+
+            result.Success = result.Warnings.Count == 0;
+#else
+            result.NotTypes.AddRange(names);
+            result.Warnings.Add("Text lists as library types require the TIA V21 helper.");
+#endif
+            return result;
+        }
+
+        // Texts of text lists that are library types, through "Export project texts" (xlsx, one row per entry with the
+        // ViewPath ...\<type>\V x.y.z\<list>\Text_list_entry_<ID+1>\Text). InWork=false exports the latest released
+        // versions (read-only, to compare); InWork=true first opens a new in-work version of each type (Edit) and
+        // exports that one, to be changed and passed to ImportTextListTypeTexts. Names that are not library types are
+        // returned in NotTypes.
+        private static TiaTextListTypesResult ExportTextListTypeTexts(IDictionary<string, object> payload)
+        {
+            RequireAttachedProject();
+            var result = new TiaTextListTypesResult();
+            var outputFile = GetString(payload, "OutputFile");
+            var inWork = GetString(payload, "InWork").Equals("true", StringComparison.OrdinalIgnoreCase);
+            var names = GetStringList(payload, "ListNames");
+#if TIA_V21
+            if (names.Count == 0)
+            {
+                // No names: every type in the SCADA_TEXT_LIST type folder(s).
+                names = TextListTypeFolders(_project.ProjectLibrary.TypeFolder).SelectMany(AllTypes).Select(type => type.Name).ToList();
+            }
+
+            var objects = new List<IEngineeringObject>();
+            foreach (var name in names)
+            {
+                var type = FindLibraryType(_project.ProjectLibrary.TypeFolder, name);
+                if (type == null)
+                {
+                    result.NotTypes.Add(name);
+                    continue;
+                }
+
+                if (type.Versions.Any(version => version.State == Siemens.Engineering.Library.Types.LibraryTypeVersionState.InWork))
+                {
+                    result.Warnings.Add(name + ": the library type is being edited (in-work version) — finish or discard it in TIA first.");
+                    continue;
+                }
+
+                var latest = type.Versions.OrderByDescending(version => version.VersionNumber).FirstOrDefault();
+                if (latest == null)
+                {
+                    result.Warnings.Add(name + ": the library type has no version.");
+                    continue;
+                }
+
+                try
+                {
+                    objects.Add(inWork ? latest.Edit() : latest);
+                    result.Updated.Add(name);
+                }
+                catch (Exception ex)
+                {
+                    result.Warnings.Add(name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+                }
+            }
+
+            if (objects.Count > 0)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputFile)));
+                var languages = _project.LanguageSettings;
+                var source = languages.EditingLanguage;
+                var targets = languages.ActiveLanguages.Where(language => language.Culture.Name != source.Culture.Name).ToList();
+                _project.ExportProjectTexts(new FileInfo(Path.GetFullPath(outputFile)), source, targets, _project.TextCategories.ToList(), objects);
+            }
+
+            result.Success = true;
+#else
+            result.NotTypes.AddRange(names);
+            result.Warnings.Add("Text lists as library types require the TIA V21 helper.");
+#endif
+            return result;
+        }
+
+        // Finishes ExportTextListTypeTexts(InWork=true): imports the changed xlsx into the in-work versions (Import
+        // project texts), releases each with the next version number and updates every WinCC Unified device. Without
+        // InputFile (or when the import fails) the in-work versions are discarded. The project is not saved.
+        private static TiaTextListTypesResult ImportTextListTypeTexts(IDictionary<string, object> payload)
+        {
+            RequireAttachedProject();
+            var result = new TiaTextListTypesResult();
+            var inputFile = GetString(payload, "InputFile");
+            var comment = GetString(payload, "Comment");
+            var names = GetStringList(payload, "ListNames");
+#if TIA_V21
+            var work = new List<Siemens.Engineering.Library.Types.LibraryTypeVersion>();
+            foreach (var name in names)
+            {
+                var type = FindLibraryType(_project.ProjectLibrary.TypeFolder, name);
+                var version = type == null ? null : type.Versions.FirstOrDefault(item => item.State == Siemens.Engineering.Library.Types.LibraryTypeVersionState.InWork);
+                if (version == null)
+                {
+                    result.Warnings.Add(name + ": no in-work version to finish.");
+                    continue;
+                }
+
+                work.Add(version);
+            }
+
+            var release = !string.IsNullOrWhiteSpace(inputFile);
+            if (release)
+            {
+                try
+                {
+                    var import = _project.ImportProjectTexts(new FileInfo(Path.GetFullPath(inputFile)), true);
+                    if (!import.State.ToString().Equals("Info", StringComparison.OrdinalIgnoreCase)
+                        && !import.State.ToString().Equals("Success", StringComparison.OrdinalIgnoreCase))
+                    {
+                        result.Warnings.Add("Import texts: " + import.State + " — nothing released, see " + import.Path);
+                        release = false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.Warnings.Add("Import texts: " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+                    release = false;
+                }
+            }
+
+            var released = new List<Siemens.Engineering.Library.Types.LibraryType>();
+            foreach (var version in work)
+            {
+                var type = version.TypeObject;
+                try
+                {
+                    if (!release)
+                    {
+                        version.Discard();
+                        continue;
+                    }
+
+                    var latest = type.Versions.Where(item => item.State != Siemens.Engineering.Library.Types.LibraryTypeVersionState.InWork)
+                        .Select(item => item.VersionNumber).DefaultIfEmpty(new Version(0, 0, 0)).Max();
+                    var next = new Version(latest.Major, latest.Minor, Math.Max(0, latest.Build) + 1);
+                    version.Release(Siemens.Engineering.Library.Types.CreateOrReleaseDependenciesMode.AutomaticallyCreateOrReleaseDependenciesIfRequired,
+                        next, "Plant Configurator", string.IsNullOrWhiteSpace(comment) ? "Texts from Plant Configurator" : comment);
+                    result.Updated.Add(type.Name + " " + next);
+                    released.Add(type);
+                }
+                catch (Exception ex)
+                {
+                    result.Warnings.Add(type.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+                }
+            }
+
+            foreach (var hmi in EnumerateHmiSoftware())
+            {
+                foreach (var type in released)
+                {
+                    try
+                    {
+                        type.UpdateProject(hmi);
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Warnings.Add(hmi.Name + " / " + type.Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message));
+                    }
+                }
+            }
+
+            result.Success = result.Warnings.Count == 0;
+#else
+            result.Warnings.Add("Text lists as library types require the TIA V21 helper.");
+#endif
+            return result;
+        }
+
+#if TIA_V21
+        private static IEnumerable<Siemens.Engineering.Library.Types.LibraryTypeFolder> TextListTypeFolders(Siemens.Engineering.Library.Types.LibraryTypeFolder folder)
+        {
+            foreach (var sub in folder.Folders)
+            {
+                if (sub.Name.Equals("SCADA_TEXT_LIST", StringComparison.OrdinalIgnoreCase))
+                {
+                    yield return sub;
+                }
+                else
+                {
+                    foreach (var found in TextListTypeFolders(sub))
+                    {
+                        yield return found;
+                    }
+                }
+            }
+        }
+
+        private static IEnumerable<Siemens.Engineering.Library.Types.LibraryType> AllTypes(Siemens.Engineering.Library.Types.LibraryTypeFolder folder)
+        {
+            return folder.Types.Concat(folder.Folders.SelectMany(AllTypes));
+        }
+
+        private static Siemens.Engineering.Library.Types.LibraryType FindLibraryType(Siemens.Engineering.Library.Types.LibraryTypeFolder folder, string name)
+        {
+            var found = folder.Types.FirstOrDefault(type => type.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (found != null)
+            {
+                return found;
+            }
+
+            foreach (var sub in folder.Folders)
+            {
+                found = FindLibraryType(sub, name);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+#endif
+
+        private static string MakeFileName(string name)
+        {
+            foreach (var invalid in Path.GetInvalidFileNameChars())
+            {
+                name = name.Replace(invalid, '_');
+            }
+
+            return name;
+        }
+
         private static TiaUnifiedDevicesResult GetUnifiedDevices()
         {
             RequireAttachedProject();
@@ -348,7 +834,7 @@ namespace CwcConfigurator.TiaHelper
 
         private static IEnumerable<HmiSoftware> EnumerateHmiSoftware()
         {
-            foreach (var device in _project.Devices)
+            foreach (var device in AllDevices(_project.Devices, _project.DeviceGroups))
             {
                 foreach (var item in device.DeviceItems)
                 {
@@ -356,6 +842,23 @@ namespace CwcConfigurator.TiaHelper
                     {
                         yield return hmi;
                     }
+                }
+            }
+        }
+
+        // Devices of the project, including those in device groups (and their subgroups).
+        private static IEnumerable<Device> AllDevices(DeviceComposition devices, DeviceUserGroupComposition groups)
+        {
+            foreach (var device in devices)
+            {
+                yield return device;
+            }
+
+            foreach (var group in groups)
+            {
+                foreach (var device in AllDevices(group.Devices, group.Groups))
+                {
+                    yield return device;
                 }
             }
         }
@@ -2211,6 +2714,36 @@ namespace CwcConfigurator.TiaHelper
         public List<string> Warnings { get; set; }
 
         public TiaTextListExportResult()
+        {
+            HmiSoftwareName = "";
+            Files = new List<string>();
+            Warnings = new List<string>();
+        }
+    }
+
+    public sealed class TiaTextListTypesResult
+    {
+        public bool Success { get; set; }
+        public List<string> Updated { get; set; }
+        public List<string> NotTypes { get; set; }
+        public List<string> Warnings { get; set; }
+
+        public TiaTextListTypesResult()
+        {
+            Updated = new List<string>();
+            NotTypes = new List<string>();
+            Warnings = new List<string>();
+        }
+    }
+
+    public sealed class TiaUnifiedScriptResult
+    {
+        public string HmiSoftwareName { get; set; }
+        public bool Success { get; set; }
+        public List<string> Files { get; set; }
+        public List<string> Warnings { get; set; }
+
+        public TiaUnifiedScriptResult()
         {
             HmiSoftwareName = "";
             Files = new List<string>();

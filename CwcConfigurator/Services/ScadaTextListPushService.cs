@@ -68,8 +68,12 @@ public sealed class ScadaTextListPushService
         return targets;
     }
 
-    public async Task<string> PushAsync(ScadaPushTarget target, DescriptionTextListData appData, IReadOnlyCollection<string> managedListNames)
+    /// <param name="typesDone">Lists already released as a new library-type version in this push (types are project-wide,
+    /// so they are versioned once and every device is updated); filled by this call.</param>
+    public async Task<string> PushAsync(ScadaPushTarget target, DescriptionTextListData appData, IReadOnlyCollection<string> managedListNames,
+        HashSet<string>? typesDone = null)
     {
+        typesDone ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (string.IsNullOrWhiteSpace(target.ListsFile) || string.IsNullOrWhiteSpace(target.LibraryFile)
             || !File.Exists(target.ListsFile) || !File.Exists(target.LibraryFile))
         {
@@ -83,14 +87,124 @@ public sealed class ScadaTextListPushService
         // Surgically rewrite ONLY the managed lists' texts back into the (in-place) library file.
         var result = _writer.UpdateLibrary(target.ListsFile, target.LibraryFile, appData, managedListNames, target.LibraryFile);
 
-        // Import the export folder (original lists file + updated library file) back into the device.
         var importFolder = Path.GetDirectoryName(target.ListsFile) ?? "";
-        var import = await _session.ImportTextListsAsync(importFolder, target.DeviceName);
+        var changed = result.UpdatedLists.Where(list => !typesDone.Contains(list)).ToList();
+        if (result.UpdatedLists.Count == 0)
+        {
+            return $"{target.DeviceName}: texts already up to date — nothing pushed.";
+        }
 
-        var status = import.Success
-            ? $"{target.DeviceName}: updated {result.UpdatedEntries} text(s) in {result.UpdatedLists.Count} list(s) [{string.Join(", ", result.UpdatedLists)}]."
-            : $"{target.DeviceName}: import FAILED ({string.Join("; ", import.Warnings)}). Backup: {Path.GetFileName(target.LibraryFile)}.bak";
-        return status;
+        var lines = new List<string>();
+
+        // TIA V21+: description text lists are library types (Types/SCADA_TEXT_LIST/<PLC>_...). Their texts change by
+        // a new released version of the type, which updates the instances on every device.
+        var notTypes = new List<string>();
+        if (changed.Count > 0)
+        {
+            var types = await _session.UpdateTextListTypesAsync(importFolder, changed, "Texts from Plant Configurator");
+            foreach (var updated in types.Updated)
+            {
+                lines.Add($"library type {updated} released");
+            }
+
+            notTypes.AddRange(types.NotTypes);
+            lines.AddRange(types.Warnings);
+            foreach (var list in changed.Except(types.NotTypes, StringComparer.OrdinalIgnoreCase))
+            {
+                typesDone.Add(list);
+            }
+        }
+
+        // Text lists that are not library types: import the export folder into the device as before.
+        if (notTypes.Count > 0)
+        {
+            var import = await _session.ImportTextListsAsync(importFolder, target.DeviceName);
+            lines.Add(import.Success
+                ? $"imported into the device: {string.Join(", ", notTypes)}"
+                : $"import FAILED ({string.Join("; ", import.Warnings)}). Backup: {Path.GetFileName(target.LibraryFile)}.bak");
+        }
+
+        return $"{target.DeviceName}: {result.UpdatedEntries} changed text(s) in {result.UpdatedLists.Count} list(s). {string.Join(" · ", lines)}";
+    }
+
+    /// <summary>
+    /// TIA V21+: description text lists that are library types (Types/SCADA_TEXT_LIST/...) are pushed through
+    /// "Export/Import project texts": every mapped type gets a new in-work version, whose exported texts are set from
+    /// the app (ID = Text_list_entry_N - 1), imported and released (every device follows). Nothing is skipped as
+    /// "unchanged". Lists that are not library types are returned in <paramref name="notTypes"/> for the device push.
+    /// </summary>
+    /// <param name="chooseOtherLanguage">Asked when TIA has more than one language: (TIA languages, app English, app other
+    /// language) → the TIA language that gets the other-language texts, "" for English only, null to cancel.</param>
+    public async Task<string> PushLibraryTypesAsync(DescriptionTextListData appData, IReadOnlyCollection<string> managedListNames, List<string> notTypes,
+        Func<IReadOnlyList<string>, string, string, string?> chooseOtherLanguage)
+    {
+        var lines = new List<string>();
+        var names = managedListNames.Where(name => appData.Lists.ContainsKey(name)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var missing = managedListNames.Except(names, StringComparer.OrdinalIgnoreCase).ToList();
+        if (missing.Count > 0)
+        {
+            lines.Add($"No texts loaded for {string.Join(", ", missing)} — pull from TIA first.");
+        }
+
+        if (names.Count == 0)
+        {
+            return lines.Count > 0 ? string.Join(Environment.NewLine, lines) : "No description texts to push.";
+        }
+
+        var edit = Path.Combine(NewWorkspace(), "in_work.xlsx");
+        var opened = await _session.ExportTextListTypeTextsAsync(edit, names, inWork: true);
+        notTypes.AddRange(opened.NotTypes);
+        lines.AddRange(opened.Warnings);
+        if (opened.Updated.Count == 0)
+        {
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        string? input = edit;
+        var count = 0;
+        var languageNote = "";
+        try
+        {
+            // English always goes to the English (or editing-language) column; the other language only where the user says.
+            var (english, other) = DescriptionTextListService.GetLanguagePair(appData);
+            var tiaLanguages = ProjectTextsWorkbook.Languages(edit);
+            var sources = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [tiaLanguages.FirstOrDefault(language => language.Equals(english, StringComparison.OrdinalIgnoreCase)) ?? tiaLanguages[0]] = english
+            };
+            var target = tiaLanguages.Count > 1 && !other.Equals(english, StringComparison.OrdinalIgnoreCase)
+                ? chooseOtherLanguage(tiaLanguages, english, other)
+                : "";
+            if (target is null)
+            {
+                lines.Insert(0, "Push cancelled — the in-work versions were discarded.");
+                input = null;
+            }
+            else
+            {
+                if (target.Length > 0)
+                {
+                    sources[target] = other;
+                }
+
+                languageNote = string.Join(", ", sources.Select(source => $"{source.Value} → TIA {source.Key}"));
+                count = ProjectTextsWorkbook.Apply(edit, appData, sources, save: true).Values.Sum();
+            }
+        }
+        catch (Exception ex)
+        {
+            lines.Add("Changing the exported texts failed: " + ex.Message);
+            input = null; // discard the in-work versions
+        }
+
+        var finished = await _session.ImportTextListTypeTextsAsync(input, opened.Updated, "Texts from Plant Configurator");
+        if (finished.Updated.Count > 0)
+        {
+            lines.Insert(0, $"{count} text(s) changed ({languageNote}) — released: {string.Join(", ", finished.Updated)}.");
+        }
+
+        lines.AddRange(finished.Warnings);
+        return string.Join(Environment.NewLine, lines);
     }
 
     private static string NewWorkspace()

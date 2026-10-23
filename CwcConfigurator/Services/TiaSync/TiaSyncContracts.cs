@@ -71,6 +71,21 @@ public interface ITiaSessionService
     Task<TiaTextListExportResult> ExportTextListsAsync(string outputFolder, string deviceName);
     Task<TiaTextListImportResult> ImportTextListsAsync(string inputFolder, string deviceName);
     Task<TiaUnifiedDevicesResult> GetUnifiedDevicesAsync();
+    Task<TiaUnifiedScriptResult> ExportUnifiedScriptAsync(string outputFolder, string deviceName, string moduleName);
+    Task<TiaUnifiedScriptResult> ImportUnifiedScriptAsync(string inputFolder, string deviceName);
+    Task<TiaUnifiedScriptResult> ExportUnifiedGraphicsAsync(string outputFolder, string deviceName);
+    Task<TiaTextListTypesResult> UpdateTextListTypesAsync(string inputFolder, IReadOnlyList<string> listNames, string comment);
+    Task<TiaTextListTypesResult> ExportTextListTypeTextsAsync(string outputFile, IReadOnlyList<string> listNames, bool inWork);
+    Task<TiaTextListTypesResult> ImportTextListTypeTextsAsync(string? inputFile, IReadOnlyList<string> listNames, string comment);
+}
+
+/// <summary>New versions of text lists that are library types (project library), created from exported documents.</summary>
+public sealed class TiaTextListTypesResult
+{
+    public bool Success { get; set; }
+    public List<string> Updated { get; set; } = [];
+    public List<string> NotTypes { get; set; } = [];
+    public List<string> Warnings { get; set; } = [];
 }
 
 public sealed class TiaSourceArtifactRequest
@@ -120,6 +135,15 @@ public sealed class TiaUnifiedScreensResult
 public sealed class TiaTextListExportResult
 {
     public string HmiSoftwareName { get; set; } = "";
+    public List<string> Files { get; set; } = [];
+    public List<string> Warnings { get; set; } = [];
+}
+
+/// <summary>Export / import of a WinCC Unified script module (e.g. AUX_FUNCTIONS) through the TIA helper.</summary>
+public sealed class TiaUnifiedScriptResult
+{
+    public string HmiSoftwareName { get; set; } = "";
+    public bool Success { get; set; }
     public List<string> Files { get; set; } = [];
     public List<string> Warnings { get; set; } = [];
 }

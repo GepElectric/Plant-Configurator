@@ -1,4 +1,4 @@
-using ClosedXML.Excel;
+﻿using ClosedXML.Excel;
 using System.IO;
 using System.Globalization;
 using CwcConfigurator.Domain;
@@ -355,7 +355,7 @@ public sealed class DescriptionTextListService
         return changed;
     }
 
-    private static (string English, string Other) GetLanguagePair(DescriptionTextListData data)
+    public static (string English, string Other) GetLanguagePair(DescriptionTextListData data)
     {
         var english = data.Languages.FirstOrDefault(lang => lang.Equals("en-US", StringComparison.OrdinalIgnoreCase))
                       ?? data.Languages.FirstOrDefault()

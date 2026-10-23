@@ -1,4 +1,4 @@
-<Window x:Class="CwcConfigurator.App.MainWindow"
+﻿<Window x:Class="CwcConfigurator.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:domain="clr-namespace:CwcConfigurator.Domain"
@@ -59,6 +59,7 @@
         <local:ReadOnlyForegroundConverter x:Key="ReadOnlyForegroundConverter"/>
         <local:DescriptionTemplateTooltipConverter x:Key="DescriptionTemplateTooltipConverter"/>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <local:ScadaIconNameConverter x:Key="ScadaIconName"/>
         <Style TargetType="DataGridCell">
             <Setter Property="TextBlock.TextWrapping" Value="Wrap"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -359,6 +360,8 @@
                 </MenuItem>
             </MenuItem>
             <MenuItem Header="_Descriptions">
+                <MenuItem Header="TIA 21 and newest text list configuration..." Click="DescriptionTextListsTia21_Click"
+                          ToolTip="Pull the description text lists of every PLC database from TIA and push them back without Excel: lists that are library types (Types/SCADA_TEXT_LIST) get a new released version and every SCADA is updated."/>
                 <MenuItem Header="Text lists — pull / push / Excel..." Click="DescriptionTextLists_Click"
                           ToolTip="The descriptions hub: pull/push ALM/PAR descriptions to/from WinCC Unified (Openness), or load/save the Excel workbook."/>
                 <MenuItem Header="Text lists — write descriptions into an exported Excel..." Click="ExportDescriptionTextLists_Click"
@@ -2309,6 +2312,8 @@
                 <TabItem Header="Text lists">
                     <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,6,8,6">
+                        <Button Content="TIA 21 and newest text list configuration..." MinWidth="260" Height="28" Margin="0,0,6,0" Click="DescriptionTextListsTia21_Click" FontWeight="SemiBold"
+                                ToolTip="Pull / push the description text lists of every PLC database directly from / to TIA (library types in Types/SCADA_TEXT_LIST), without Excel."/>
                         <Button Content="Pull / Push / Excel..." MinWidth="140" Height="28" Margin="0,0,6,0" Click="DescriptionTextLists_Click"
                                 ToolTip="The descriptions hub: pull/push descriptions to/from WinCC Unified, or load/save the Excel workbook."/>
                         <Button Content="Write to exported Excel..." MinWidth="160" Height="28" Click="ExportDescriptionTextLists_Click"
@@ -2481,7 +2486,15 @@
                             <TabItem Header="GENERAL">
                                 <DockPanel Margin="8">
                                     <Border DockPanel.Dock="Top" Padding="0,0,0,8">
-                                        <Button Content="Validation" Click="ValidateScadaGeneral_Click" HorizontalAlignment="Left"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="Validation" Click="ValidateScadaGeneral_Click" HorizontalAlignment="Left"/>
+                                            <TextBlock Text="SCADA style" VerticalAlignment="Center" Margin="20,0,6,0" FontWeight="SemiBold"/>
+                                            <ComboBox x:Name="ScadaStyleCombo" Width="130" SelectionChanged="ScadaStyleCombo_SelectionChanged"
+                                                      ToolTip="Geppert: icons from the WinCC Unified graphic lists (main nav, top-nav cards, trends). Prime Volt: fixed CWC icons, only on the main navigation."/>
+                                            <Button x:Name="RefreshGraphicListsButton" Content="Refresh graphic lists" Margin="10,0,0,0" Click="RefreshGraphicLists_Click"
+                                                    ToolTip="Geppert SCADA: read MAIN_NAV_BUTTONS, TOP_NAV_ICONS and TREND_ICONS (with their images) from the mapped device in TIA."/>
+                                            <TextBlock x:Name="ScadaGraphicListsInfo" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#57606A"/>
+                                        </StackPanel>
                                     </Border>
                                     <Border DockPanel.Dock="Top" BorderBrush="#D0D7DE" BorderThickness="1" Padding="10" Margin="0,0,0,8" Background="#FAFBFC">
                                         <Grid x:Name="ScadaGeneralSettingsPanel">
@@ -2596,7 +2609,19 @@
                                             <DataGridTextColumn Header="ENTRY" Binding="{Binding Entry, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="180" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
                                             <DataGridTextColumn Header="TEXT LANGUAGE 1" Binding="{Binding TextLanguage1, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
                                             <DataGridTextColumn Header="TEXT LANGUAGE 2" Binding="{Binding TextLanguage2, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
-                                            <DataGridTextColumn Header="GRAPHIC LIST ID" Binding="{Binding GraphicListId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="130" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
+                                            <DataGridTemplateColumn Header="GRAPHIC LIST ID" Width="230">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <DockPanel>
+                                                            <Button DockPanel.Dock="Right" Content="…" Width="24" Margin="3,0,0,0" Tag="MAIN_NAV_BUTTONS" Click="PickScadaIcon_Click"
+                                                                    ToolTip="Choose the icon"/>
+                                                            <TextBlock DockPanel.Dock="Right" MaxWidth="140" Margin="4,0,0,0" VerticalAlignment="Center" Foreground="#57606A" TextTrimming="CharacterEllipsis"
+                                                                       Text="{Binding GraphicListId, Converter={StaticResource ScadaIconName}, ConverterParameter=MAIN_NAV_BUTTONS}"/>
+                                                            <TextBox Text="{Binding GraphicListId, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" HorizontalContentAlignment="Center" BorderThickness="0" LostFocus="ScadaObjectField_LostFocus"/>
+                                                        </DockPanel>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
                                             <DataGridComboBoxColumn x:Name="ScadaMainNavScreenShapeColumn"
                                                                     Header="SCREEN SHAPE"
                                                                     SelectedValueBinding="{Binding ScreenShape, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -2740,7 +2765,13 @@
                                                                             <TextBox Grid.Row="1" Text="{Binding ScreenName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" LostFocus="ScadaObjectField_LostFocus" ToolTip="SCREENS_Button_X.ENTRY_Y" Margin="0,0,0,5"/>
                                                                             <TextBox Grid.Row="2" Text="{Binding TextLanguage1, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" LostFocus="ScadaObjectField_LostFocus" ToolTip="TEXT_LANGUAGE_1" Margin="0,0,0,5"/>
                                                                             <TextBox Grid.Row="3" Text="{Binding TextLanguage2, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" LostFocus="ScadaObjectField_LostFocus" ToolTip="TEXT_LANGUAGE_2" Margin="0,0,0,5"/>
-                                                                            <TextBox Grid.Row="4" Text="{Binding GraphicListId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" LostFocus="ScadaObjectField_LostFocus" ToolTip="GRAPHIC_LIST_ID"/>
+    <DockPanel Grid.Row="4" Visibility="{Binding ScadaIconsVisible, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                                <Button DockPanel.Dock="Right" Content="…" Width="24" Margin="3,0,0,0" Tag="TOP_NAV_ICONS" Click="PickScadaIcon_Click"
+                                                                                        ToolTip="Choose the icon"/>
+                                                                                <TextBlock DockPanel.Dock="Right" MaxWidth="140" Margin="4,0,0,0" VerticalAlignment="Center" Foreground="#57606A" TextTrimming="CharacterEllipsis"
+                                                                                           Text="{Binding GraphicListId, Converter={StaticResource ScadaIconName}, ConverterParameter=TOP_NAV_ICONS}"/>
+                                                                                <TextBox Text="{Binding GraphicListId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" LostFocus="ScadaObjectField_LostFocus" ToolTip="GRAPHIC_LIST_ID"/>
+                                                                            </DockPanel>
                                                                         </Grid>
                                                                     </Border>
                                                                 </DataTemplate>
@@ -2841,7 +2872,13 @@
                                                                         <TextBlock Grid.Row="0" Text="{Binding SystemNameHeader}" FontWeight="SemiBold" Margin="0,0,0,6"/>
                                                                         <TextBox Grid.Row="1" Text="{Binding Name1, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" LostFocus="ScadaObjectField_LostFocus" ToolTip="SYSTEM_NAME" Margin="0,0,0,5"/>
                                                                         <TextBox Grid.Row="2" Text="{Binding Name2, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" LostFocus="ScadaObjectField_LostFocus" ToolTip="SYSTEM_NAME_2" Margin="0,0,0,5"/>
-                                                                        <TextBox Grid.Row="3" Text="{Binding GraphicListId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" LostFocus="ScadaObjectField_LostFocus" ToolTip="GRAPHIC_LIST_ID"/>
+<DockPanel Grid.Row="3" Visibility="{Binding ScadaIconsVisible, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                            <Button DockPanel.Dock="Right" Content="…" Width="24" Margin="3,0,0,0" Tag="TREND_ICONS" Click="PickScadaIcon_Click"
+                                                                                    ToolTip="Choose the icon"/>
+                                                                            <TextBlock DockPanel.Dock="Right" MaxWidth="140" Margin="4,0,0,0" VerticalAlignment="Center" Foreground="#57606A" TextTrimming="CharacterEllipsis"
+                                                                                       Text="{Binding GraphicListId, Converter={StaticResource ScadaIconName}, ConverterParameter=TREND_ICONS}"/>
+                                                                            <TextBox Text="{Binding GraphicListId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" LostFocus="ScadaObjectField_LostFocus" ToolTip="GRAPHIC_LIST_ID"/>
+                                                                        </DockPanel>
                                                                     </Grid>
                                                                 </Border>
                                                             </DataTemplate>

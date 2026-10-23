@@ -7,6 +7,10 @@ namespace CwcConfigurator.Services.TiaSync;
 public sealed class TiaSessionService : ITiaSessionService, IDisposable
 {
     private static readonly TimeSpan HelperResponseTimeout = TimeSpan.FromMinutes(2);
+
+    // TIA Portal needs ~2 minutes to import a large Unified script module (AUX_FUNCTIONS ≈ 1 MB); killing the helper
+    // in the middle of an import leaves the project in an unknown state, so these commands may take much longer.
+    private static readonly TimeSpan LongHelperResponseTimeout = TimeSpan.FromMinutes(15);
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     // One helper process per installed TIA version ("V18"/"V21"). Each helper build
@@ -140,12 +144,70 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         {
             InputFolder = inputFolder,
             DeviceName = deviceName ?? ""
-        });
+        }, LongHelperResponseTimeout);
     }
 
     public Task<TiaUnifiedDevicesResult> GetUnifiedDevicesAsync()
     {
         return SendAsync<TiaUnifiedDevicesResult>(RequireActiveVersion(), "GetUnifiedDevices", null);
+    }
+
+    public Task<TiaUnifiedScriptResult> ExportUnifiedScriptAsync(string outputFolder, string deviceName, string moduleName)
+    {
+        return SendAsync<TiaUnifiedScriptResult>(RequireActiveVersion(), "ExportUnifiedScript", new
+        {
+            OutputFolder = outputFolder,
+            DeviceName = deviceName ?? "",
+            ModuleName = moduleName
+        });
+    }
+
+    public Task<TiaTextListTypesResult> UpdateTextListTypesAsync(string inputFolder, IReadOnlyList<string> listNames, string comment)
+    {
+        return SendAsync<TiaTextListTypesResult>(RequireActiveVersion(), "UpdateTextListTypes", new
+        {
+            InputFolder = inputFolder,
+            ListNames = listNames,
+            Comment = comment
+        }, LongHelperResponseTimeout);
+    }
+
+    public Task<TiaTextListTypesResult> ExportTextListTypeTextsAsync(string outputFile, IReadOnlyList<string> listNames, bool inWork)
+    {
+        return SendAsync<TiaTextListTypesResult>(RequireActiveVersion(), "ExportTextListTypeTexts", new
+        {
+            OutputFile = outputFile,
+            ListNames = listNames,
+            InWork = inWork
+        }, LongHelperResponseTimeout);
+    }
+
+    public Task<TiaTextListTypesResult> ImportTextListTypeTextsAsync(string? inputFile, IReadOnlyList<string> listNames, string comment)
+    {
+        return SendAsync<TiaTextListTypesResult>(RequireActiveVersion(), "ImportTextListTypeTexts", new
+        {
+            InputFile = inputFile ?? "",
+            ListNames = listNames,
+            Comment = comment
+        }, LongHelperResponseTimeout);
+    }
+
+    public Task<TiaUnifiedScriptResult> ExportUnifiedGraphicsAsync(string outputFolder, string deviceName)
+    {
+        return SendAsync<TiaUnifiedScriptResult>(RequireActiveVersion(), "ExportUnifiedGraphics", new
+        {
+            OutputFolder = outputFolder,
+            DeviceName = deviceName ?? ""
+        }, LongHelperResponseTimeout);
+    }
+
+    public Task<TiaUnifiedScriptResult> ImportUnifiedScriptAsync(string inputFolder, string deviceName)
+    {
+        return SendAsync<TiaUnifiedScriptResult>(RequireActiveVersion(), "ImportUnifiedScript", new
+        {
+            InputFolder = inputFolder,
+            DeviceName = deviceName ?? ""
+        }, LongHelperResponseTimeout);
     }
 
     public void AbortHelper()
@@ -178,8 +240,9 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         return TiaApiLocator.GetInstalledVersions().FirstOrDefault() ?? "";
     }
 
-    private async Task<T> SendAsync<T>(string version, string command, object? payload)
+    private async Task<T> SendAsync<T>(string version, string command, object? payload, TimeSpan? timeout = null)
     {
+        var limit = timeout ?? HelperResponseTimeout;
         await _gate.WaitAsync();
         try
         {
@@ -196,11 +259,11 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
             await helper.StandardInput.FlushAsync();
 
             var readTask = helper.StandardOutput.ReadLineAsync();
-            var completedTask = await Task.WhenAny(readTask, Task.Delay(HelperResponseTimeout));
+            var completedTask = await Task.WhenAny(readTask, Task.Delay(limit));
             if (completedTask != readTask)
             {
                 KillHelper(version);
-                throw new TimeoutException($"TIA helper ({version}) did not respond within {HelperResponseTimeout.TotalMinutes:0} minute(s). Attach to TIA Portal again before retrying.");
+                throw new TimeoutException($"TIA helper ({version}) did not respond within {limit.TotalMinutes:0} minute(s). Attach to TIA Portal again before retrying.");
             }
 
             var responseLine = await readTask;

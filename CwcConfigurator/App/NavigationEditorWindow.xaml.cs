@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
@@ -14,23 +16,47 @@ public partial class NavigationEditorWindow : Window
     private readonly ScadaDatabase _database;
     private readonly ScadaNavigationModel _model;
     private readonly Func<Task<IReadOnlyList<string>>>? _screenRefresh;
-    private readonly List<string> _screens = new() { "" };
+    private readonly List<string> _screens = new();
+    private readonly HashSet<string> _tiaScreens = new(StringComparer.OrdinalIgnoreCase);
     private ScadaNavButton? _buttonClipboard;
     private ScadaTopNavCard? _cardClipboard;
+    private ScadaNavButton? _watched;
 
     public bool Applied { get; private set; }
 
-    public NavigationEditorWindow(ScadaDatabase database, IReadOnlyList<string> screenCatalog, Func<Task<IReadOnlyList<string>>>? screenRefresh = null)
+    /// <summary>Screens offered for the selected button: those starting with its identity (prefix) first.</summary>
+    public ObservableCollection<string> CardScreens { get; } = new();
+
+    /// <summary>Screens for the side content (all screens).</summary>
+    public ObservableCollection<string> AllScreens { get; } = new();
+
+    public IReadOnlyList<string> FirstTopNavChoices { get; } = Enumerable.Range(1, ScadaNavigationModel.MaxCards).Select(i => i.ToString()).ToList();
+
+    /// <param name="screenCatalog">Screens offered in the dropdowns.</param>
+    /// <param name="tiaScreens">Screens that exist on the SCADA (from TIA); cards opening another screen are marked. Empty = not checked.</param>
+    public NavigationEditorWindow(ScadaDatabase database, IReadOnlyList<string> screenCatalog, Func<Task<IReadOnlyList<string>>>? screenRefresh = null,
+        IReadOnlyCollection<string>? tiaScreens = null)
     {
+        ScadaIconNameConverter.Current = database;
         InitializeComponent();
         _database = database;
         _screenRefresh = screenRefresh;
         _model = ScadaNavigationModel.FromDatabase(database);
         ButtonsList.ItemsSource = _model.Buttons;
+        ButtonCountCombo.ItemsSource = Enumerable.Range(0, ScadaNavigationModel.MaxButtons + 1).ToList();
+        ButtonCountCombo.SelectedItem = _model.ButtonCount;
 
+        SetTiaScreens(tiaScreens);
         MergeScreens(screenCatalog);
-        ApplyScreenCatalog();
+        foreach (var button in _model.Buttons)
+        {
+            foreach (var card in button.Cards)
+            {
+                card.PropertyChanged += Card_PropertyChanged;
+            }
+        }
 
+        CheckScreens();
         RefreshScreensButton.IsEnabled = _screenRefresh is not null;
         if (_model.Buttons.Count > 0)
         {
@@ -38,23 +64,108 @@ public partial class NavigationEditorWindow : Window
         }
     }
 
-    private void MergeScreens(IEnumerable<string>? screens)
+    private void SetTiaScreens(IEnumerable<string>? screens)
     {
-        var rest = _screens.Where(s => !string.IsNullOrWhiteSpace(s))
-            .Concat((screens ?? Enumerable.Empty<string>()).Where(s => !string.IsNullOrWhiteSpace(s)))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        _screens.Clear();
-        _screens.Add("");
-        _screens.AddRange(rest);
+        _tiaScreens.Clear();
+        foreach (var screen in screens ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(screen))
+            {
+                _tiaScreens.Add(screen.Trim());
+            }
+        }
     }
 
-    private void ApplyScreenCatalog()
+    private void MergeScreens(IEnumerable<string>? screens)
     {
-        CardScreenColumn.ItemsSource = null;
-        CardScreenColumn.ItemsSource = _screens;
-        SideContentCombo.ItemsSource = _screens;
+        var all = _screens.Concat(screens ?? [])
+            .Concat(_tiaScreens)
+            .Where(screen => !string.IsNullOrWhiteSpace(screen))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(screen => screen, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        _screens.Clear();
+        _screens.AddRange(all);
+        AllScreens.Clear();
+        AllScreens.Add("");
+        foreach (var screen in _screens)
+        {
+            AllScreens.Add(screen);
+        }
+
+        UpdateCardScreens();
+        ScreensInfo.Text = _tiaScreens.Count > 0 ? $"{_tiaScreens.Count} screen(s) on the SCADA." : $"{_screens.Count} screen(s) known (no TIA screen list).";
+    }
+
+    /// <summary>Card screen list for the selected button: screens with its prefix first, then the others.</summary>
+    private void UpdateCardScreens()
+    {
+        var prefix = Selected?.Identity?.Trim() ?? "";
+        CardScreens.Clear();
+        CardScreens.Add("");
+        foreach (var screen in _screens
+                     .OrderBy(screen => prefix.Length > 0 && screen.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                     .ThenBy(screen => screen, StringComparer.OrdinalIgnoreCase))
+        {
+            CardScreens.Add(screen);
+        }
+    }
+
+    /// <summary>Marks cards whose screen is not on the SCADA (only when the SCADA's screens are known).</summary>
+    private void CheckScreens()
+    {
+        var unknown = 0;
+        foreach (var card in _model.Buttons.SelectMany(button => button.Cards))
+        {
+            card.ScreenKnown = _tiaScreens.Count == 0 || string.IsNullOrWhiteSpace(card.Screen) || _tiaScreens.Contains(card.Screen.Trim());
+            unknown += card.ScreenKnown ? 0 : 1;
+        }
+
+        CheckText.Text = unknown == 0 ? "" : $"{unknown} card(s) open a screen that is not on the SCADA (red).";
+    }
+
+    private void Card_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ScadaTopNavCard.Screen))
+        {
+            CheckScreens();
+        }
+    }
+
+    private void Button_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ScadaNavButton.Identity))
+        {
+            UpdateCardScreens();
+        }
+    }
+
+    /// <summary>Prime Volt SCADA: no icons on the top-nav cards.</summary>
+    public void ShowCardIcons(bool show) => CardIconColumn.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+
+    private void PickButtonIcon_Click(object sender, RoutedEventArgs e)
+    {
+        if (Selected is { } button && IconPickerWindow.Pick(this, _database, ScadaGraphicLists.MainNav, button.IconId, $"main nav button {button.Index}") is { } value)
+        {
+            button.IconId = value;
+        }
+    }
+
+    private void PickCardIcon_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ScadaTopNavCard card } && Selected is { } button
+            && IconPickerWindow.Pick(this, _database, ScadaGraphicLists.TopNav, card.IconId, $"button {button.Index}, top-nav card {button.Cards.IndexOf(card) + 1}") is { } value)
+        {
+            card.IconId = value;
+        }
+    }
+
+    private void ButtonCount_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ButtonCountCombo.SelectedItem is int count)
+        {
+            _model.ButtonCount = count;
+        }
     }
 
     private ScadaNavButton? Selected => ButtonsList.SelectedItem as ScadaNavButton;
@@ -62,9 +173,19 @@ public partial class NavigationEditorWindow : Window
     private void ButtonsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         // DetailPanel.DataContext follows ButtonsList.SelectedItem via XAML binding.
-    }
+        if (_watched is not null)
+        {
+            _watched.PropertyChanged -= Button_PropertyChanged;
+        }
 
-    private void RefreshButtons() => ButtonsList.Items.Refresh();
+        _watched = Selected;
+        if (_watched is not null)
+        {
+            _watched.PropertyChanged += Button_PropertyChanged;
+        }
+
+        UpdateCardScreens();
+    }
 
     private void RefreshCards() => CardsGrid.Items.Refresh();
 
@@ -74,12 +195,11 @@ public partial class NavigationEditorWindow : Window
         e.Row.Header = (e.Row.GetIndex() + 1).ToString();
     }
 
-    private void RebindDetail()
+    private ScadaTopNavCard NewCard(ScadaTopNavCard? from = null)
     {
-        // Force the TwoWay-bound detail fields to reload after we mutate the object in code.
-        var index = ButtonsList.SelectedIndex;
-        ButtonsList.SelectedIndex = -1;
-        ButtonsList.SelectedIndex = index;
+        var card = from is null ? new ScadaTopNavCard() : CloneCard(from);
+        card.PropertyChanged += Card_PropertyChanged;
+        return card;
     }
 
     private void CardAdd_Click(object sender, RoutedEventArgs e)
@@ -96,25 +216,24 @@ public partial class NavigationEditorWindow : Window
             return;
         }
 
-        button.Cards.Add(new ScadaTopNavCard());
-        RefreshCards();
-        RefreshButtons();
+        button.Cards.Add(NewCard());
         CardsGrid.SelectedIndex = button.Cards.Count - 1;
+        CardsGrid.ScrollIntoView(CardsGrid.SelectedItem);
     }
 
     private void CardRemove_Click(object sender, RoutedEventArgs e)
     {
         var button = Selected;
         var index = CardsGrid.SelectedIndex;
-        if (button is null || index < 0)
+        if (button is null || index < 0 || index >= button.Cards.Count)
         {
             return;
         }
 
         button.Cards.RemoveAt(index);
         RefreshCards();
-        RefreshButtons();
-        CardsGrid.SelectedIndex = System.Math.Min(index, button.Cards.Count - 1);
+        CardsGrid.SelectedIndex = Math.Min(index, button.Cards.Count - 1);
+        CheckScreens();
     }
 
     private void CardUp_Click(object sender, RoutedEventArgs e) => MoveCard(-1);
@@ -136,7 +255,7 @@ public partial class NavigationEditorWindow : Window
             return;
         }
 
-        (button.Cards[index], button.Cards[target]) = (button.Cards[target], button.Cards[index]);
+        button.Cards.Move(index, target);
         RefreshCards();
         CardsGrid.SelectedIndex = target;
     }
@@ -156,25 +275,14 @@ public partial class NavigationEditorWindow : Window
 
         // Buttons are fixed slots (1..16), so reordering swaps their content.
         SwapButtonContent(_model.Buttons[index], _model.Buttons[target]);
-        RefreshButtons();
         ButtonsList.SelectedIndex = target;
     }
 
     private static void SwapButtonContent(ScadaNavButton a, ScadaNavButton b)
     {
-        (a.Identity, b.Identity) = (b.Identity, a.Identity);
-        (a.LabelEn, b.LabelEn) = (b.LabelEn, a.LabelEn);
-        (a.LabelOther, b.LabelOther) = (b.LabelOther, a.LabelOther);
-        (a.IconId, b.IconId) = (b.IconId, a.IconId);
-        (a.LayoutShape, b.LayoutShape) = (b.LayoutShape, a.LayoutShape);
-        (a.FirstTopNav, b.FirstTopNav) = (b.FirstTopNav, a.FirstTopNav);
-        (a.SideContentScreen, b.SideContentScreen) = (b.SideContentScreen, a.SideContentScreen);
-
-        var moved = a.Cards.ToList();
-        a.Cards.Clear();
-        a.Cards.AddRange(b.Cards);
-        b.Cards.Clear();
-        b.Cards.AddRange(moved);
+        var copy = CloneButton(a);
+        CopyButtonInto(b, a);
+        CopyButtonInto(copy, b);
     }
 
     private void ButtonClear_Click(object sender, RoutedEventArgs e)
@@ -196,15 +304,11 @@ public partial class NavigationEditorWindow : Window
         button.LabelOther = "";
         button.IconId = "0";
         button.LayoutShape = 0;
+        button.FirstTopNav = "1";
         button.SideContentScreen = "";
         button.Cards.Clear();
-
-        RefreshButtons();
-        RefreshCards();
-        RebindDetail();
+        CheckScreens();
     }
-
-    private void DetailField_LostFocus(object sender, RoutedEventArgs e) => RefreshButtons();
 
     private void ButtonCopy_Click(object sender, RoutedEventArgs e)
     {
@@ -233,9 +337,12 @@ public partial class NavigationEditorWindow : Window
         }
 
         CopyButtonInto(_buttonClipboard, button);
-        RefreshButtons();
-        RefreshCards();
-        RebindDetail();
+        foreach (var card in button.Cards)
+        {
+            card.PropertyChanged += Card_PropertyChanged;
+        }
+
+        CheckScreens();
     }
 
     private void CardCopy_Click(object sender, RoutedEventArgs e)
@@ -266,10 +373,10 @@ public partial class NavigationEditorWindow : Window
         }
 
         var insertAt = CardsGrid.SelectedIndex >= 0 ? CardsGrid.SelectedIndex + 1 : button.Cards.Count;
-        button.Cards.Insert(insertAt, CloneCard(_cardClipboard));
+        button.Cards.Insert(insertAt, NewCard(_cardClipboard));
         RefreshCards();
-        RefreshButtons();
         CardsGrid.SelectedIndex = insertAt;
+        CheckScreens();
     }
 
     private async void RefreshScreens_Click(object sender, RoutedEventArgs e)
@@ -284,9 +391,9 @@ public partial class NavigationEditorWindow : Window
             RefreshScreensButton.IsEnabled = false;
             System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
             var screens = await _screenRefresh();
+            SetTiaScreens(screens);
             MergeScreens(screens);
-            ApplyScreenCatalog();
-            ScreensInfo.Text = $"{_screens.Count(s => !string.IsNullOrWhiteSpace(s))} screen(s) available.";
+            CheckScreens();
         }
         catch (Exception ex)
         {
@@ -301,22 +408,8 @@ public partial class NavigationEditorWindow : Window
 
     private static ScadaNavButton CloneButton(ScadaNavButton source)
     {
-        var clone = new ScadaNavButton
-        {
-            Index = source.Index,
-            Identity = source.Identity,
-            LabelEn = source.LabelEn,
-            LabelOther = source.LabelOther,
-            IconId = source.IconId,
-            LayoutShape = source.LayoutShape,
-            FirstTopNav = source.FirstTopNav,
-            SideContentScreen = source.SideContentScreen
-        };
-        foreach (var card in source.Cards)
-        {
-            clone.Cards.Add(CloneCard(card));
-        }
-
+        var clone = new ScadaNavButton { Index = source.Index };
+        CopyButtonInto(source, clone);
         return clone;
     }
 
@@ -329,10 +422,11 @@ public partial class NavigationEditorWindow : Window
         target.LayoutShape = source.LayoutShape;
         target.FirstTopNav = source.FirstTopNav;
         target.SideContentScreen = source.SideContentScreen;
+        var cards = source.Cards.Select(CloneCard).ToList();
         target.Cards.Clear();
-        foreach (var card in source.Cards)
+        foreach (var card in cards)
         {
-            target.Cards.Add(CloneCard(card));
+            target.Cards.Add(card);
         }
     }
 
@@ -341,7 +435,8 @@ public partial class NavigationEditorWindow : Window
         Screen = source.Screen,
         LabelEn = source.LabelEn,
         LabelOther = source.LabelOther,
-        IconId = source.IconId
+        IconId = source.IconId,
+        ScreenKnown = source.ScreenKnown
     };
 
     private void Ok_Click(object sender, RoutedEventArgs e)

@@ -71,7 +71,7 @@ public class ScadaNavigationModelTests
         b1.IconId = "1";
         b1.LayoutShape = 3;
         b1.Cards.Add(new ScadaTopNavCard { Screen = "A", LabelEn = "Ca", IconId = "7" });
-        b1.Cards.Add(new ScadaTopNavCard { Screen = "", LabelEn = "gap" });    // dropped (no screen)
+        b1.Cards.Add(new ScadaTopNavCard { Screen = "", LabelEn = "gap" });    // kept: counts like BUTTON_x_SCREEN_NUM on MAINNAV
         b1.Cards.Add(new ScadaTopNavCard { Screen = "B", LabelEn = "Cb", IconId = "8" });
 
         model.ApplyTo(db);
@@ -82,9 +82,11 @@ public class ScadaNavigationModelTests
         Assert.Equal("A", Value(db, "SCREENS_Button_1_ENTRY_1"));
         Assert.Equal("Ca", Value(db, "Button_1_TOP_NAV_CARD_1_TEXT_LANGUAGE_1"));
         Assert.Equal("7", Value(db, "Button_1_TOP_NAV_CARD_1_GRAPHIC_LIST_ID"));
-        Assert.Equal("B", Value(db, "SCREENS_Button_1_ENTRY_2")); // packed
-        Assert.Equal("", Value(db, "SCREENS_Button_1_ENTRY_3"));  // cleared
-        Assert.Equal("0", Value(db, "Button_1_TOP_NAV_CARD_3_GRAPHIC_LIST_ID")); // cleared icon
+        Assert.Equal("", Value(db, "SCREENS_Button_1_ENTRY_2"));   // the card without a screen keeps its place
+        Assert.Equal("B", Value(db, "SCREENS_Button_1_ENTRY_3"));
+        Assert.Equal("3", Value(db, "BUTTON_1_SCREEN_NUM"));
+        Assert.Equal("", Value(db, "SCREENS_Button_1_ENTRY_4"));   // cleared
+        Assert.Equal("0", Value(db, "Button_1_TOP_NAV_CARD_4_GRAPHIC_LIST_ID")); // cleared icon
     }
 
     [Fact]

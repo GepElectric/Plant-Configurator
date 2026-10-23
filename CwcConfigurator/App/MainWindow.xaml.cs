@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Globalization;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -314,10 +314,11 @@ public partial class MainWindow : Window
             set => _source.Value = NormalizeIntText(value);
         }
 
+        /// <summary>Location entry: a text (e.g. "Common", "Intake 1"), written to LOCATION_x.ENTRY.</summary>
         public string Entry
         {
             get => _entry.Value;
-            set => _entry.Value = IsActive ? NormalizeOptionalIntText(value) : "";
+            set => _entry.Value = (value ?? "").Trim();
         }
 
         public string LocalRemoteValue
@@ -407,7 +408,14 @@ public partial class MainWindow : Window
         }
     }
 
-    private sealed class ScadaMainNavRow
+    /// <summary>A SCADA row/cell with an icon id (GRAPHIC_LIST_ID), set by the icon picker.</summary>
+    private interface IScadaIconCell
+    {
+        string GraphicListId { get; set; }
+        string IconWhat { get; }
+    }
+
+    private sealed class ScadaMainNavRow : IScadaIconCell
     {
         private readonly ScadaConfigVariable _entry;
         private readonly ScadaConfigVariable _text1;
@@ -469,6 +477,8 @@ public partial class MainWindow : Window
             set => _graphicListId.Value = NormalizeIntText(value);
         }
 
+        public string IconWhat => $"main nav button {Index}";
+
         public string ScreenShape
         {
             get => _screenShape.Value;
@@ -517,12 +527,14 @@ public partial class MainWindow : Window
         public IReadOnlyList<ScadaScreenMatrixCell> Cells { get; }
     }
 
-    private sealed class ScadaScreenMatrixCell
+    private sealed class ScadaScreenMatrixCell : IScadaIconCell
     {
         private readonly ScadaConfigVariable _screenEntry;
         private readonly ScadaConfigVariable _text1;
         private readonly ScadaConfigVariable _text2;
         private readonly ScadaConfigVariable _graphicListId;
+
+        public string IconWhat => $"button {Button}, top-nav card {TopNav}";
 
         public ScadaScreenMatrixCell(int button, int topNav, ScadaConfigVariable screenEntry, ScadaConfigVariable text1, ScadaConfigVariable text2, ScadaConfigVariable graphicListId)
         {
@@ -596,7 +608,7 @@ public partial class MainWindow : Window
         public IReadOnlyList<ScadaLocationMatrixCell> Cells { get; }
     }
 
-    private sealed class ScadaLocationMatrixCell
+    private sealed class ScadaLocationMatrixCell : IScadaIconCell
     {
         private readonly ScadaConfigVariable _systemName;
         private readonly ScadaConfigVariable _systemName2;
@@ -614,6 +626,7 @@ public partial class MainWindow : Window
         public int Location { get; }
         public int System { get; }
         public string SystemNameHeader => $"SYSTEM {System.ToString(CultureInfo.InvariantCulture)}";
+        public string IconWhat => $"location {Location}, system {System}";
 
         public string Name1
         {
@@ -3619,6 +3632,17 @@ public partial class MainWindow : Window
         {
             imported.Id = active.Id;
             imported.Name = active.Name;
+            imported.Style = active.Style;   // a setting of the database, not of the script
+            if (imported.GraphicLists.Count == 0)
+            {
+                imported.GraphicLists = active.GraphicLists;
+            }
+
+            if (imported.TiaScreens.Count == 0)
+            {
+                imported.TiaScreens = active.TiaScreens;   // a pull without screens keeps the known ones
+            }
+
             var index = _project.ScadaDatabases.FindIndex(database => database.Id == active.Id);
             if (index >= 0)
             {
@@ -3645,7 +3669,10 @@ public partial class MainWindow : Window
             SaveActivePlcDatabase();
             SaveActiveScadaDatabase();
             var service = new ScadaUnifiedSyncService();
-            var result = await service.PullAsync(_project.Paths.UnifiedJsConnectorServerPath, GetActiveScadaDeviceName());
+            // Attached TIA project (TIA Sync): through TIA Openness; otherwise through the JS Connector.
+            var result = _tiaSessionService.CurrentSession is not null
+                ? await service.PullFromTiaAsync(_tiaSessionService, GetActiveScadaDeviceName(), !(GetActiveScadaDatabase()?.IsPrimeVolt ?? false))
+                : await service.PullAsync(_project.Paths.UnifiedJsConnectorServerPath, GetActiveScadaDeviceName());
             ApplyImportedScadaDatabase(result.Database);
             ShowMessage($"{result.Message} ({_project.Scada.Variables.Count} variables, {_project.Scada.TagWrites.Count} tag writes).");
         }
@@ -3687,7 +3714,9 @@ public partial class MainWindow : Window
             System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
             NormalizeScadaDatabase();
             var service = new ScadaUnifiedSyncService();
-            var message = await service.PushAsync(_project.Scada, _project.Paths.UnifiedJsConnectorServerPath, GetActiveScadaDeviceName());
+            var message = _tiaSessionService.CurrentSession is not null
+                ? await service.PushToTiaAsync(_tiaSessionService, _project.Scada, GetActiveScadaDeviceName())
+                : await service.PushAsync(_project.Scada, _project.Paths.UnifiedJsConnectorServerPath, GetActiveScadaDeviceName());
             BindScadaViews();
             ShowMessage(message);
         }
@@ -3745,14 +3774,14 @@ public partial class MainWindow : Window
         }
     }
 
-    // Catalog of WinCC Unified screen names, pulled from the attached TIA project, used as
-    // the dropdown for the SCREENS matrix VALUE cells. Always also includes the cells'
-    // current values so existing entries stay selectable.
-    private readonly List<string> _tiaScreenNames = new();
+    // Catalog of WinCC Unified screen names of the active SCADA database (read from TIA on pull or
+    // 'Refresh screens from TIA'), used as the dropdown for the SCREENS matrix VALUE cells. Always also
+    // includes the cells' current values so existing entries stay selectable.
+    private List<string> TiaScreenNames => _project.Scada.TiaScreens ??= [];
 
     private void RebuildScadaScreenCatalog()
     {
-        var catalog = new List<string>(_tiaScreenNames);
+        var catalog = new List<string>(TiaScreenNames);
         if (_scadaScreensView is not null)
         {
             foreach (var item in _scadaScreensView)
@@ -3777,8 +3806,8 @@ public partial class MainWindow : Window
 
         if (ScadaScreenCatalogInfo is not null)
         {
-            ScadaScreenCatalogInfo.Text = _tiaScreenNames.Count > 0
-                ? $"{_tiaScreenNames.Count} screen(s) loaded from TIA."
+            ScadaScreenCatalogInfo.Text = TiaScreenNames.Count > 0
+                ? $"{TiaScreenNames.Count} screen(s) of the SCADA in TIA."
                 : "No TIA screens loaded — attach a V21 project in 'TIA Sync', then click 'Refresh screens from TIA'.";
         }
     }
@@ -3799,8 +3828,7 @@ public partial class MainWindow : Window
         {
             System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
             var result = await _tiaSessionService.GetUnifiedScreensAsync(GetActiveScadaDeviceName());
-            _tiaScreenNames.Clear();
-            _tiaScreenNames.AddRange(result.Screens);
+            _project.Scada.TiaScreens = result.Screens.ToList();
             RebuildScadaScreenCatalog();
             ShowMessage(result.Warnings.Count > 0
                 ? string.Join(Environment.NewLine, result.Warnings)
@@ -3823,7 +3851,7 @@ public partial class MainWindow : Window
         // Screen catalog for the editor dropdowns: TIA-fetched screens plus whatever the
         // current config already references (so existing entries stay selectable offline).
         var model = ScadaNavigationModel.FromDatabase(_project.Scada);
-        var catalog = new List<string>(_tiaScreenNames);
+        var catalog = new List<string>(TiaScreenNames);
         foreach (var button in model.Buttons)
         {
             if (!string.IsNullOrWhiteSpace(button.SideContentScreen))
@@ -3851,12 +3879,12 @@ public partial class MainWindow : Window
             }
 
             var result = await _tiaSessionService.GetUnifiedScreensAsync(GetActiveScadaDeviceName());
-            _tiaScreenNames.Clear();
-            _tiaScreenNames.AddRange(result.Screens);
+            _project.Scada.TiaScreens = result.Screens.ToList();
             return result.Screens;
         };
 
-        var dialog = new NavigationEditorWindow(_project.Scada, screens, refresh) { Owner = this };
+        var dialog = new NavigationEditorWindow(_project.Scada, screens, refresh, TiaScreenNames) { Owner = this };
+        dialog.ShowCardIcons(!_project.Scada.IsPrimeVolt);
         if (dialog.ShowDialog() == true && dialog.Applied)
         {
             NormalizeScadaDatabase();
@@ -7931,10 +7959,114 @@ public partial class MainWindow : Window
         RefreshTextListComments();
     }
 
+    // ---- SCADA style and icons ----
+
+    public static readonly DependencyProperty ScadaIconsVisibleProperty =
+        DependencyProperty.Register(nameof(ScadaIconsVisible), typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
+
+    /// <summary>Icons of top-nav cards and location systems: only on a Geppert SCADA (Prime Volt has them only on the main navigation).</summary>
+    public bool ScadaIconsVisible
+    {
+        get => (bool)GetValue(ScadaIconsVisibleProperty);
+        set => SetValue(ScadaIconsVisibleProperty, value);
+    }
+
+    private bool _bindingScadaStyle;
+
+    private void BindScadaStyle()
+    {
+        ScadaIconNameConverter.Current = _project.Scada;
+        _bindingScadaStyle = true;
+        ScadaStyleCombo.ItemsSource ??= new[] { "Geppert", "Prime Volt" };
+        ScadaStyleCombo.SelectedIndex = _project.Scada.IsPrimeVolt ? 1 : 0;
+        _bindingScadaStyle = false;
+        ScadaIconsVisible = !_project.Scada.IsPrimeVolt;
+        RefreshGraphicListsButton.Visibility = _project.Scada.IsPrimeVolt ? Visibility.Collapsed : Visibility.Visible;
+        ScadaGraphicListsInfo.Text = _project.Scada.IsPrimeVolt
+            ? "Prime Volt: fixed CWC icons on the main navigation."
+            : _project.Scada.GraphicLists.Count == 0
+                ? "Graphic lists not loaded."
+                : string.Join(", ", _project.Scada.GraphicLists.Select(list => $"{list.Name} ({list.Entries.Count})"));
+    }
+
+    private void ScadaStyleCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_bindingScadaStyle || ScadaStyleCombo.SelectedIndex < 0)
+        {
+            return;
+        }
+
+        var style = ScadaStyleCombo.SelectedIndex == 1 ? ScadaDatabase.PrimeVoltStyle : ScadaDatabase.GeppertStyle;
+        if (_project.Scada.Style == style)
+        {
+            return;
+        }
+
+        _project.Scada.Style = style;
+        BindScadaStyle();
+    }
+
+    private async void RefreshGraphicLists_Click(object sender, RoutedEventArgs e)
+    {
+        if (_tiaSessionService.CurrentSession is null)
+        {
+            ShowError("Attach to the TIA Portal project (V21) in 'TIA Sync' first.");
+            return;
+        }
+
+        try
+        {
+            System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+            _project.Scada.GraphicLists = await new ScadaUnifiedSyncService().PullGraphicListsAsync(_tiaSessionService, GetActiveScadaDeviceName());
+            BindScadaStyle();
+            ShowMessage($"Graphic lists read from TIA: {ScadaGraphicListsInfo.Text}");
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            System.Windows.Input.Mouse.OverrideCursor = null;
+        }
+    }
+
+    /// <summary>"…" next to a GRAPHIC_LIST_ID: the icon picker of the list in the button's Tag.</summary>
+    private void PickScadaIcon_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string list, DataContext: IScadaIconCell cell } button)
+        {
+            return;
+        }
+
+        var value = IconPickerWindow.Pick(this, _project.Scada, list, cell.GraphicListId, cell.IconWhat);
+        if (value is null || value == cell.GraphicListId)
+        {
+            return;
+        }
+
+        cell.GraphicListId = value;
+        // The row objects do not notify: refresh the id and the icon name next to the button.
+        if (button.Parent is Panel panel)
+        {
+            foreach (var box in panel.Children.OfType<TextBox>())
+            {
+                box.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+            }
+
+            foreach (var text in panel.Children.OfType<TextBlock>())
+            {
+                text.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
+            }
+        }
+
+    }
+
     private void BindScadaViews()
     {
         _project.Scada ??= ScadaDatabase.CreateDefault();
         _project.Scada.EnsureDefaults();
+        BindScadaStyle();
         ScadaConfigFileService.ApplyTagsToVariables(_project.Scada);
         BindScadaGeneralView();
         BindScadaHeaderView();
@@ -7984,7 +8116,7 @@ public partial class MainWindow : Window
                 GetOrCreateScadaVariable($"LOCATION_{index}_NAME_1", "STRING", "MAIN", "", $"LOCATION_{index}.LOCATION_NAME", "Location name"),
                 GetOrCreateScadaVariable($"LOCATION_{index}_NAME_2", "STRING", "MAIN", "", $"LOCATION_{index}.LOCATION_NAME_2", "Location name second language"),
                 GetOrCreateScadaVariable($"LOCATION_{index}_SOURCE", "INT", "MAIN", "0", $"LOCATION_{index}.SOURCE", "Location source"),
-                GetOrCreateScadaVariable($"LOCATION_{index}_ENTRY", "INT", "MAIN", "", $"LOCATION_{index}.ENTRY", "Location entry"),
+                GetOrCreateScadaVariable($"LOCATION_{index}_ENTRY", "STRING", "MAIN", "", $"LOCATION_{index}.ENTRY", "Location entry"),
                 GetOrCreateScadaVariable($"LOCATION_{index}_LOCAL_REMOTE", "INT", "MAIN", "0", $"LOCATION_{index}_LOCAL_REMOTE", "0 - Local, 1 - Remote")))
             .ToList();
 
@@ -8329,6 +8461,15 @@ public partial class MainWindow : Window
 
     private void ScadaObjectField_LostFocus(object sender, RoutedEventArgs e)
     {
+        // An icon id typed by hand: show the name of its graphic next to it.
+        if (sender is FrameworkElement { Parent: Panel panel })
+        {
+            foreach (var text in panel.Children.OfType<TextBlock>())
+            {
+                text.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
+            }
+        }
+
         RefreshScadaTagValues();
     }
 
@@ -9132,7 +9273,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void DescriptionTextLists_Click(object sender, RoutedEventArgs e)
+    private void DescriptionTextLists_Click(object sender, RoutedEventArgs e) => OpenDescriptionTextLists(libraryTypes: false);
+
+    // TIA 21 and newer: the description text lists are library types (Types/SCADA_TEXT_LIST); no workbook, no SCADA.
+    private void DescriptionTextListsTia21_Click(object sender, RoutedEventArgs e) => OpenDescriptionTextLists(libraryTypes: true);
+
+    private void OpenDescriptionTextLists(bool libraryTypes)
     {
         if (!_projectOpen)
         {
@@ -9142,7 +9288,7 @@ public partial class MainWindow : Window
 
         SaveActivePlcDatabase();
 
-        Func<string, Task<DescriptionTextListData>> pullFromTia = async device =>
+        Func<Window, string, Task<DescriptionTextListData>> pullFromTia = async (owner, device) =>
         {
             if (_tiaSessionService.CurrentSession is null)
             {
@@ -9150,6 +9296,37 @@ public partial class MainWindow : Window
             }
 
             var folder = Path.Combine(Path.GetTempPath(), "PlantConfigurator", "TextListsExport", Guid.NewGuid().ToString("N"));
+            if (libraryTypes)
+            {
+                // Texts of the library types through "Export project texts"; the user says which TIA language is the
+                // other language (English is always English).
+                var texts = Path.Combine(folder, "library_types.xlsx");
+                var types = await _tiaSessionService.ExportTextListTypeTextsAsync(texts, [], inWork: false);
+                if (types.Updated.Count == 0 || !File.Exists(texts))
+                {
+                    throw new InvalidOperationException("No text-list library types were found in Project library → Types → SCADA_TEXT_LIST."
+                        + (types.Warnings.Count > 0 ? " " + string.Join("; ", types.Warnings) : ""));
+                }
+
+                var data = ProjectTextsWorkbook.Read(texts);
+                var tiaLanguages = ProjectTextsWorkbook.Languages(texts);
+                var english = tiaLanguages.FirstOrDefault(language => language.Equals("en-US", StringComparison.OrdinalIgnoreCase)) ?? tiaLanguages[0];
+                var keep = new List<string> { english };
+                if (tiaLanguages.Count > 1)
+                {
+                    var current = DescriptionTextListService.GetLanguagePair(_project.DescriptionTextLists?.TextLists ?? new DescriptionTextListData()).Other;
+                    var other = TextLanguageChoiceDialog.Choose(owner, tiaLanguages, english, current, pull: true)
+                                ?? throw new OperationCanceledException("Pull cancelled.");
+                    if (other.Length > 0)
+                    {
+                        keep.Add(other);
+                    }
+                }
+
+                ProjectTextsWorkbook.KeepLanguages(data, keep);
+                return data;
+            }
+
             var result = await _tiaSessionService.ExportTextListsAsync(folder, device);
             var listsFile = result.Files.FirstOrDefault(f => Path.GetFileName(f).Equals("TextLists.hmi.yml", StringComparison.OrdinalIgnoreCase));
             var libraryFile = result.Files.FirstOrDefault(f => Path.GetFileName(f).Equals("TextLists.TextLibrary.hmi.yml", StringComparison.OrdinalIgnoreCase));
@@ -9171,36 +9348,47 @@ public partial class MainWindow : Window
 
             _descriptionTextListService.PushDescriptionsIntoTextLists(_project); // PLC row edits -> text-list data
             var managed = GetManagedDescriptionListNames();
+            var pushService = new ScadaTextListPushService(_tiaSessionService);
+            var messages = new List<string>();
+            var deviceLists = managed;
+            if (libraryTypes)
+            {
+                // Library types are project-wide (a new version updates every SCADA): Export/Import project texts.
+                var notTypes = new List<string>();
+                messages.Add(await pushService.PushLibraryTypesAsync(_project.DescriptionTextLists.TextLists, managed, notTypes,
+                    (languages, english, other) => TextLanguageChoiceDialog.Choose(owner, languages, english, other, pull: false)));
+                if (notTypes.Count == 0)
+                {
+                    return string.Join(Environment.NewLine, messages.Where(message => message.Length > 0));
+                }
+
+                deviceLists = notTypes;
+            }
+
+            // Lists of the SCADA devices: written into every mapped SCADA that has them.
             var devices = GetMappedScadaDeviceNames();
             if (devices.Count == 0)
             {
-                return "No mapped SCADA devices. Map SCADA databases to Unified devices in 'TIA Sync' first.";
+                messages.Add($"{string.Join(", ", deviceLists)}: no mapped SCADA devices — map SCADA databases to Unified devices in 'TIA Sync' first.");
+                return string.Join(Environment.NewLine, messages);
             }
 
-            var pushService = new ScadaTextListPushService(_tiaSessionService);
-            var targets = await pushService.ScanAsync(devices, managed);
-            var selector = new PushTargetsDialog(targets) { Owner = owner };
-            if (selector.ShowDialog() != true)
+            var targets = (await pushService.ScanAsync(devices, deviceLists)).Where(target => target.FoundLists.Count > 0).ToList();
+            if (targets.Count == 0)
             {
-                return "Push cancelled.";
+                messages.Add($"None of the mapped SCADA devices has the lists {string.Join(", ", deviceLists)}.");
             }
 
-            var selected = targets.Where(target => target.Selected).ToList();
-            if (selected.Count == 0)
+            var typesDone = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var target in targets)
             {
-                return "No SCADA selected — nothing pushed.";
+                messages.Add(await pushService.PushAsync(target, _project.DescriptionTextLists.TextLists, deviceLists, typesDone));
             }
 
-            var messages = new List<string>();
-            foreach (var target in selected)
-            {
-                messages.Add(await pushService.PushAsync(target, _project.DescriptionTextLists.TextLists, managed));
-            }
-
-            return string.Join(Environment.NewLine, messages);
+            return string.Join(Environment.NewLine, messages.Where(message => message.Length > 0));
         };
 
-        var dialog = new DescriptionTextListsDialog(_project, _descriptionTextListService, pullFromTia, GetMappedScadaDeviceNames(), pushToTia)
+        var dialog = new DescriptionTextListsDialog(_project, _descriptionTextListService, pullFromTia, GetMappedScadaDeviceNames(), pushToTia, libraryTypes)
         {
             Owner = EditorOwner
         };
