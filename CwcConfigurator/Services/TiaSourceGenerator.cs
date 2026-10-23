@@ -9,7 +9,9 @@ public sealed class TiaSourceGenerator
 {
     private readonly ProjectValidator _validator = new();
     private static readonly Encoding TiaFileEncoding = CreateTiaFileEncoding();
-    private static readonly Encoding TiaStringFileEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+    // UTF-8 WITH BOM, as TIA exports its sources: without the BOM TIA reads the file as ANSI and breaks every
+    // non-ASCII character (å -> Ã¥).
+    private static readonly Encoding TiaStringFileEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
 
     public GenerationResult GenerateAll(CwcProject project)
     {
@@ -839,7 +841,7 @@ public sealed class TiaSourceGenerator
 
     private static string EscapeTiaString(string value)
     {
-        return value.Replace("'", "''");
+        return TextEncodingRepair.Fix(value).Replace("'", "''");
     }
 
     private static string Truncate(string value, int maxLength)
