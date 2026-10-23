@@ -7975,6 +7975,7 @@ public partial class MainWindow : Window
 
     private void BindScadaStyle()
     {
+        ScadaIconNameConverter.Current = _project.Scada;
         _bindingScadaStyle = true;
         ScadaStyleCombo.ItemsSource ??= new[] { "Geppert", "Prime Volt" };
         ScadaStyleCombo.SelectedIndex = _project.Scada.IsPrimeVolt ? 1 : 0;
@@ -8045,12 +8046,17 @@ public partial class MainWindow : Window
         }
 
         cell.GraphicListId = value;
-        // The row objects do not notify: refresh the text box next to the button.
+        // The row objects do not notify: refresh the id and the icon name next to the button.
         if (button.Parent is Panel panel)
         {
             foreach (var box in panel.Children.OfType<TextBox>())
             {
                 box.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+            }
+
+            foreach (var text in panel.Children.OfType<TextBlock>())
+            {
+                text.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
             }
         }
 
@@ -8455,6 +8461,15 @@ public partial class MainWindow : Window
 
     private void ScadaObjectField_LostFocus(object sender, RoutedEventArgs e)
     {
+        // An icon id typed by hand: show the name of its graphic next to it.
+        if (sender is FrameworkElement { Parent: Panel panel })
+        {
+            foreach (var text in panel.Children.OfType<TextBlock>())
+            {
+                text.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
+            }
+        }
+
         RefreshScadaTagValues();
     }
 

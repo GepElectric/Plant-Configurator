@@ -59,6 +59,7 @@
         <local:ReadOnlyForegroundConverter x:Key="ReadOnlyForegroundConverter"/>
         <local:DescriptionTemplateTooltipConverter x:Key="DescriptionTemplateTooltipConverter"/>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <local:ScadaIconNameConverter x:Key="ScadaIconName"/>
         <Style TargetType="DataGridCell">
             <Setter Property="TextBlock.TextWrapping" Value="Wrap"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -2604,13 +2605,15 @@
                                             <DataGridTextColumn Header="ENTRY" Binding="{Binding Entry, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="180" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
                                             <DataGridTextColumn Header="TEXT LANGUAGE 1" Binding="{Binding TextLanguage1, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
                                             <DataGridTextColumn Header="TEXT LANGUAGE 2" Binding="{Binding TextLanguage2, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*" ElementStyle="{StaticResource CenteredCellText}" EditingElementStyle="{StaticResource CenteredEditText}"/>
-                                            <DataGridTemplateColumn Header="GRAPHIC LIST ID" Width="130">
+                                            <DataGridTemplateColumn Header="GRAPHIC LIST ID" Width="230">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <DockPanel>
                                                             <Button DockPanel.Dock="Right" Content="…" Width="24" Margin="3,0,0,0" Tag="MAIN_NAV_BUTTONS" Click="PickScadaIcon_Click"
                                                                     ToolTip="Choose the icon"/>
-                                                            <TextBox Text="{Binding GraphicListId, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" HorizontalContentAlignment="Center" BorderThickness="0"/>
+                                                            <TextBlock DockPanel.Dock="Right" MaxWidth="140" Margin="4,0,0,0" VerticalAlignment="Center" Foreground="#57606A" TextTrimming="CharacterEllipsis"
+                                                                       Text="{Binding GraphicListId, Converter={StaticResource ScadaIconName}, ConverterParameter=MAIN_NAV_BUTTONS}"/>
+                                                            <TextBox Text="{Binding GraphicListId, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" HorizontalContentAlignment="Center" BorderThickness="0" LostFocus="ScadaObjectField_LostFocus"/>
                                                         </DockPanel>
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
@@ -2761,6 +2764,8 @@
     <DockPanel Grid.Row="4" Visibility="{Binding ScadaIconsVisible, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}">
                                                                                 <Button DockPanel.Dock="Right" Content="…" Width="24" Margin="3,0,0,0" Tag="TOP_NAV_ICONS" Click="PickScadaIcon_Click"
                                                                                         ToolTip="Choose the icon"/>
+                                                                                <TextBlock DockPanel.Dock="Right" MaxWidth="140" Margin="4,0,0,0" VerticalAlignment="Center" Foreground="#57606A" TextTrimming="CharacterEllipsis"
+                                                                                           Text="{Binding GraphicListId, Converter={StaticResource ScadaIconName}, ConverterParameter=TOP_NAV_ICONS}"/>
                                                                                 <TextBox Text="{Binding GraphicListId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" LostFocus="ScadaObjectField_LostFocus" ToolTip="GRAPHIC_LIST_ID"/>
                                                                             </DockPanel>
                                                                         </Grid>
@@ -2866,6 +2871,8 @@
 <DockPanel Grid.Row="3" Visibility="{Binding ScadaIconsVisible, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}">
                                                                             <Button DockPanel.Dock="Right" Content="…" Width="24" Margin="3,0,0,0" Tag="TREND_ICONS" Click="PickScadaIcon_Click"
                                                                                     ToolTip="Choose the icon"/>
+                                                                            <TextBlock DockPanel.Dock="Right" MaxWidth="140" Margin="4,0,0,0" VerticalAlignment="Center" Foreground="#57606A" TextTrimming="CharacterEllipsis"
+                                                                                       Text="{Binding GraphicListId, Converter={StaticResource ScadaIconName}, ConverterParameter=TREND_ICONS}"/>
                                                                             <TextBox Text="{Binding GraphicListId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" LostFocus="ScadaObjectField_LostFocus" ToolTip="GRAPHIC_LIST_ID"/>
                                                                         </DockPanel>
                                                                     </Grid>

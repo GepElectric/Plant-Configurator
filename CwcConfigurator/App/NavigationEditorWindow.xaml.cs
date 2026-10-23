@@ -37,6 +37,7 @@ public partial class NavigationEditorWindow : Window
     public NavigationEditorWindow(ScadaDatabase database, IReadOnlyList<string> screenCatalog, Func<Task<IReadOnlyList<string>>>? screenRefresh = null,
         IReadOnlyCollection<string>? tiaScreens = null)
     {
+        ScadaIconNameConverter.Current = database;
         InitializeComponent();
         _database = database;
         _screenRefresh = screenRefresh;

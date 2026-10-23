@@ -2,9 +2,13 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:sim="clr-namespace:CwcConfigurator.App.Simulation"
+        xmlns:local="clr-namespace:CwcConfigurator.App"
         x:Name="Root"
         Title="Configure navigation" Height="720" Width="1180"
         WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <local:ScadaIconNameConverter x:Key="ScadaIconName"/>
+    </Window.Resources>
     <DockPanel Margin="10">
         <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <Button DockPanel.Dock="Left" x:Name="RefreshScreensButton" Content="Refresh screens from TIA" Click="RefreshScreens_Click" MinWidth="180"/>
@@ -71,6 +75,8 @@
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Icon (id):" VerticalAlignment="Center" Margin="0,3,6,3"/>
                         <DockPanel Grid.Row="2" Grid.Column="1" Margin="0,3">
                             <Button DockPanel.Dock="Right" Content="…" Width="26" Margin="3,0,0,0" Click="PickButtonIcon_Click" ToolTip="Choose the icon (MAIN_NAV_BUTTONS)"/>
+                            <TextBlock DockPanel.Dock="Right" Width="150" Margin="6,0,0,0" VerticalAlignment="Center" Foreground="#57606A" TextTrimming="CharacterEllipsis"
+                                       Text="{Binding IconId, Converter={StaticResource ScadaIconName}, ConverterParameter=MAIN_NAV_BUTTONS}"/>
                             <TextBox Text="{Binding IconId, UpdateSourceTrigger=PropertyChanged}"/>
                         </DockPanel>
                         <TextBlock Grid.Row="2" Grid.Column="2" Text="First top nav:" VerticalAlignment="Center" Margin="12,3,6,3"/>
@@ -122,11 +128,13 @@
                         </DataGridTemplateColumn>
                         <DataGridTextColumn Header="Label EN" Width="*" Binding="{Binding LabelEn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                         <DataGridTextColumn Header="Label 2nd" Width="*" Binding="{Binding LabelOther, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                        <DataGridTemplateColumn x:Name="CardIconColumn" Header="Icon (id)" Width="100">
+                        <DataGridTemplateColumn x:Name="CardIconColumn" Header="Icon (id)" Width="200">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <DockPanel>
                                         <Button DockPanel.Dock="Right" Content="…" Width="24" Margin="3,0,0,0" Click="PickCardIcon_Click" ToolTip="Choose the icon (TOP_NAV_ICONS)"/>
+                                        <TextBlock DockPanel.Dock="Right" Width="110" Margin="4,0,0,0" VerticalAlignment="Center" Foreground="#57606A" TextTrimming="CharacterEllipsis"
+                                                   Text="{Binding IconId, Converter={StaticResource ScadaIconName}, ConverterParameter=TOP_NAV_ICONS}"/>
                                         <TextBox Text="{Binding IconId, UpdateSourceTrigger=PropertyChanged}" BorderThickness="0" VerticalContentAlignment="Center"/>
                                     </DockPanel>
                                 </DataTemplate>
