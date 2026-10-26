@@ -203,6 +203,15 @@
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,0,0">
                                 <TextBlock Text="Search" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                 <TextBox x:Name="SearchBox" Width="240" VerticalContentAlignment="Center" TextChanged="Filter_Changed"/>
+                                <TextBlock Text="Module" VerticalAlignment="Center" Margin="16,0,6,0"/>
+                                <TextBox x:Name="ModuleFilterBox" Width="60" VerticalContentAlignment="Center" TextChanged="Filter_Changed"
+                                         ToolTip="Module number(s) or name: 3, 1-4, 1,3,7-9 or part of the module name. Empty = all."/>
+                                <TextBlock Text="Port" VerticalAlignment="Center" Margin="10,0,6,0"/>
+                                <TextBox x:Name="ChannelFilterBox" Width="60" VerticalContentAlignment="Center" TextChanged="Filter_Changed"
+                                         ToolTip="Channel (port) number(s): 3, 1-4 or 1,3,7-9. Empty = all."/>
+                                <TextBlock Text="ID" VerticalAlignment="Center" Margin="10,0,6,0"/>
+                                <TextBox x:Name="IdFilterBox" Width="70" VerticalContentAlignment="Center" TextChanged="Filter_Changed"
+                                         ToolTip="Signal ID(s): 12, 10-20 or 1,5,30-40. Empty = all."/>
                                 <CheckBox x:Name="ShowDisabledCheck" Content="Show disabled channels" VerticalAlignment="Center" Margin="16,0,0,0"
                                           Checked="Filter_Changed" Unchecked="Filter_Changed"/>
                                 <CheckBox x:Name="RawEntryCheck" Content="Enter raw values" VerticalAlignment="Center" Margin="16,0,0,0"
@@ -222,7 +231,7 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="TYPE" Width="50" MinWidth="50" Binding="{Binding KindText}"/>
                             <DataGridTextColumn Header="DIR" Width="58" MinWidth="58" Binding="{Binding DirectionText}"/>
-                            <DataGridTextColumn Header="MOD" Width="44" MinWidth="44" Binding="{Binding Module}"/>
+                            <DataGridTextColumn Header="MOD" Width="90" MinWidth="44" Binding="{Binding ModuleText}" SortMemberPath="Module"/>
                             <DataGridTextColumn Header="CH" Width="40" MinWidth="40" Binding="{Binding Channel}"/>
                             <DataGridTextColumn Header="ID" Width="50" MinWidth="50" Binding="{Binding Id}"/>
                             <DataGridTextColumn Header="SYSTEM" Width="150" MinWidth="100" Binding="{Binding System}"/>

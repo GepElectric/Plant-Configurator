@@ -956,7 +956,10 @@ public partial class SimulatorWindow : Window
             7 => signal.InDeviceDb,
             _ => true
         };
-        if (!kindMatches)
+        if (!kindMatches
+            || !NumberFilter.Matches(ModuleFilterBox.Text, signal.Module, signal.ModuleName)
+            || !NumberFilter.Matches(ChannelFilterBox.Text, signal.Channel)
+            || !NumberFilter.Matches(IdFilterBox.Text, signal.Id))
         {
             return false;
         }
