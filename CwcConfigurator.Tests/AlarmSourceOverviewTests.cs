@@ -31,13 +31,16 @@ public sealed class AlarmSourceOverviewTests
         var hwAi = new[] { new AnalogSignalConfig { Id = 4, ModuleNumber = 0, Port = 2, Config = SignalConfigState.Enabled } };
         var hwRtd = new[] { new AnalogSignalConfig { Id = 30, ModuleNumber = 3, Port = 0, Config = SignalConfigState.Enabled } };
 
-        var links = AlarmSourceOverview.Build(alarms, [new DbStringRow { Id = 5, PlcName = "BREAKER_ON" }], [], hwDi, hwAi, hwRtd);
+        var modules = new ModuleCatalog { DigitalInputs = [new ModuleNameRow { ModuleNumber = 0, ModuleName = "DI_A1" }] };
+        var links = AlarmSourceOverview.Build(alarms, [new DbStringRow { Id = 5, PlcName = "BREAKER_ON" }], [], hwDi, hwAi, hwRtd, modules);
 
         Assert.Equal(new[] { 11, 23, 12, 10 }, Ids(links, AlarmSourceCategory.DigitalInput));
         Assert.Equal(new[] { 20, 21 }, Ids(links, AlarmSourceCategory.AnalogInput));
         Assert.Equal(new[] { 22, 23 }, Ids(links, AlarmSourceCategory.Rtd));
         Assert.Equal(new[] { 3, 13 }, Ids(links, AlarmSourceCategory.Program));
         Assert.Equal("BREAKER_ON", links.Single(link => link.Alarm.Id == 12).Source?.PlcName);
+        Assert.Equal("DI_A1", links.Single(link => link.Alarm.Id == 12).ModuleName);
+        Assert.Equal("1", links.Single(link => link.Alarm.Id == 10).ModuleName);
     }
 
     [Fact]

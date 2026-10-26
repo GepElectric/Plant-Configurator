@@ -22,4 +22,15 @@ public sealed class NumberFilterTests
     {
         Assert.Equal(expected, NumberFilter.Matches(filter, value));
     }
+
+    [Theory]
+    [InlineData("DI_A1", 3, "DI_A1 +A1", true)]
+    [InlineData("a1", 3, "DI_A1 +A1", true)]
+    [InlineData("A2", 3, "DI_A1 +A1", false)]
+    [InlineData("3", 3, "DI_A1 +A1", true)]
+    [InlineData("A2,3", 3, "DI_A1 +A1", true)]
+    public void Matches_ModuleNameText(string filter, int value, string name, bool expected)
+    {
+        Assert.Equal(expected, NumberFilter.Matches(filter, value, name));
+    }
 }

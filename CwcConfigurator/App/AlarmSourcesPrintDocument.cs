@@ -22,7 +22,7 @@ public static class AlarmSourcesPrintDocument
 
     private static readonly Column[] Columns =
     [
-        new("MOD", row => row.Module, 3.2, Hardware: true),
+        new("MODULE", row => row.Module, 7, Hardware: true),
         new("PORT", row => row.Port, 3.2, Hardware: true),
         new("SRC ID", row => row.SourceId, 3.6, Hardware: true),
         new("SOURCE NAME", row => row.SourceName, 10, Hardware: true),

@@ -5971,10 +5971,10 @@ public partial class MainWindow : Window
         }
 
         var catalog = _project.DbCatalog;
-        var rows = AlarmSourceOverview.Build(catalog.AlarmRows, catalog.DiRows, catalog.MeasRows, _project.DigitalInputs, _project.AnalogInputs, _project.RtdInputs)
+        var rows = AlarmSourceOverview.Build(catalog.AlarmRows, catalog.DiRows, catalog.MeasRows, _project.DigitalInputs, _project.AnalogInputs, _project.RtdInputs, _project.ModuleCatalog)
             .Select(link => new AlarmSourceViewRow(
                 link.Category,
-                link.Module,
+                link.ModuleName,
                 link.Port?.ToString(CultureInfo.InvariantCulture) ?? "",
                 link.SourceId?.ToString(CultureInfo.InvariantCulture) ?? "",
                 link.Source is null ? "" : link.Source.PlcName,

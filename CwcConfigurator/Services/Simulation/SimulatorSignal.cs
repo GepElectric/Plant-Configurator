@@ -40,6 +40,11 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
 
     public required SimulatorSignalKind Kind { get; init; }
     public required int Module { get; init; }
+
+    /// <summary>Name from the module table; the number when the module has no name.</summary>
+    public string ModuleName { get; init; } = "";
+
+    public string ModuleText => ModuleName.Length > 0 ? ModuleName : Module.ToString(global::System.Globalization.CultureInfo.InvariantCulture);
     public required int Channel { get; init; }
     public required int Id { get; init; }
     public SignalConfigState Config { get; init; }
@@ -216,7 +221,7 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
         set => Set(ref _setText, value ?? "");
     }
 
-    public string SearchText => $"{Kind} {Module} {Channel} {Id} {System} {Name} {PlcName} {Address}";
+    public string SearchText => $"{Kind} {Module} {ModuleName} {Channel} {Id} {System} {Name} {PlcName} {Address}";
 
     /// <summary>Updates the live value from the reads of the simulator DB and the devices DB.</summary>
     public void UpdateFrom(byte[] simulatorDb, byte[] devicesDb) => UpdateFrom(InDeviceDb ? devicesDb : simulatorDb);

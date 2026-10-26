@@ -16,6 +16,7 @@ public enum AlarmSourceCategory
 public sealed record AlarmSourceLink(
     AlarmSourceCategory Category,
     string Module,
+    string ModuleName,
     int? Port,
     int? SourceId,
     DbStringRow? Source,
@@ -39,7 +40,8 @@ public static class AlarmSourceOverview
         IEnumerable<DbStringRow> measRows,
         IEnumerable<DigitalSignalConfig> hwDigitalInputs,
         IEnumerable<AnalogSignalConfig> hwAnalogInputs,
-        IEnumerable<AnalogSignalConfig> hwRtdInputs)
+        IEnumerable<AnalogSignalConfig> hwRtdInputs,
+        ModuleCatalog? modules = null)
     {
         var digital = ById(hwDigitalInputs.Where(input => input.Config != SignalConfigState.Disabled), input => input.Id);
         var analog = ById(hwAnalogInputs.Where(input => input.Config != SignalConfigState.Disabled), input => input.Id);
@@ -61,7 +63,7 @@ public static class AlarmSourceOverview
                 var (module, port) = digitalId is not null && digital.TryGetValue(digitalId.Value, out var hw)
                     ? (hw.ModuleNumber.ToString(CultureInfo.InvariantCulture), (int?)hw.Port)
                     : Assigned(input);
-                links.Add(new AlarmSourceLink(AlarmSourceCategory.DigitalInput, module, port, digitalId, input, alarm));
+                links.Add(new AlarmSourceLink(AlarmSourceCategory.DigitalInput, module, Name(modules?.DigitalInputs, module), port, digitalId, input, alarm));
             }
 
             if (type is 2 or 3)
@@ -69,20 +71,21 @@ public static class AlarmSourceOverview
                 var measurement = analogId is null ? null : measurements.GetValueOrDefault(analogId.Value);
                 if (analogId is not null && rtd.TryGetValue(analogId.Value, out var rtdInput) && !analog.ContainsKey(analogId.Value))
                 {
-                    links.Add(new AlarmSourceLink(AlarmSourceCategory.Rtd, rtdInput.ModuleNumber.ToString(CultureInfo.InvariantCulture), rtdInput.Port, analogId, measurement, alarm));
+                    var module = rtdInput.ModuleNumber.ToString(CultureInfo.InvariantCulture);
+                    links.Add(new AlarmSourceLink(AlarmSourceCategory.Rtd, module, Name(modules?.RtdInputs, module), rtdInput.Port, analogId, measurement, alarm));
                 }
                 else
                 {
                     var (module, port) = analogId is not null && analog.TryGetValue(analogId.Value, out var aiInput)
                         ? (aiInput.ModuleNumber.ToString(CultureInfo.InvariantCulture), (int?)aiInput.Port)
                         : Assigned(measurement);
-                    links.Add(new AlarmSourceLink(AlarmSourceCategory.AnalogInput, module, port, analogId, measurement, alarm));
+                    links.Add(new AlarmSourceLink(AlarmSourceCategory.AnalogInput, module, Name(modules?.AnalogInputs, module), port, analogId, measurement, alarm));
                 }
             }
 
             if (type == 0)
             {
-                links.Add(new AlarmSourceLink(AlarmSourceCategory.Program, "", null, null, null, alarm));
+                links.Add(new AlarmSourceLink(AlarmSourceCategory.Program, "", "", null, null, null, alarm));
             }
         }
 
@@ -95,6 +98,12 @@ public static class AlarmSourceOverview
     }
 
     // Module / port assigned in DB DI or DB MEAS (MODULE NAME, MODULE PORT) when the input has no HW configuration.
+    // Name from the module table for a module number; other texts ("no HW", a DB module name) stay as they are.
+    private static string Name(IEnumerable<ModuleNameRow>? modules, string module)
+    {
+        return int.TryParse(module, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? ModuleNames.Resolve(modules, number) : module;
+    }
+
     // "no HW" when the input has neither a HW configuration nor a module assignment.
     private static (string Module, int? Port) Assigned(DbStringRow? row)
     {

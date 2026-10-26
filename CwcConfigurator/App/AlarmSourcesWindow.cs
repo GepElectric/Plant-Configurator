@@ -118,7 +118,7 @@ public sealed class AlarmSourcesWindow : Window
         };
         if (hardware)
         {
-            AddColumn(grid, "MOD", nameof(AlarmSourceViewRow.Module), 50);
+            AddColumn(grid, "MODULE", nameof(AlarmSourceViewRow.Module), 120);
             AddColumn(grid, "PORT", nameof(AlarmSourceViewRow.Port), 50);
             AddColumn(grid, sourceKind + " ID", nameof(AlarmSourceViewRow.SourceId), 65);
             AddColumn(grid, sourceKind + " NAME", nameof(AlarmSourceViewRow.SourceName), 170);

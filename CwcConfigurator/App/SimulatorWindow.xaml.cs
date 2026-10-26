@@ -957,7 +957,7 @@ public partial class SimulatorWindow : Window
             _ => true
         };
         if (!kindMatches
-            || !NumberFilter.Matches(ModuleFilterBox.Text, signal.Module)
+            || !NumberFilter.Matches(ModuleFilterBox.Text, signal.Module, signal.ModuleName)
             || !NumberFilter.Matches(ChannelFilterBox.Text, signal.Channel)
             || !NumberFilter.Matches(IdFilterBox.Text, signal.Id))
         {

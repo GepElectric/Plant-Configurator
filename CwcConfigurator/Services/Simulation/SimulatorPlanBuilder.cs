@@ -18,6 +18,7 @@ public static class SimulatorPlanBuilder
         var parRows = ById(catalog.ParameterRows);
         var aoRows = catalog.AoRows.GroupBy(row => row.AoNumber).ToDictionary(group => group.Key, group => group.First());
         var signals = new List<SimulatorSignal>();
+        var modules = project.ModuleCatalog;
 
         foreach (var row in project.DigitalInputs.Where(row => row.ModuleNumber < layout.DiModules && row.Port < layout.DiChannels))
         {
@@ -27,6 +28,7 @@ public static class SimulatorPlanBuilder
             {
                 Kind = SimulatorSignalKind.DI,
                 Module = row.ModuleNumber,
+                ModuleName = ModuleNames.Resolve(modules?.DigitalInputs, row.ModuleNumber),
                 Channel = row.Port,
                 Id = row.Id,
                 Config = row.Config,
@@ -45,6 +47,7 @@ public static class SimulatorPlanBuilder
             {
                 Kind = SimulatorSignalKind.AI,
                 Module = row.ModuleNumber,
+                ModuleName = ModuleNames.Resolve(modules?.AnalogInputs, row.ModuleNumber),
                 Channel = row.Port,
                 Id = row.Id,
                 Config = row.Config,
@@ -64,6 +67,7 @@ public static class SimulatorPlanBuilder
             {
                 Kind = SimulatorSignalKind.RTD,
                 Module = row.ModuleNumber,
+                ModuleName = ModuleNames.Resolve(modules?.RtdInputs, row.ModuleNumber),
                 Channel = row.Port,
                 Id = row.Id,
                 Config = row.Config,
@@ -83,6 +87,7 @@ public static class SimulatorPlanBuilder
             {
                 Kind = SimulatorSignalKind.COUNTER,
                 Module = row.ModuleNumber,
+                ModuleName = ModuleNames.Resolve(modules?.Counters, row.ModuleNumber),
                 Channel = 0,
                 Id = row.Id,
                 Config = row.Config,
@@ -102,6 +107,7 @@ public static class SimulatorPlanBuilder
             {
                 Kind = SimulatorSignalKind.DO,
                 Module = row.ModuleNumber,
+                ModuleName = ModuleNames.Resolve(modules?.DigitalOutputs, row.ModuleNumber),
                 Channel = row.Port,
                 Id = row.Id,
                 Config = row.Config,
@@ -125,6 +131,7 @@ public static class SimulatorPlanBuilder
             {
                 Kind = SimulatorSignalKind.AO,
                 Module = row.ModuleNumber,
+                ModuleName = ModuleNames.Resolve(modules?.AnalogOutputs, row.ModuleNumber),
                 Channel = row.Port,
                 Id = row.Id,
                 Config = row.Config,
