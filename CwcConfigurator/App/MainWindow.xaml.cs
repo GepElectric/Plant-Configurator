@@ -5961,8 +5961,8 @@ public partial class MainWindow : Window
         return "";
     }
 
-    // DB ALM alarms whose source is a digital input, with that input's module and port (HW configuration).
-    private void DbAlmDiAlarms_Click(object sender, RoutedEventArgs e)
+    // Used DB ALM alarms by source of alarm (digital input, AI, RTD by module / port; program alarms by ID).
+    private void DbAlmAlarmSources_Click(object sender, RoutedEventArgs e)
     {
         if (!_projectOpen)
         {
@@ -5971,12 +5971,13 @@ public partial class MainWindow : Window
         }
 
         var catalog = _project.DbCatalog;
-        var rows = DiAlarmOverview.Build(catalog.AlarmRows, catalog.DiRows, _project.DigitalInputs)
-            .Select(link => new DiAlarmViewRow(
-                link.Module?.ToString(CultureInfo.InvariantCulture) ?? "",
+        var rows = AlarmSourceOverview.Build(catalog.AlarmRows, catalog.DiRows, catalog.MeasRows, _project.DigitalInputs, _project.AnalogInputs, _project.RtdInputs)
+            .Select(link => new AlarmSourceViewRow(
+                link.Category,
+                link.Module,
                 link.Port?.ToString(CultureInfo.InvariantCulture) ?? "",
-                link.InputId,
-                link.Input is null ? "" : link.Input.PlcName,
+                link.SourceId?.ToString(CultureInfo.InvariantCulture) ?? "",
+                link.Source is null ? "" : link.Source.PlcName,
                 link.Alarm.Id,
                 link.Alarm.PlcStructure,
                 link.Alarm.PlcName,
@@ -5995,7 +5996,7 @@ public partial class MainWindow : Window
                 ValidationText(DbValidationDefaults.DbAlmTimeBase, link.Alarm.TimeBase)))
             .ToList();
         var plcName = _project.PlcDatabases.FirstOrDefault(database => database.IsActive)?.Name ?? _project.ProjectName;
-        new DiAlarmsWindow(plcName, rows) { Owner = this }.Show();
+        new AlarmSourcesWindow(plcName, rows) { Owner = this }.Show();
     }
 
     private string FormatAlarmSource(DbStringRow row)
