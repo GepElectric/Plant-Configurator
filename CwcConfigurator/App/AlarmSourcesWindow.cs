@@ -1,6 +1,8 @@
+using System.Printing;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Documents;
 using CwcConfigurator.Services;
 
 namespace CwcConfigurator.App;
@@ -54,6 +56,14 @@ public sealed class AlarmSourcesWindow : Window
         var close = new Button { Content = "Close", Width = 86, IsCancel = true };
         DockPanel.SetDock(close, Dock.Right);
         footer.Children.Add(close);
+        var paper = new ComboBox { Width = 130, Margin = new Thickness(0, 0, 8, 0), ItemsSource = new[] { "A4 landscape", "A3 landscape" }, SelectedIndex = 0,
+            ToolTip = "A4: all columns, small print (7 pt). A3: all columns, normal print (9.5 pt)." };
+        var print = new Button { Content = "Print...", Width = 86, Margin = new Thickness(0, 0, 8, 0) };
+        print.Click += (_, _) => Print(Title, rows, paper.SelectedIndex == 1);
+        DockPanel.SetDock(print, Dock.Right);
+        DockPanel.SetDock(paper, Dock.Right);
+        footer.Children.Add(print);
+        footer.Children.Add(paper);
         footer.Children.Add(new TextBlock
         {
             VerticalAlignment = VerticalAlignment.Center,
@@ -68,6 +78,23 @@ public sealed class AlarmSourcesWindow : Window
         root.Children.Add(footer);
         root.Children.Add(tabs);
         Content = root;
+    }
+
+    // All categories, table after table, on landscape A4 or A3 (the printer dialog also allows "Microsoft Print to PDF").
+    private void Print(string title, IReadOnlyList<AlarmSourceViewRow> rows, bool a3)
+    {
+        var dialog = new PrintDialog();
+        dialog.PrintTicket.PageOrientation = PageOrientation.Landscape;
+        dialog.PrintTicket.PageMediaSize = new PageMediaSize(a3 ? PageMediaSizeName.ISOA3 : PageMediaSizeName.ISOA4);
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var document = AlarmSourcesPrintDocument.Create(title, rows, a3);
+        var paginator = ((IDocumentPaginatorSource)document).DocumentPaginator;
+        paginator.PageSize = AlarmSourcesPrintDocument.LandscapeSize(a3);
+        dialog.PrintDocument(paginator, title);
     }
 
     private static void AddTab(TabControl tabs, string title, string sourceKind, IReadOnlyList<AlarmSourceViewRow> rows, AlarmSourceCategory category)
