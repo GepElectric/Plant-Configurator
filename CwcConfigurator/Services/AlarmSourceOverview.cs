@@ -49,10 +49,12 @@ public static class AlarmSourceOverview
         var links = new List<AlarmSourceLink>();
         foreach (var alarm in alarmRows.Where(row => IsUsed(row.Used)))
         {
-            var digitalId = PositiveInt(alarm.SourceDigId);
-            var analogId = PositiveInt(alarm.SourceAnaId);
-            // Without SOURCE TYPE (not pulled yet) it follows from the source IDs.
-            var type = SourceType(alarm.SourceType) ?? (digitalId is not null ? 1 : 0) + (analogId is not null ? 2 : 0);
+            // With SOURCE TYPE the source IDs may be 0 (DI 0 / MEAS 0 are real inputs); without it (not pulled yet)
+            // the type follows from the source IDs, where 0 means "none".
+            var type = SourceType(alarm.SourceType);
+            var digitalId = type is null ? PositiveInt(alarm.SourceDigId) : NonNegativeInt(alarm.SourceDigId);
+            var analogId = type is null ? PositiveInt(alarm.SourceAnaId) : NonNegativeInt(alarm.SourceAnaId);
+            type ??= (digitalId is not null ? 1 : 0) + (analogId is not null ? 2 : 0);
             if (type is 1 or 3)
             {
                 var input = digitalId is null ? null : inputs.GetValueOrDefault(digitalId.Value);
@@ -93,10 +95,14 @@ public static class AlarmSourceOverview
     }
 
     // Module / port assigned in DB DI or DB MEAS (MODULE NAME, MODULE PORT) when the input has no HW configuration.
+    // "no HW" when the input has neither a HW configuration nor a module assignment.
     private static (string Module, int? Port) Assigned(DbStringRow? row)
     {
-        return row is null ? ("", null) : (row.ModuleName.Trim(), row.ModulePort);
+        var module = row?.ModuleName.Trim() ?? "";
+        return module.Length == 0 ? (NoHardware, null) : (module, row!.ModulePort);
     }
+
+    public const string NoHardware = "no HW";
 
     private static Dictionary<int, T> ById<T>(IEnumerable<T> items, Func<T, int> id)
     {
@@ -106,6 +112,11 @@ public static class AlarmSourceOverview
     private static int? SourceType(string value)
     {
         return int.TryParse((value ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) && number is >= 0 and <= 3 ? number : null;
+    }
+
+    private static int? NonNegativeInt(string value)
+    {
+        return int.TryParse((value ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) && number >= 0 ? number : null;
     }
 
     private static int? PositiveInt(string value)

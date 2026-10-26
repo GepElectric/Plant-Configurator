@@ -53,6 +53,21 @@ public sealed class AlarmSourceOverviewTests
         Assert.Equal(2, links.Single(link => link.Category == AlarmSourceCategory.Program).Alarm.Id);
     }
 
+    [Fact]
+    public void Build_DigitalInputZeroIsAnInput_AndInputWithoutHardwareIsMarked()
+    {
+        var alarms = new[] { Alarm(392, "1", dig: "0", ana: "0"), Alarm(104, "1", dig: "1", ana: "0") };
+        var inputs = new[] { new DbStringRow { Id = 1, PlcName = "CTRL_LOCAL" } };
+        var hwDi = new[] { new DigitalSignalConfig { Id = 0, ModuleNumber = 0, Port = 0, Config = SignalConfigState.Enabled } };
+
+        var links = AlarmSourceOverview.Build(alarms, inputs, [], hwDi, [], []);
+
+        Assert.Equal(new[] { 392, 104 }, Ids(links, AlarmSourceCategory.DigitalInput));
+        Assert.Equal(("0", (int?)0, (int?)0), (links[0].Module, links[0].Port, links[0].SourceId));
+        Assert.Equal(AlarmSourceOverview.NoHardware, links[1].Module);
+        Assert.Empty(Ids(links, AlarmSourceCategory.AnalogInput));
+    }
+
     private static DbStringRow Alarm(int id, string type, string dig = "", string ana = "", string used = "1")
     {
         return new DbStringRow { Id = id, Used = used, SourceType = type, SourceDigId = dig, SourceAnaId = ana };
