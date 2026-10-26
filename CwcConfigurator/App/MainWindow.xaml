@@ -1891,6 +1891,8 @@
                                 </ListBox>
                                 <TextBox x:Name="DbAlmTextFilter" Width="180" Height="26" Margin="8,0,0,0" TextChanged="DbTextFilter_TextChanged" ToolTip="Text filter"/>
                                 <Button Content="Clear filter" Click="ClearDbAlmFilters_Click"/>
+                                <Button Content="DI alarms..." Click="DbAlmDiAlarms_Click" Margin="6,0,0,0"
+                                        ToolTip="Used alarms raised by digital inputs (SOURCE DIG ID), ordered by module 0 and its ports, module 1 …"/>
                                 <Button Content="Refresh XRef" Tag="DB ALM" Click="UpdateDbCrossReferenceCounts_Click" ToolTip="Scan all DB ALM rows in TIA and update cross-reference usage counts"/>
                                 <Separator Width="10" Opacity="0"/>
                                 <TextBlock x:Name="DbAlmTiaStatusText" Text="TIA: not checked" VerticalAlignment="Center" Margin="8,0,4,0" Foreground="#57606A"/>

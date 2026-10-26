@@ -5961,6 +5961,43 @@ public partial class MainWindow : Window
         return "";
     }
 
+    // DB ALM alarms whose source is a digital input, with that input's module and port (HW configuration).
+    private void DbAlmDiAlarms_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_projectOpen)
+        {
+            ShowMessage("No project is open.");
+            return;
+        }
+
+        var catalog = _project.DbCatalog;
+        var rows = DiAlarmOverview.Build(catalog.AlarmRows, catalog.DiRows, _project.DigitalInputs)
+            .Select(link => new DiAlarmViewRow(
+                link.Module?.ToString(CultureInfo.InvariantCulture) ?? "",
+                link.Port?.ToString(CultureInfo.InvariantCulture) ?? "",
+                link.InputId,
+                link.Input is null ? "" : link.Input.PlcName,
+                link.Alarm.Id,
+                link.Alarm.PlcStructure,
+                link.Alarm.PlcName,
+                link.Alarm.SystemNameEnglish,
+                link.Alarm.NameEnglish,
+                link.Alarm.SystemNameOther,
+                link.Alarm.NameOther,
+                ValidationText(DbValidationDefaults.DbAlmEnableDisable, link.Alarm.AlarmControl),
+                ValidationText(DbValidationDefaults.DbAlmYesNo, link.Alarm.SrAlarm),
+                ValidationText(DbValidationDefaults.DbAlmAlarmClass, link.Alarm.AlarmClass),
+                ValidationText(DbValidationDefaults.DbAlmReactToUnit, link.Alarm.ReactToUnit),
+                ValidationText(DbValidationDefaults.DbAlmAlarmClass, link.Alarm.Spare),
+                ValidationText(DbValidationDefaults.DbAlmBlockingClass, link.Alarm.BlockingClass1),
+                ValidationText(DbValidationDefaults.DbAlmBlockingClass, link.Alarm.BlockingClass2),
+                link.Alarm.Delay,
+                ValidationText(DbValidationDefaults.DbAlmTimeBase, link.Alarm.TimeBase)))
+            .ToList();
+        var plcName = _project.PlcDatabases.FirstOrDefault(database => database.IsActive)?.Name ?? _project.ProjectName;
+        new DiAlarmsWindow(plcName, rows) { Owner = this }.Show();
+    }
+
     private string FormatAlarmSource(DbStringRow row)
     {
         var digitalSource = FormatSourceReference("Digital", row.SourceDigId, _project.DbCatalog.DiRows);
