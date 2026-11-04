@@ -1,4 +1,5 @@
 using System.Globalization;
+using YamlDotNet.Serialization;
 
 namespace CwcConfigurator.Services.Simulation.Process;
 
@@ -44,6 +45,7 @@ public sealed class RelaySwitch
     public List<string> PositionList() => Positions.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
 
     /// <summary>The current position, or the first one when it is not set.</summary>
+    [YamlIgnore]
     public string Current => PositionList() is { Count: > 0 } list
         ? list.FirstOrDefault(item => item.Equals(Position.Trim(), StringComparison.OrdinalIgnoreCase)) ?? list[0]
         : "";
@@ -84,8 +86,10 @@ public sealed class RelayElement
     /// <summary>Parallel branches, each a series of elements (Kind = Parallel).</summary>
     public List<List<RelayElement>> Branches { get; set; } = [];
 
+    [YamlIgnore]
     public bool IsParallel => Kind.Equals(RelayElementKind.Parallel, StringComparison.OrdinalIgnoreCase);
 
+    [YamlIgnore]
     public bool IsNormallyClosed => Contact.Equals("NC", StringComparison.OrdinalIgnoreCase);
 
     public (string Common, string Nc, string No) Terminals()

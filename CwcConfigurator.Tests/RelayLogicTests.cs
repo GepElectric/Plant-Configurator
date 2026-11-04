@@ -184,6 +184,8 @@ public sealed class RelayLogicTests
 
         var yaml = ProcessModelStore.ToYaml(new Dictionary<string, ProcessModel> { ["Intake"] = model });
         var loaded = ProcessModelStore.FromYaml(yaml)["Intake"];
+        Assert.DoesNotContain("isParallel", yaml);
+        Assert.DoesNotContain("isNormallyClosed", yaml);
 
         var circuit = loaded.RelaySheets.Single().Circuits.Single();
         Assert.Equal("GATE 1\nOPEN", circuit.Coil.Text);
