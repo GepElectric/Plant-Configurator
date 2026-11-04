@@ -45,7 +45,6 @@ public sealed class RelayLogicView : UserControl
     private string _plc = "";
     private int _sheetIndex;
     private object? _selected; // RelayElement, RelayCoil, RelaySwitch or RelaySheet
-    private readonly WrapPanel _switchBar = new() { Margin = new Thickness(8, 4, 8, 4) };
     private bool _loadingSheets;
 
     public RelayLogicView()
@@ -70,7 +69,7 @@ public sealed class RelayLogicView : UserControl
         toolbar.Children.Add(ToolButton("Contact below", "Add a contact in series below the selected contact (or above the selected coil).", (_, _) => AddSeries()));
         toolbar.Children.Add(ToolButton("Contact beside", "Add a contact in parallel to the selected contact or parallel group.", (_, _) => AddParallel()));
         toolbar.Children.Add(ToolButton("Delete", "Delete the selected contact (or the whole path when the coil is selected). Del key.", (_, _) => DeleteSelected()));
-        toolbar.Children.Add(ToolButton("New switch", "Add a selector switch with 2 or 3 positions (operate it in the bar below).", (_, _) => NewSwitch()));
+        toolbar.Children.Add(ToolButton("Switch contact", "Make the selected contact a contact of a selector switch (2 or 3 positions), or add one below the selected element. Turn the switch by clicking its knob on the sheet.", (_, _) => SwitchContact()));
         toolbar.Children.Add(ToolButton("◀", "Move the selected path to the left.", (_, _) => MovePath(-1)));
         toolbar.Children.Add(ToolButton("▶", "Move the selected path to the right.", (_, _) => MovePath(1)));
         toolbar.Children.Add(_status);
@@ -105,9 +104,6 @@ public sealed class RelayLogicView : UserControl
         var toolbarBorder = new Border { Child = toolbar, BorderBrush = new SolidColorBrush(Color.FromRgb(0xE5, 0xE7, 0xEB)), BorderThickness = new Thickness(0, 0, 0, 1), Background = Brushes.White };
         DockPanel.SetDock(toolbarBorder, Dock.Top);
         left.Children.Add(toolbarBorder);
-        var switchBorder = new Border { Child = _switchBar, BorderBrush = new SolidColorBrush(Color.FromRgb(0xE5, 0xE7, 0xEB)), BorderThickness = new Thickness(0, 0, 0, 1), Background = new SolidColorBrush(Color.FromRgb(0xF9, 0xFA, 0xFB)) };
-        DockPanel.SetDock(switchBorder, Dock.Top);
-        left.Children.Add(switchBorder);
         left.Children.Add(canvasHost);
 
         var right = new Border
@@ -133,7 +129,6 @@ public sealed class RelayLogicView : UserControl
         controller.ModelChanged += () =>
         {
             LoadSheets();
-            BuildSwitchBar();
             Redraw();
         };
     }
@@ -143,7 +138,6 @@ public sealed class RelayLogicView : UserControl
         _plc = plc;
         _sheetIndex = 0;
         LoadSheets();
-        BuildSwitchBar();
         _selected = Sheet;
         Redraw();
         ShowProperties();
@@ -216,133 +210,129 @@ public sealed class RelayLogicView : UserControl
         ShowProperties();
     }
 
-    private void NewSwitch()
+    /// <summary>
+    /// The selected contact becomes a contact of a selector switch (a new switch, or the existing one with its tag);
+    /// with a coil or nothing selected, a new switch contact is added. The switch itself is drawn at its contacts.
+    /// </summary>
+    private void SwitchContact()
     {
         if (Model is not { } model)
         {
             return;
         }
 
-        var used = model.RelaySwitches.Select(item => item.Tag.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var number = 1;
-        while (used.Contains("-S" + number.ToString(CultureInfo.InvariantCulture)))
+        if (_selected is not RelayElement { IsParallel: false } contact)
         {
-            number++;
+            if (_selected is RelayCoil)
+            {
+                AddSeries();
+            }
+            else
+            {
+                NewPath();
+                _selected = Sheet?.Circuits.LastOrDefault()?.Elements.FirstOrDefault();
+            }
+
+            if (_selected is not RelayElement { IsParallel: false } added)
+            {
+                return;
+            }
+
+            contact = added;
+            contact.Tag = "";
         }
 
-        var selector = new RelaySwitch { Tag = "-S" + number.ToString(CultureInfo.InvariantCulture), Positions = "0/1", Position = "0" };
-        model.RelaySwitches.Add(selector);
-        _selected = selector;
+        if (Relays?.SwitchOf(_plc, contact.Tag) is null)
+        {
+            var tag = contact.Tag.Trim();
+            if (tag.Length == 0 || Relays?.IsRelay(_plc, tag) == true || model.RelaySwitches.Any(item => item.Tag.Trim().Equals(tag, StringComparison.OrdinalIgnoreCase)))
+            {
+                var used = model.RelaySwitches.Select(item => item.Tag.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var number = 1;
+                while (used.Contains("-S" + number.ToString(CultureInfo.InvariantCulture)))
+                {
+                    number++;
+                }
+
+                tag = "-S" + number.ToString(CultureInfo.InvariantCulture);
+            }
+
+            if (!model.RelaySwitches.Any(item => item.Tag.Trim().Equals(tag, StringComparison.OrdinalIgnoreCase)))
+            {
+                model.RelaySwitches.Add(new RelaySwitch { Tag = tag, Positions = "0/1", Position = "0" });
+            }
+
+            contact.Tag = tag;
+            contact.Source = "";
+            contact.Pins = "13/12/14";
+            contact.Position = "1";
+        }
+
+        _selected = contact;
         Changed();
         ShowProperties();
     }
 
-    /// <summary>The selector switches of the PLC: tag and one button per position (the current one highlighted).</summary>
-    private void BuildSwitchBar()
+    /// <summary>Switches whose tag no contact uses any more are removed.</summary>
+    private void PruneSwitches()
     {
-        _switchBar.Children.Clear();
-        var switches = Model?.RelaySwitches ?? [];
-        if (switches.Count == 0)
+        if (Model is not { } model)
         {
-            _switchBar.Children.Add(new TextBlock { Text = "Selector switches: none — 'New switch' adds one (2 or 3 positions).", Foreground = DimBrush, Margin = new Thickness(0, 3, 0, 3) });
             return;
         }
 
-        _switchBar.Children.Add(new TextBlock { Text = "Switches", Foreground = DimBrush, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
-        foreach (var selector in switches)
-        {
-            var panel = new StackPanel { Orientation = Orientation.Horizontal };
-            var tag = new TextBlock
-            {
-                Text = Display(selector.Tag, "-S?"),
-                FontWeight = FontWeights.SemiBold,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 6, 0),
-                Cursor = Cursors.Hand,
-                ToolTip = (selector.Text.Trim().Length > 0 ? selector.Text.Trim() + " — " : "") + "click to edit the switch"
-            };
-            tag.MouseLeftButtonDown += (_, e) =>
-            {
-                Select(selector);
-                e.Handled = true;
-            };
-            panel.Children.Add(tag);
-            var current = selector.Current;
-            foreach (var position in selector.PositionList())
-            {
-                var isCurrent = position.Equals(current, StringComparison.OrdinalIgnoreCase);
-                var button = new Button
-                {
-                    Content = position,
-                    MinWidth = 34,
-                    Padding = new Thickness(6, 1, 6, 1),
-                    Margin = new Thickness(0, 0, 2, 0),
-                    FontWeight = isCurrent ? FontWeights.SemiBold : FontWeights.Normal,
-                    Background = isCurrent ? OperatedBrush : Brushes.White,
-                    Foreground = isCurrent ? Brushes.White : TextBrush,
-                    ToolTip = $"Turn {selector.Tag} to {position}"
-                };
-                button.Click += (_, _) =>
-                {
-                    selector.Position = position;
-                    _controller?.MarkDirty();
-                    BuildSwitchBar();
-                    Redraw();
-                    if (ReferenceEquals(_selected, selector))
-                    {
-                        ShowProperties();
-                    }
-                };
-                panel.Children.Add(button);
-            }
-
-            _switchBar.Children.Add(new Border
-            {
-                Child = panel,
-                BorderBrush = ReferenceEquals(_selected, selector) ? OperatedBrush : new SolidColorBrush(Color.FromRgb(0xD1, 0xD5, 0xDB)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(6, 2, 4, 2),
-                Margin = new Thickness(0, 0, 8, 0),
-                Background = Brushes.White
-            });
-        }
+        var used = model.RelaySheets.SelectMany(sheet => sheet.Circuits).SelectMany(circuit => AllContacts(circuit.Elements))
+            .Select(contact => contact.Tag.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        model.RelaySwitches.RemoveAll(item => !used.Contains(item.Tag.Trim()));
     }
 
+    /// <summary>Turns a selector switch from its knob on the sheet.</summary>
+    private void TurnSwitch(RelaySwitch selector, UIElement knob)
+    {
+        var menu = new ContextMenu { PlacementTarget = knob };
+        menu.Items.Add(new MenuItem { Header = $"{Display(selector.Tag, "Switch")}{(selector.Text.Trim().Length > 0 ? " — " + selector.Text.Replace("\r", "").Replace('\n', ' ').Trim() : "")}", IsEnabled = false });
+        foreach (var position in selector.PositionList())
+        {
+            var item = new MenuItem { Header = position, IsCheckable = true, IsChecked = position.Equals(selector.Current, StringComparison.OrdinalIgnoreCase) };
+            item.Click += (_, _) =>
+            {
+                selector.Position = position;
+                _controller?.MarkDirty();
+                Redraw();
+                ShowProperties();
+            };
+            menu.Items.Add(item);
+        }
+
+        menu.IsOpen = true;
+    }
+
+    /// <summary>Settings of the selector switch of a contact (shared by all its contacts).</summary>
     private void SwitchProperties(RelaySwitch selector)
     {
-        Header("Selector switch");
-        Field("Tag", selector.Tag, value =>
+        _properties.Children.Add(new TextBlock { Text = $"Selector switch {selector.Tag}", FontSize = 13, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 4) });
+        Choice("Position now", selector.PositionList().ToArray(), selector.Current, value =>
         {
-            selector.Tag = value.Trim();
-            Changed();
-        }, "Device tag, e.g. -S3. Contacts with this tag belong to the switch.");
-        Field("Text", selector.Text, value =>
-        {
-            selector.Text = value;
-            Changed();
-        }, "Function text, e.g. GATE 1 LOCAL / REMOTE.", multiline: true);
+            selector.Position = value;
+            _controller?.MarkDirty();
+            Redraw();
+        }, "Or click the knob of the switch on the sheet (also while the simulation runs).");
         Field("Positions", selector.Positions, value =>
         {
             selector.Positions = string.Join("/", value.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
             Changed();
             ShowProperties();
-        }, "2 or 3 positions separated by '/', e.g. OFF/ON or MAN/0/AUTO.");
-        Note($"Now in position {selector.Current}. Turn it with the buttons in the bar above the sheet (also while the simulation runs).");
+        }, "2 or 3 positions separated by '/', e.g. OFF/ON, LOCAL/0/REMOTE or MAN/0/AUTO.");
+        Field("Switch text", selector.Text, value =>
+        {
+            selector.Text = value;
+            Changed();
+        }, "Function text of the switch, e.g. GATE 1 LOCAL / REMOTE.", multiline: true);
         var uses = Model?.RelaySheets.SelectMany((sheet, sheetIndex) => sheet.Circuits.SelectMany((circuit, path) =>
                 AllContacts(circuit.Elements).Where(contact => contact.Tag.Trim().Equals(selector.Tag.Trim(), StringComparison.OrdinalIgnoreCase))
                     .Select(contact => $"{RelayLogicRunner.Location(sheet, sheetIndex, path)} ({(contact.Position.Length > 0 ? contact.Position : "no position")})")))
             .ToList() ?? [];
-        Note(uses.Count == 0 ? "No contact of this switch is used yet: add a contact with its tag." : "Contacts: " + string.Join(", ", uses));
-        var delete = new Button { Content = "Delete switch", Margin = new Thickness(0, 10, 0, 0), HorizontalAlignment = HorizontalAlignment.Left, Padding = new Thickness(10, 2, 10, 2) };
-        delete.Click += (_, _) =>
-        {
-            Model?.RelaySwitches.Remove(selector);
-            _selected = Sheet;
-            Changed();
-            ShowProperties();
-        };
-        _properties.Children.Add(delete);
+        Note("Contacts of this switch: " + string.Join(", ", uses));
     }
 
     private static IEnumerable<RelayElement> AllContacts(IEnumerable<RelayElement> series) =>
@@ -422,12 +412,14 @@ public sealed class RelayLogicView : UserControl
             }
 
             sheet.Circuits.Remove(circuit);
+            PruneSwitches();
             _selected = sheet;
         }
         else if (_selected is RelayElement element && Locate(element) is { } place)
         {
             place.Series.RemoveAt(place.Index);
             Simplify(Sheet!);
+            PruneSwitches();
             _selected = Sheet;
         }
         else
@@ -574,7 +566,6 @@ public sealed class RelayLogicView : UserControl
     private void Select(object? item)
     {
         _selected = item;
-        BuildSwitchBar();
         Redraw();
         ShowProperties();
     }
@@ -761,13 +752,14 @@ public sealed class RelayLogicView : UserControl
         // Tag, cross reference to the coil and function text, right-aligned to the left of the contact.
         var location = Relays?.CoilLocation(_plc, contact.Tag) ?? "";
         var text = contact.Text.Trim().Length > 0 ? contact.Text : Relays?.CoilText(_plc, contact.Tag) ?? "";
+        RelaySwitch? switchKnob = null;
         if (Relays?.SwitchOf(_plc, contact.Tag) is { } selector)
         {
-            // Manually operated: the dashed actuator line of a switch, and the positions where it operates.
+            // Manually operated: the dashed actuator line to the switch knob (drawn after the hit area, so it is clickable).
             var actuator = new Line { X1 = x + 8, Y1 = (pivotY + contactY) / 2, X2 = x + 34, Y2 = (pivotY + contactY) / 2, Stroke = WireBrush, StrokeThickness = 1, StrokeDashArray = [3, 2], IsHitTestVisible = false };
             _sheet.Children.Add(actuator);
-            AddLine(x + 34, (pivotY + contactY) / 2 - 6, x + 34, (pivotY + contactY) / 2 + 6, WireBrush, 1.4);
-            location = $"pos. {(contact.Position.Length > 0 ? contact.Position : "?")} · now {selector.Current}";
+            switchKnob = selector;
+            location = $"closed in {(contact.Position.Length > 0 ? contact.Position : "?")}";
             if (contact.Text.Trim().Length == 0)
             {
                 text = selector.Text;
@@ -785,6 +777,48 @@ public sealed class RelayLogicView : UserControl
 
         AddHitArea(contact, x - WireOffset + 6, y + 2, ColumnWidth - 12, RowHeight - 4,
             $"{Display(contact.Tag, "Contact")} {(contact.IsNormallyClosed ? "NC" : "NO")} {contact.Pins}" + (contact.Source.Length > 0 ? $" · {contact.Source}" : ""));
+        if (switchKnob is not null)
+        {
+            DrawSwitchKnob(switchKnob, x + 46, (pivotY + contactY) / 2);
+        }
+    }
+
+    /// <summary>
+    /// The selector switch at its contact: a round knob whose pointer shows the position (left / middle / right),
+    /// the current position above it. Clicking it opens the positions.
+    /// </summary>
+    private void DrawSwitchKnob(RelaySwitch selector, double cx, double cy)
+    {
+        const double radius = 12;
+        var positions = selector.PositionList();
+        var index = Math.Max(0, positions.FindIndex(item => item.Equals(selector.Current, StringComparison.OrdinalIgnoreCase)));
+        var knob = new Ellipse { Width = radius * 2, Height = radius * 2, Stroke = WireBrush, StrokeThickness = 1.4, Fill = Brushes.White, Cursor = Cursors.Hand };
+        knob.ToolTip = $"{Display(selector.Tag, "Switch")} in {selector.Current} — click to turn ({selector.Positions})";
+        Canvas.SetLeft(knob, cx - radius);
+        Canvas.SetTop(knob, cy - radius);
+        _sheet.Children.Add(knob);
+
+        // Pointer: positions spread over -45°..+45° from the top (two positions: -30° / +30°).
+        var span = positions.Count >= 3 ? 45.0 : 30.0;
+        var angle = positions.Count <= 1 ? 0 : -span + 2 * span * index / (positions.Count - 1);
+        var radians = angle * Math.PI / 180;
+        AddLine(cx, cy, cx + Math.Sin(radians) * (radius - 2), cy - Math.Cos(radians) * (radius - 2), OperatedBrush, 2.4);
+        foreach (var mark in Enumerable.Range(0, positions.Count))
+        {
+            var markAngle = (positions.Count <= 1 ? 0 : -span + 2 * span * mark / (positions.Count - 1)) * Math.PI / 180;
+            AddLine(cx + Math.Sin(markAngle) * (radius + 2), cy - Math.Cos(markAngle) * (radius + 2),
+                cx + Math.Sin(markAngle) * (radius + 5), cy - Math.Cos(markAngle) * (radius + 5), WireBrush, 1.2);
+        }
+
+        var label = new TextBlock { Text = selector.Current, FontSize = 9.5, FontWeight = FontWeights.SemiBold, Foreground = OperatedBrush, TextAlignment = TextAlignment.Center, Width = 60, IsHitTestVisible = false };
+        Canvas.SetLeft(label, cx - 30);
+        Canvas.SetTop(label, cy - radius - 20);
+        _sheet.Children.Add(label);
+        knob.MouseLeftButtonDown += (_, e) =>
+        {
+            TurnSwitch(selector, knob);
+            e.Handled = true;
+        };
     }
 
     private void DrawCoil(RelayCircuit circuit, RelaySheet sheet, int sheetIndex, int path, double x, double top, double railBottom)
@@ -944,9 +978,6 @@ public sealed class RelayLogicView : UserControl
             case RelayCoil coil:
                 CoilProperties(coil);
                 break;
-            case RelaySwitch selector:
-                SwitchProperties(selector);
-                break;
             case RelaySheet sheet:
                 SheetProperties(sheet);
                 break;
@@ -981,6 +1012,7 @@ public sealed class RelayLogicView : UserControl
         SearchField("Tag", contact.Tag, RelaySuggestions(), value =>
         {
             contact.Tag = value;
+            PruneSwitches();
             Changed();
             ShowProperties();
         }, "Relay or selector switch of these sheets (type to search, e.g. k107 or gate open). Any other device tag (-F1, -Q1) needs a source.");
@@ -994,7 +1026,8 @@ public sealed class RelayLogicView : UserControl
             contact.Pins = value.Trim();
             Changed();
         }, "Common / NC / NO, e.g. 11/12/14 or 21/22/24.");
-        if (Relays?.SwitchOf(_plc, contact.Tag) is { } selector)
+        var selector = Relays?.SwitchOf(_plc, contact.Tag);
+        if (selector is not null)
         {
             SwitchPositions(contact, selector);
         }
@@ -1012,6 +1045,11 @@ public sealed class RelayLogicView : UserControl
         {
             var (poweredIn, closed) = relays.StateOf(contact);
             Note($"Live: {(closed ? "closed" : "open")}{(poweredIn ? ", current at the common terminal" : "")}.");
+        }
+
+        if (selector is not null)
+        {
+            SwitchProperties(selector);
         }
     }
 
