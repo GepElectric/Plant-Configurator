@@ -32,7 +32,7 @@ public sealed class EplanRelayImport
 /// A1381 function category: 200 coil, 203 changeover contact, 600 selector switch, 100 terminal; A182 = 1 main function;
 /// A185 = connection point designations; P11/P20011 function text, P20027 coil text, P20901_10.. switch positions),
 /// S40x1201/A762 = "x/y" position in mm (y up), O42 = junction (SPECIAL 0/64, 0/66, 0/67, 0/72 T-nodes, 0/70 corners),
-/// O59 = connection definition point, O70 = potential point (P150 name, e.g. -L2230VAC, -N0VAC).
+/// O59 = connection definition point (on a wire, ignored), O70 = potential point (P150 name, e.g. -L2230VAC, -N0VAC).
 /// </remarks>
 public static class EplanRelayImporter
 {
@@ -42,7 +42,7 @@ public static class EplanRelayImporter
     /// <summary>Pin of a symbol: index into A185, offset from the origin, directions it connects to (U, D, L, R).</summary>
     private sealed record PinDef(int Index, double Dx, double Dy, string Directions);
 
-    private enum SymbolKind { Contact, Selector, Coil, MeasuringRelay }
+    private enum SymbolKind { Contact, Selector, Coil, MeasuringRelay, TwoPinContact }
 
     private sealed record SymbolDef(SymbolKind Kind, PinDef[] Pins);
 
@@ -52,6 +52,10 @@ public static class EplanRelayImporter
         ["1/1125/2"] = new(SymbolKind.Contact, [new(1, 0, 0, "U"), new(2, 0, -PinLength, "D"), new(0, 4, -PinLength, "D")]),
         ["5/35/0"] = new(SymbolKind.Selector, [new(0, 0, 0, "U"), new(1, -4, -PinLength, "D"), new(2, 4, -PinLength, "D")]),
         ["1/1110/0"] = new(SymbolKind.MeasuringRelay, [new(0, 0, 0, "U"), new(1, 0, -PinLength, "D"), new(2, 8, 0, "U"), new(3, 8, -PinLength, "D")]),
+        // Push buttons / emergency stop: one contact, two terminals one above the other (A185 e.g. 13;14 or 21;22).
+        ["1/35/0"] = new(SymbolKind.TwoPinContact, [new(0, 0, 0, "U"), new(1, 0, -PinLength, "D")]),
+        ["1/36/0"] = new(SymbolKind.TwoPinContact, [new(0, 0, 0, "U"), new(1, 0, -PinLength, "D")]),
+        ["1/150/2"] = new(SymbolKind.TwoPinContact, [new(0, 0, 0, "U"), new(1, 0, -PinLength, "D")]),
     };
 
     private static readonly string[] CoilSymbolNumbers = ["27", "20"];
@@ -215,7 +219,8 @@ public static class EplanRelayImporter
                     devices.Add(device);
                     break;
                 case "O59":
-                    pins.Add(new Pin { X = at.X, Y = at.Y, Directions = "UD", Owner = null });
+                    // Connection definition point: it lies on a wire (vertical or horizontal — not exported), never
+                    // joins wires, so the wire simply runs through it.
                     break;
                 case "O70":
                     pins.Add(new Pin { X = at.X, Y = at.Y, Directions = "LR", Owner = null, Potential = item.Element("P150")?.Attribute("P20013")?.Value ?? "" });
@@ -302,6 +307,13 @@ public static class EplanRelayImporter
                         {
                             edges.Add(new Edge(common.Net, output.Net, new Leaf(device, 0, used)));
                         }
+                    }
+
+                    break;
+                case SymbolKind.TwoPinContact:
+                    if (connected.Contains(device.Pins[0]) && connected.Contains(device.Pins[1]))
+                    {
+                        edges.Add(new Edge(device.Pins[0].Net, device.Pins[1].Net, new Leaf(device, 0, 1)));
                     }
 
                     break;
@@ -473,6 +485,21 @@ public static class EplanRelayImporter
                     Text = device.Text
                 };
             }
+            case Leaf { Device.Symbol.Kind: SymbolKind.TwoPinContact } leaf:
+            {
+                // IEC terminal numbers: x1-x2 normally closed, x3-x4 normally open.
+                var device = leaf.Device;
+                var first = Point(device, 0);
+                var second = Point(device, 1);
+                var closed = second.EndsWith('2') || second.EndsWith('1');
+                return new RelayElement
+                {
+                    Tag = device.Tag,
+                    Contact = closed ? "NC" : "NO",
+                    Pins = closed ? $"{first}/{second}/" : $"{first}//{second}",
+                    Text = device.Text
+                };
+            }
             case Leaf leaf:
             {
                 var device = leaf.Device;
@@ -509,8 +536,8 @@ public static class EplanRelayImporter
             count++;
         }
 
-        // Keep at least one element of its own on the branch when the whole path is shared.
-        return Math.Max(0, Math.Min(count, b.Count - 1));
+        // A coil whose whole path is shared hangs from the end of it (a branch without contacts of its own).
+        return count;
     }
 
     private static int? Nearest(List<Pin> pins, int index, char direction)

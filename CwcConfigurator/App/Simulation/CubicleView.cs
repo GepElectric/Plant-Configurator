@@ -235,9 +235,20 @@ public sealed class CubicleView : UserControl
             Tag = kind == CubicleItemKind.Label ? "" : NextTag(kind == CubicleItemKind.Lamp ? "-H" : "-S"),
             Text = kind == CubicleItemKind.Label ? "LABEL" : ""
         };
-        if (item.IsSwitch && !model.RelaySwitches.Any(selector => SameTag(selector.Tag, item.Tag)))
+        if (item.IsSwitch)
         {
-            model.RelaySwitches.Add(new RelaySwitch { Tag = item.Tag, Positions = "0/1", Position = "0" });
+            // The first relay-logic switch not on a cubicle yet (e.g. -S1 from the EPLAN import), else a new one.
+            var placed = model.Cubicles.SelectMany(door => door.Items).Where(other => other.IsSwitch).Select(other => other.Tag.Trim())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (model.RelaySwitches.FirstOrDefault(selector => !placed.Contains(selector.Tag.Trim())) is { } free)
+            {
+                item.Tag = free.Tag.Trim();
+                item.Text = free.Text;
+            }
+            else if (!model.RelaySwitches.Any(selector => SameTag(selector.Tag, item.Tag)))
+            {
+                model.RelaySwitches.Add(new RelaySwitch { Tag = item.Tag, Positions = "0/1", Position = "0" });
+            }
         }
 
         cubicle.Items.Add(item);
@@ -672,21 +683,43 @@ public sealed class CubicleView : UserControl
         });
         if (!item.IsLabel)
         {
-            Field("Tag", item.Tag, value =>
+            if (item.IsSwitch)
             {
-                var tag = value.Trim();
-                if (item.IsSwitch)
+                // A switch of the relay logic: choosing one connects this knob to it (position, text and contacts shared).
+                var switches = (Model?.RelaySwitches ?? []).Where(selector => selector.Tag.Trim().Length > 0)
+                    .Select(selector => $"{selector.Tag.Trim()}{PortRow.Separator}{selector.Text.Replace("\r", "").Replace('\n', ' ').Trim()}  ({selector.Positions})")
+                    .ToList();
+                SignalSearchField.Add(_properties, "Switch", item.Tag, switches, value =>
                 {
-                    RenameSwitch(item, tag);
-                }
-                else
-                {
-                    item.Tag = tag;
-                }
+                    var tag = value.Trim();
+                    if (Model?.RelaySwitches.FirstOrDefault(selector => SameTag(selector.Tag, tag)) is { } existing)
+                    {
+                        item.Tag = existing.Tag.Trim(); // connect to the relay-logic switch
+                        if (item.Text.Trim().Length == 0)
+                        {
+                            item.Text = existing.Text;
+                        }
 
-                Changed();
-                ShowProperties();
-            }, item.IsSwitch ? "Device tag, e.g. -S3. Contacts with this tag on the relay-logic sheets follow the switch." : "Device tag, e.g. -S11 or -H1.");
+                        PruneSwitches();
+                    }
+                    else if (tag.Length > 0)
+                    {
+                        RenameSwitch(item, tag); // a new tag renames this switch everywhere
+                    }
+
+                    Changed();
+                    ShowProperties();
+                }, "The selector switch of the relay logic this knob turns (type to search, e.g. s1 or gate control). A new tag renames the switch everywhere.", DimBrush);
+            }
+            else
+            {
+                Field("Tag", item.Tag, value =>
+                {
+                    item.Tag = value.Trim();
+                    Changed();
+                    ShowProperties();
+                }, "Device tag, e.g. -S11 or -H1.");
+            }
         }
 
         Field(item.IsLabel ? "Text" : "Plate text", item.Text, value =>
