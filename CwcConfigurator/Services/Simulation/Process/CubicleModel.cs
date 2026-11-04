@@ -100,3 +100,61 @@ public sealed class CubicleItem
     [YamlIgnore]
     public bool IsLabel => Kind.Equals(CubicleItemKind.Label, StringComparison.OrdinalIgnoreCase);
 }
+
+/// <summary>Places imported operator devices on a cubicle door, to be arranged by hand.</summary>
+public static class CubicleLayout
+{
+    private const double Pitch = 70;
+    private const double RowPitch = 85;
+
+    /// <summary>
+    /// Adds the devices not on any cubicle yet to the door <paramref name="name"/> (created when missing): one row per
+    /// kind — switches, push buttons and mushrooms, lamps — in a grid.
+    /// </summary>
+    /// <returns>Number of devices added.</returns>
+    public static int AddDevices(ProcessModel model, IEnumerable<CubicleItem> devices, string name)
+    {
+        var placed = model.Cubicles.SelectMany(cubicle => cubicle.Items).Select(item => item.Tag.Trim())
+            .Where(tag => tag.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var added = devices.Where(item => item.Tag.Trim().Length > 0 && placed.Add(item.Tag.Trim()))
+            .OrderBy(item => item.IsSwitch ? 0 : item.IsButton ? 1 : 2)
+            .ThenBy(item => item.Tag, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (added.Count == 0)
+        {
+            return 0;
+        }
+
+        var door = model.Cubicles.FirstOrDefault(cubicle => cubicle.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (door is null)
+        {
+            door = new Cubicle { Name = name, Width = 800, Height = 600 };
+            model.Cubicles.Add(door);
+        }
+
+        var columns = Math.Max(1, (int)((door.Width - 40) / Pitch));
+        var row = door.Items.Count == 0 ? 0 : (int)Math.Ceiling((door.Items.Max(item => item.Y) - 60) / RowPitch) + 1;
+        foreach (var group in added.GroupBy(item => item.IsSwitch ? 0 : item.IsButton ? 1 : 2))
+        {
+            var column = 0;
+            foreach (var item in group)
+            {
+                if (column == columns)
+                {
+                    column = 0;
+                    row++;
+                }
+
+                item.X = 55 + column * Pitch;
+                item.Y = 60 + row * RowPitch;
+                door.Items.Add(item);
+                column++;
+            }
+
+            row++;
+        }
+
+        door.Height = Math.Max(door.Height, 60 + row * RowPitch);
+        return added.Count;
+    }
+}

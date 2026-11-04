@@ -16,6 +16,10 @@ public sealed class EplanRelayImport
 {
     public List<RelaySheet> Sheets { get; } = [];
     public List<RelaySwitch> Switches { get; } = [];
+
+    /// <summary>Operator devices of the whole project for a cubicle door: push buttons, mushrooms, switches, lamps.</summary>
+    public List<CubicleItem> CubicleDevices { get; } = [];
+
     public List<string> Warnings { get; } = [];
 }
 
@@ -42,7 +46,7 @@ public static class EplanRelayImporter
     /// <summary>Pin of a symbol: index into A185, offset from the origin, directions it connects to (U, D, L, R).</summary>
     private sealed record PinDef(int Index, double Dx, double Dy, string Directions);
 
-    private enum SymbolKind { Contact, Selector, Coil, MeasuringRelay, TwoPinContact }
+    private enum SymbolKind { Contact, Selector, Coil, MeasuringRelay, TwoPinContact, Through }
 
     private sealed record SymbolDef(SymbolKind Kind, PinDef[] Pins);
 
@@ -56,6 +60,10 @@ public static class EplanRelayImporter
         ["1/35/0"] = new(SymbolKind.TwoPinContact, [new(0, 0, 0, "U"), new(1, 0, -PinLength, "D")]),
         ["1/36/0"] = new(SymbolKind.TwoPinContact, [new(0, 0, 0, "U"), new(1, 0, -PinLength, "D")]),
         ["1/150/2"] = new(SymbolKind.TwoPinContact, [new(0, 0, 0, "U"), new(1, 0, -PinLength, "D")]),
+        // Auxiliary contact of a breaker (A185 97;98).
+        ["1/1/6"] = new(SymbolKind.TwoPinContact, [new(0, 0, 0, "U"), new(1, 0, -PinLength, "D")]),
+        // Diode module in a lamp circuit (RSD, e.g. lamp test): current from the top terminal to the bottom one.
+        ["1/3613/0"] = new(SymbolKind.Through, [new(0, 0, 0, "U"), new(1, 0, -PinLength, "D")]),
     };
 
     private static readonly string[] CoilSymbolNumbers = ["27", "20"];
@@ -69,7 +77,7 @@ public static class EplanRelayImporter
         {
             var (function, location, name, description) = PageInfo(page);
             var devices = page.Elements("O17").ToList();
-            var coils = devices.Count(device => device.Attribute("A1381")?.Value == "200");
+            var coils = devices.Count(device => device.Attribute("A1381")?.Value is "200" or "900" or "901");
             var contacts = devices.Count(device => device.Attribute("A1381")?.Value is "203" or "201" or "202" or "600");
             if (coils + contacts > 0)
             {
@@ -84,6 +92,7 @@ public static class EplanRelayImporter
     public static EplanRelayImport Import(string path, IReadOnlySet<int> pages, CancellationToken cancellationToken = default)
     {
         var import = new EplanRelayImport();
+        var parts = ReadParts(path, cancellationToken);
         ForEachPage(path, cancellationToken, (index, page) =>
         {
             if (pages.Contains(index))
@@ -93,25 +102,150 @@ public static class EplanRelayImporter
 
             // Selector switches of the whole project (also on pages not imported, e.g. wired straight to PLC inputs),
             // so every switch is there for the relay logic and the cubicle doors.
-            CollectSwitches(page, import);
+            CollectSwitches(page, import, parts);
+            CollectOperatorDevices(page, import, parts);
         });
+
+        // Selector switches on the cubicle too; an illuminated push button is one device (button + its lamp).
+        foreach (var selector in import.Switches.Where(selector => !import.CubicleDevices.Any(item => item.Tag.Equals(selector.Tag, StringComparison.OrdinalIgnoreCase))))
+        {
+            import.CubicleDevices.Add(new CubicleItem { Kind = CubicleItemKind.Switch, Tag = selector.Tag, Text = selector.Text, Color = "Black" });
+        }
+
         return import;
     }
 
-    /// <summary>Selector switches (function category 600 with a switch symbol): tag, text and position names.</summary>
-    private static void CollectSwitches(XElement page, EplanRelayImport import)
+    /// <summary>Lamp symbols (function category 900 signal lamp, 901 horn / buzzer).</summary>
+    private static bool IsLamp(XElement item) => item.Attribute("A1381")?.Value is "900" or "901";
+
+    /// <summary>Tag of the relay-logic "coil" of a lamp: the cubicle lamp is lit by it ("-H104:LAMP").</summary>
+    public static string LampTag(string tag) => tag.Trim() + ":LAMP";
+
+    /// <summary>Push buttons / mushrooms (category 600 with a push-button symbol or part) and lamps of a page, for a cubicle door.</summary>
+    private static void CollectOperatorDevices(XElement page, EplanRelayImport import, IReadOnlyDictionary<string, string> parts)
+    {
+        foreach (var item in page.Elements("O17"))
+        {
+            var symbol = $"{item.Attribute("A1261")?.Value}/{item.Attribute("A1262")?.Value}/{item.Attribute("A1263")?.Value}";
+            var category = item.Attribute("A1381")?.Value ?? "";
+            var tag = Tag(item);
+            if (tag.Trim('-').Length == 0)
+            {
+                continue;
+            }
+
+            var p11 = item.Element("P11");
+            var text = FirstNonEmpty(Text(p11?.Attribute("P20011")?.Value), category == "600" ? Text(p11?.Attribute("P20027")?.Value) : "");
+            var existing = import.CubicleDevices.FirstOrDefault(device => device.Tag.Equals(tag, StringComparison.OrdinalIgnoreCase));
+            var part = PartText(item, parts);
+            var buttonPart = Has(part, "pushbutton", "push button", "push-button", "mushroom", "emergency stop") && !Has(part, "push-in");
+            if (category == "600" && !SwitchSymbols.Contains(symbol)
+                && ((Symbols.TryGetValue(symbol, out var def) && def.Kind == SymbolKind.TwoPinContact) || buttonPart))
+            {
+                var mushroom = symbol == "1/150/2" || Has(part, "mushroom", "emergency stop") || Has(text, "EMERGENCY", "ESD");
+                if (existing is null)
+                {
+                    import.CubicleDevices.Add(new CubicleItem
+                    {
+                        Kind = mushroom ? CubicleItemKind.EmergencyStop : CubicleItemKind.PushButton,
+                        Tag = tag,
+                        Text = text,
+                        Color = mushroom ? "Red" : LampColor(part) ?? "Green",
+                        Contact = mushroom || symbol == "1/36/0" ? "NC" : "NO"
+                    });
+                }
+                else if (existing.IsLamp)
+                {
+                    // Illuminated push button: the lamp part was found first.
+                    existing.Kind = mushroom ? CubicleItemKind.EmergencyStop : CubicleItemKind.PushButton;
+                    existing.Contact = mushroom || symbol == "1/36/0" ? "NC" : "NO";
+                    existing.Text = existing.Text.Length > 0 ? existing.Text : text;
+                }
+            }
+            else if (IsLamp(item))
+            {
+                var color = LampColor(Text(p11?.Attribute("P20025")?.Value)) ?? LampColor(part);
+                if (existing is null)
+                {
+                    import.CubicleDevices.Add(new CubicleItem { Kind = CubicleItemKind.Lamp, Tag = tag, Text = Text(p11?.Attribute("P20011")?.Value), Color = color ?? "White", Source = LampTag(tag) });
+                }
+                else if (!existing.IsSwitch)
+                {
+                    existing.Source = LampTag(tag); // illuminated push button
+                    existing.Color = color ?? existing.Color;
+                }
+            }
+        }
+    }
+
+    private static string? LampColor(string text)
+    {
+        var name = text.Trim().ToUpperInvariant();
+        return name.Contains("GREEN") || name.Contains("ZELEN") ? "Green"
+            : name.Contains("RED") || name.Contains("CRVEN") ? "Red"
+            : name.Contains("YELLOW") || name.Contains("AMBER") || name.Contains("ŽUT") || name.Contains("ORANGE") ? "Yellow"
+            : name.Contains("BLUE") || name.Contains("PLAV") ? "Blue"
+            : name.Contains("WHITE") || name.Contains("BIJEL") ? "White"
+            : null;
+    }
+
+    /// <summary>
+    /// The parts of the project (the device tag list): part number → description and colour, e.g. SE.XB4BVB3 →
+    /// "Pilot light", "Color: Green".
+    /// </summary>
+    private static Dictionary<string, string> ReadParts(string path, CancellationToken cancellationToken)
+    {
+        var parts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var settings = new XmlReaderSettings { IgnoreWhitespace = true, DtdProcessing = DtdProcessing.Ignore };
+        using var reader = XmlReader.Create(path, settings);
+        reader.MoveToContent();
+        while (!reader.EOF)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.Name == "O117")
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var part = (XElement)XNode.ReadFrom(reader);
+                var number = part.Attribute("A2041")?.Value ?? "";
+                var p11 = part.Element("P11");
+                if (number.Length > 0)
+                {
+                    parts[number] = $"{Text(p11?.Attribute("P22004")?.Value)} {Text(p11?.Attribute("P22009")?.Value)}".Replace('\n', ' ').Trim();
+                }
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        return parts;
+    }
+
+    /// <summary>Descriptions of the parts of a device (P20100_1, P20100_2… part numbers), joined.</summary>
+    private static string PartText(XElement item, IReadOnlyDictionary<string, string> parts)
+    {
+        var p11 = item.Element("P11");
+        return p11 is null ? "" : string.Join(" ", p11.Attributes().Where(attribute => attribute.Name.LocalName.StartsWith("P20100_", StringComparison.Ordinal))
+            .Select(attribute => parts.GetValueOrDefault(attribute.Value, "")).Where(text => text.Length > 0));
+    }
+
+    private static bool Has(string text, params string[] words) => words.Any(word => text.Contains(word, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Selector switches (function category 600 with a switch symbol or a selector / cam switch part): tag, text and position names.</summary>
+    private static void CollectSwitches(XElement page, EplanRelayImport import, IReadOnlyDictionary<string, string> parts)
     {
         foreach (var item in page.Elements("O17").Where(item => item.Attribute("A1381")?.Value == "600"))
         {
             var symbol = $"{item.Attribute("A1261")?.Value}/{item.Attribute("A1262")?.Value}/{item.Attribute("A1263")?.Value}";
-            if (!SwitchSymbols.Contains(symbol))
+            var part = PartText(item, parts);
+            if (!SwitchSymbols.Contains(symbol) && !(Has(part, "selector switch", "cam switch") && !Has(part, "push")))
             {
                 continue;
             }
 
             var tag = Tag(item);
             var p11 = item.Element("P11");
-            var text = Text(p11?.Attribute("P20011")?.Value);
+            var text = FirstNonEmpty(Text(p11?.Attribute("P20011")?.Value), Text(p11?.Attribute("P20027")?.Value));
             var positions = Enumerable.Range(10, 6).Select(i => Text(p11?.Attribute($"P20901_{i}")?.Value)).Where(name => name.Length > 0).ToList();
             var existing = import.Switches.FirstOrDefault(selector => selector.Tag.Equals(tag, StringComparison.OrdinalIgnoreCase));
             if (existing is null)
@@ -182,6 +316,7 @@ public static class EplanRelayImporter
         public required Device? Owner { get; init; }
         public int Index { get; init; } = -1;
         public string Potential { get; init; } = "";
+        public bool PlusTerminal { get; init; }
         public int Net { get; set; }
     }
 
@@ -226,14 +361,56 @@ public static class EplanRelayImporter
             switch (item.Name.LocalName)
             {
                 case "O17" when category == "100":
-                    pins.Add(new Pin { X = at.X, Y = at.Y, Directions = "LRUD", Owner = null }); // terminal: wire passes through
+                    // Terminal: the wire passes through. A "+" strip (-X44+) supplies the page when it has no supply potential.
+                    pins.Add(new Pin { X = at.X, Y = at.Y, Directions = "LRUD", Owner = null, PlusTerminal = Tag(item).TrimEnd().EndsWith('+') });
                     break;
+                case "O17" when category == "300":
+                {
+                    // Connection point of a device drawn as a black box (frequency converter, PLC…): its +24V output
+                    // supplies the page, its digital inputs (DI 1…) end paths like coils ("-TM2:DI1").
+                    var point = FirstNonEmpty(item.Attribute("A186")?.Value?.Trim() ?? "", item.Element("P11")?.Attribute("P20400")?.Value?.Trim() ?? "");
+                    var compact = point.Replace(" ", "").ToUpperInvariant();
+                    if (compact is "+24V" or "24V" or "+24" or "P24" or "+24VDC" or "L+")
+                    {
+                        pins.Add(new Pin { X = at.X, Y = at.Y, Directions = "UD", Owner = null, Potential = "+" });
+                    }
+                    else if (compact.StartsWith("DI", StringComparison.Ordinal) && compact.Length > 2 && char.IsDigit(compact[2]))
+                    {
+                        var function = Text(item.Element("P11")?.Attribute("P20011")?.Value);
+                        var input = new Device
+                        {
+                            Id = item.Attribute("A1")?.Value ?? Guid.NewGuid().ToString("N"),
+                            Tag = $"{Tag(item)}:{compact}",
+                            Symbol = new SymbolDef(SymbolKind.Coil, [new(0, 0, 0, "UD"), new(1, 0, -PinLength, "")]),
+                            Points = [point, ""],
+                            Text = function.Length > 0 ? $"{point}\n{function}" : point,
+                            X = at.X
+                        };
+                        foreach (var pinDef in input.Symbol.Pins)
+                        {
+                            var pin = new Pin { X = at.X + pinDef.Dx, Y = at.Y + pinDef.Dy, Directions = pinDef.Directions, Owner = input, Index = pinDef.Index };
+                            input.Pins[pinDef.Index] = pin;
+                            pins.Add(pin);
+                        }
+
+                        devices.Add(input);
+                    }
+                    else
+                    {
+                        pins.Add(new Pin { X = at.X, Y = at.Y, Directions = "", Owner = null }); // DGND, DI COM…: the return
+                    }
+
+                    break;
+                }
                 case "O17":
                     var tag = Tag(item);
-                    var def = Symbols.GetValueOrDefault(symbol)
-                              ?? (category == "200" && CoilSymbolNumbers.Contains(item.Attribute("A1262")?.Value) && item.Attribute("A1263")?.Value == "0"
-                                  ? new SymbolDef(SymbolKind.Coil, [new(0, 0, 0, "U"), new(1, 0, -PinLength, "D")])
-                                  : null);
+                    var lamp = IsLamp(item);
+                    var def = lamp
+                        ? new SymbolDef(SymbolKind.Coil, [new(0, 0, 0, "U"), new(1, 0, -PinLength, "D")])
+                        : Symbols.GetValueOrDefault(symbol)
+                          ?? (category == "200" && CoilSymbolNumbers.Contains(item.Attribute("A1262")?.Value) && item.Attribute("A1263")?.Value == "0"
+                              ? new SymbolDef(SymbolKind.Coil, [new(0, 0, 0, "U"), new(1, 0, -PinLength, "D")])
+                              : null);
                     if (def is null)
                     {
                         // Unknown symbol (PLC card, black box…): its wires end here — a wire must not run through it.
@@ -251,10 +428,12 @@ public static class EplanRelayImporter
                     var device = new Device
                     {
                         Id = item.Attribute("A1")?.Value ?? Guid.NewGuid().ToString("N"),
-                        Tag = tag,
+                        Tag = lamp ? LampTag(tag) : tag,
                         Symbol = def,
                         Points = (item.Attribute("A185")?.Value ?? "").Split(';'),
-                        Text = FirstNonEmpty(Text(p11?.Attribute("P20027")?.Value), Text(p11?.Attribute("P20011")?.Value)),
+                        Text = lamp
+                            ? FirstNonEmpty(Text(p11?.Attribute("P20011")?.Value), "LAMP " + Text(p11?.Attribute("P20025")?.Value)).Trim()
+                            : FirstNonEmpty(Text(p11?.Attribute("P20027")?.Value), Text(p11?.Attribute("P20011")?.Value)),
                         X = at.X,
                         Positions = Enumerable.Range(10, 6).Select(i => Text(p11?.Attribute($"P20901_{i}")?.Value)).Where(text => text.Length > 0).ToList()
                     };
@@ -328,6 +507,10 @@ public static class EplanRelayImporter
         var supply = pins.Where(pin => IsSupply(pin.Potential)).Select(pin => pin.Net).Distinct().ToList();
         if (supply.Count == 0)
         {
+            supply = pins.Where(pin => pin.PlusTerminal && connected.Contains(pin)).Select(pin => pin.Net).Distinct().ToList();
+        }
+        if (supply.Count == 0)
+        {
             import.Warnings.Add($"Page {pageName}: no supply potential point (L, L+…) on the page — the coils get a contact without a source (e.g. a PLC output).");
         }
 
@@ -366,8 +549,21 @@ public static class EplanRelayImporter
                     }
 
                     break;
+                case SymbolKind.Through:
+                    // Diode (lamp test): current only from its top to its bottom, like a closed contact without a tag.
+                    if (connected.Contains(device.Pins[0]) && connected.Contains(device.Pins[1]))
+                    {
+                        edges.Add(new Edge(device.Pins[0].Net, device.Pins[1].Net, new Series([])));
+                    }
+
+                    break;
                 case SymbolKind.Coil:
-                    coils.Add((device, device.Pins[0].Net, device.Pins[1].Net));
+                    // An unwired input of a black box (spare DI) is not a path.
+                    if (!device.Tag.Contains(':') || connected.Contains(device.Pins[0]))
+                    {
+                        coils.Add((device, device.Pins[0].Net, device.Pins[1].Net));
+                    }
+
                     break;
                 case SymbolKind.MeasuringRelay:
                     coils.Add((device, device.Pins[2].Net, device.Pins[3].Net));

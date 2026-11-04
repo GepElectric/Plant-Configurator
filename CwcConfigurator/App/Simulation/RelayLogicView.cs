@@ -395,28 +395,17 @@ public sealed class RelayLogicView : UserControl
             model.RelaySwitches.Add(selector);
         }
 
-        // Pages imported before: replace them (a second import must not draw every relay twice).
+        // Pages imported before are replaced (a relay must not be drawn twice); older duplicates are removed.
         var importedPages = import.Sheets.Where(sheet => sheet.Page > 0).Select(sheet => sheet.Page).ToHashSet();
         var existing = model.RelaySheets.Where(sheet => importedPages.Contains(sheet.Page)).ToList();
-        if (existing.Count > 0)
-        {
-            var answer = MessageBox.Show(Window.GetWindow(this)!,
-                $"{existing.Count} sheet(s) with these page numbers are already in the model ({string.Join(", ", existing.Select(sheet => sheet.Page).Distinct().OrderBy(page => page))}).\n\n" +
-                "Yes = replace them with the new import (recommended: otherwise every relay is drawn twice).\nNo = keep them and add the new sheets.",
-                "Import EPLAN", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
-            if (answer == MessageBoxResult.Cancel)
-            {
-                return;
-            }
+        var first = existing.Count > 0 ? model.RelaySheets.IndexOf(existing[0]) : model.RelaySheets.Count;
+        existing.ForEach(sheet => model.RelaySheets.Remove(sheet));
+        first = Math.Min(first, model.RelaySheets.Count);
+        model.RelaySheets.InsertRange(first, import.Sheets);
+        var removed = existing.Count + RemoveDuplicates(model);
 
-            if (answer == MessageBoxResult.Yes)
-            {
-                existing.ForEach(sheet => model.RelaySheets.Remove(sheet));
-            }
-        }
-
-        var first = model.RelaySheets.Count;
-        model.RelaySheets.AddRange(import.Sheets);
+        // Operator devices of the project (push buttons, mushrooms, switches, lamps) on a cubicle door, to be arranged.
+        var onDoor = CubicleLayout.AddDevices(model, import.CubicleDevices, "EPLAN devices");
         var linked = _controller?.Session(_plc)?.Project is { } project ? RelayPlcSignals.Link(model, project.DigitalOutputs, project.DigitalInputs) : 0;
         _sheetIndex = import.Sheets.Count > 0 ? first : _sheetIndex;
         _selected = Sheet;
@@ -426,6 +415,15 @@ public sealed class RelayLogicView : UserControl
         var paths = import.Sheets.Sum(sheet => sheet.Circuits.Count);
         var message = $"Imported {import.Sheets.Count} sheet(s) with {paths} path(s) and {import.Switches.Count} selector switch(es); " +
                       $"{linked} contact(s) / coil(s) connected to their PLC input or output.";
+        if (removed > 0)
+        {
+            message += $" {removed} older sheet(s) with the same pages were replaced.";
+        }
+
+        if (onDoor > 0)
+        {
+            message += $" {onDoor} push button(s), switch(es) and lamp(s) were put on the cubicle 'EPLAN devices' (Cubicle tab) — arrange them there.";
+        }
         if (import.Warnings.Count > 0)
         {
             message += "\n\nTo check:\n" + string.Join("\n", import.Warnings.Take(25).Select(warning => "• " + warning))
@@ -617,6 +615,20 @@ public sealed class RelayLogicView : UserControl
         return dialog.ShowDialog() == true && boxes.Any(box => box.IsChecked == true);
     }
 
+    /// <summary>Older copies of sheets that are in the model twice (same name and page).</summary>
+    private static List<RelaySheet> Duplicates(ProcessModel model) => model.RelaySheets
+        .GroupBy(sheet => (sheet.Name.Trim().ToUpperInvariant(), sheet.Page))
+        .Where(group => group.Count() > 1)
+        .SelectMany(group => group.Take(group.Count() - 1))
+        .ToList();
+
+    private static int RemoveDuplicates(ProcessModel model)
+    {
+        var duplicates = Duplicates(model);
+        duplicates.ForEach(sheet => model.RelaySheets.Remove(sheet));
+        return duplicates.Count;
+    }
+
     /// <summary>Sheets with the same name and page (an EPLAN page imported twice): the last one is kept.</summary>
     private void RemoveDuplicateSheets()
     {
@@ -625,11 +637,7 @@ public sealed class RelayLogicView : UserControl
             return;
         }
 
-        var duplicates = model.RelaySheets
-            .GroupBy(sheet => (sheet.Name.Trim().ToUpperInvariant(), sheet.Page))
-            .Where(group => group.Count() > 1)
-            .SelectMany(group => group.Take(group.Count() - 1))
-            .ToList();
+        var duplicates = Duplicates(model);
         if (duplicates.Count == 0)
         {
             MessageBox.Show(Window.GetWindow(this)!, "No sheet is in the model twice.", "Remove duplicates", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -1992,11 +2000,23 @@ public sealed class RelayLogicView : UserControl
             coil.Input = value.Trim();
             Changed();
         }, "What drives the relay directly, e.g. the PLC output DO:160 (module/port) — the relay follows its simulator variable. Empty = the current path above the coil.");
+        if (SignalOf(coil.Input.Trim()) is { } inputSignal)
+        {
+            Note($"PLC output: {inputSignal.ModuleText} port {inputSignal.Channel} · {inputSignal.Kind}:{inputSignal.Id} {inputSignal.Name}{(inputSignal.IsEnabled ? "" : " (spare)")}");
+        }
+
         SearchField("Drives", coil.Outputs, Suggestions(PortDirection.Output), value =>
         {
             coil.Outputs = value;
             Changed();
-        }, "PLC inputs switched by the relay (type to search; several: DI:23, DI:24; empty = none).");
+        }, "PLC inputs switched by the relay (type to search by ID, module or name, e.g. A111 port 3; spare channels too; several: DI:23, DI:24; empty = none).");
+        foreach (var output in coil.Outputs.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (SignalOf(output) is { } outputSignal)
+            {
+                Note($"PLC input: {outputSignal.ModuleText} port {outputSignal.Channel} · {outputSignal.Kind}:{outputSignal.Id} {outputSignal.Name}{(outputSignal.IsEnabled ? "" : " (spare)")}");
+            }
+        }
         var timer = coil.Timer.Equals(RelayTimer.OnDelay, StringComparison.OrdinalIgnoreCase) ? "On-delay"
             : coil.Timer.Equals(RelayTimer.OffDelay, StringComparison.OrdinalIgnoreCase) ? "Off-delay" : "Normal relay";
         Choice("Type", ["Normal relay", "On-delay", "Off-delay"], timer, value =>

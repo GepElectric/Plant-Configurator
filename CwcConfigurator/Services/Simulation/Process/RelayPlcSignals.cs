@@ -81,7 +81,8 @@ public static class RelayPlcSignals
             .Where(tag => tag.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var circuit in model.RelaySheets.SelectMany(sheet => sheet.Circuits))
         {
-            var coilTag = Normalize(circuit.Coil.Tag);
+            // "-TM2:DI1" (input of a drive), "-H104:LAMP": not a relay wired to the PLC.
+            var coilTag = circuit.Coil.Tag.Contains(':') ? "" : Normalize(circuit.Coil.Tag);
 
             // Output relay: driven by the PLC output itself; its path has no contact (or only an empty one).
             if (doMap.TryGetValue(coilTag, out var output) && !circuit.Coil.HasInput && circuit.Feed.Length == 0

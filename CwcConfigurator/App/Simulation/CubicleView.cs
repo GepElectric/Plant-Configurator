@@ -36,7 +36,17 @@ public sealed class CubicleView : UserControl
     private readonly Canvas _door = new() { Background = Brushes.White };
     private readonly ComboBox _cubicles = new() { Width = 200, Margin = new Thickness(0, 0, 6, 0) };
     private readonly ComboBox _zoom = new() { Width = 70, Margin = new Thickness(0, 0, 6, 0) };
-    private readonly CheckBox _edit = new() { Content = "Edit layout", IsChecked = true, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
+    private readonly CheckBox _edit = new()
+    {
+        Content = "Edit layout",
+        IsChecked = true,
+        VerticalAlignment = VerticalAlignment.Center,
+        Margin = new Thickness(12, 0, 0, 0),
+        ToolTip = "Ticked: place and select devices. Unticked: operate them — hold a push button down with the mouse, click a mushroom to latch / release it, click the left or right half of a switch to turn it. The right mouse button always operates. Unticked automatically when the simulation starts."
+    };
+
+    private readonly TextBlock _modeHint = new() { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0), Foreground = Brushes.DimGray, FontSize = 11 };
+    private bool _wasRunning;
     private readonly StackPanel _properties = new() { Margin = new Thickness(10) };
 
     private SimulationController? _controller;
@@ -70,6 +80,7 @@ public sealed class CubicleView : UserControl
         toolbar.Children.Add(ToolButton("Label", "Add a label plate (text only).", (_, _) => AddItem(CubicleItemKind.Label)));
         toolbar.Children.Add(ToolButton("Delete", "Delete the selected device (Del).", (_, _) => DeleteItem()));
         toolbar.Children.Add(_edit);
+        toolbar.Children.Add(_modeHint);
         toolbar.Children.Add(new TextBlock { Text = "Zoom", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(14, 0, 6, 0) });
         _zoom.ItemsSource = new[] { "50%", "75%", "100%", "125%", "150%" };
         _zoom.SelectedItem = "100%";
@@ -150,6 +161,14 @@ public sealed class CubicleView : UserControl
     /// <summary>Live state (switch positions changed elsewhere); called by the window timer.</summary>
     public void RefreshLive()
     {
+        // Starting the simulation switches to operating the devices.
+        var running = _controller?.Running == true;
+        if (running && !_wasRunning)
+        {
+            _edit.IsChecked = false;
+        }
+
+        _wasRunning = running;
         if (IsVisible && _dragging is null && Mouse.LeftButton != MouseButtonState.Pressed)
         {
             Redraw();
@@ -237,6 +256,26 @@ public sealed class CubicleView : UserControl
             Tag = kind == CubicleItemKind.Label ? "" : NextTag(kind == CubicleItemKind.Lamp ? "-H" : "-S"),
             Text = kind == CubicleItemKind.Label ? "LABEL" : ""
         };
+        if (item.IsButton)
+        {
+            // A push button / mushroom of the schematics not on a cubicle yet (contacts with its tag on the sheets).
+            var free = FreeButtonTags(model);
+            if (free.Count > 0)
+            {
+                if (PickTag(item.IsEmergencyStop ? "Emergency stop" : "Push button", free, item.Tag) is not { } picked)
+                {
+                    return;
+                }
+
+                if (picked.Tag.Length > 0)
+                {
+                    item.Tag = picked.Tag;
+                    item.Text = picked.Text;
+                    item.Contact = picked.Nc ? "NC" : "NO";
+                }
+            }
+        }
+
         if (item.IsSwitch)
         {
             // The first relay-logic switch not on a cubicle yet (e.g. -S1 from the EPLAN import), else a new one.
@@ -257,6 +296,73 @@ public sealed class CubicleView : UserControl
         _edit.IsChecked = true;
         Changed();
         Select(item);
+    }
+
+    /// <summary>
+    /// Devices of the sheets a push button can operate: contact tags that are not a relay, a selector switch, a
+    /// device with an input, a signal or a push button already on a cubicle (e.g. -S13 RESET, -S301 ESD).
+    /// </summary>
+    private List<(string Tag, string Text, bool Nc, string Pages)> FreeButtonTags(ProcessModel model)
+    {
+        var taken = model.RelaySheets.SelectMany(sheet => sheet.Circuits).Select(circuit => circuit.Coil.Tag.Trim())
+            .Concat(model.RelaySwitches.Select(selector => selector.Tag.Trim()))
+            .Concat(model.RelayDevices.Where(device => device.Input.Trim().Length > 0).Select(device => device.Tag.Trim()))
+            .Concat(model.Cubicles.SelectMany(cubicle => cubicle.Items).Where(other => other.IsButton).Select(other => other.Tag.Trim()))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var result = new List<(string Tag, string Text, bool Nc, string Pages)>();
+        foreach (var group in model.RelaySheets
+                     .SelectMany(sheet => sheet.Circuits.SelectMany(circuit => Contacts(circuit.Elements)).Select(contact => (sheet, contact)))
+                     .Where(pair => pair.contact.Tag.Trim().Length > 0 && !taken.Contains(pair.contact.Tag.Trim())
+                                    && PortBinding.Parse(pair.contact.Tag).Kind == BindingKind.None && !pair.contact.Tag.Contains('@'))
+                     .GroupBy(pair => pair.contact.Tag.Trim(), StringComparer.OrdinalIgnoreCase))
+        {
+            var text = group.Select(pair => pair.contact.Text.Replace("\r", "").Replace('\n', ' ').Trim()).FirstOrDefault(value => value.Length > 0) ?? "";
+            var pages = string.Join(", ", group.Select(pair => pair.sheet.Page > 0 ? pair.sheet.Page.ToString(CultureInfo.InvariantCulture) : pair.sheet.Name).Distinct());
+            result.Add((group.Key, text, group.All(pair => pair.contact.IsNormallyClosed), pages));
+        }
+
+        return result.OrderBy(item => item.Tag.StartsWith("-S", StringComparison.OrdinalIgnoreCase) ? 0 : 1).ThenBy(item => item.Tag, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    /// <summary>Choice of a device of the sheets for a new push button; ("", "") = a new tag; null = cancelled.</summary>
+    private (string Tag, string Text, bool Nc)? PickTag(string title, List<(string Tag, string Text, bool Nc, string Pages)> free, string newTag)
+    {
+        var list = new ListBox { Height = 300, Margin = new Thickness(0, 6, 0, 0) };
+        list.Items.Add(new ListBoxItem { Content = $"New push button {newTag} (not on the sheets yet)", Tag = -1 });
+        for (var i = 0; i < free.Count; i++)
+        {
+            var (tag, text, nc, pages) = free[i];
+            list.Items.Add(new ListBoxItem { Content = $"{tag}   {text}   ({(nc ? "NC" : "NO")}, page {pages})", Tag = i });
+        }
+
+        list.SelectedIndex = 1;
+        var ok = new Button { Content = "Add", Width = 90, IsDefault = true, Margin = new Thickness(0, 0, 8, 0) };
+        var cancel = new Button { Content = "Cancel", Width = 90, IsCancel = true };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+        buttons.Children.Add(ok);
+        buttons.Children.Add(cancel);
+        var panel = new StackPanel { Margin = new Thickness(14) };
+        panel.Children.Add(new TextBlock { Text = "Which device of the schematics does it operate? Only devices not on a cubicle yet are listed.", TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(list);
+        panel.Children.Add(buttons);
+        var dialog = new Window
+        {
+            Title = title,
+            Content = panel,
+            Width = 560,
+            SizeToContent = SizeToContent.Height,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = Window.GetWindow(this)
+        };
+        ok.Click += (_, _) => dialog.DialogResult = true;
+        list.MouseDoubleClick += (_, _) => dialog.DialogResult = true;
+        if (dialog.ShowDialog() != true)
+        {
+            return null;
+        }
+
+        return (list.SelectedItem as ListBoxItem)?.Tag is int index && index >= 0 ? (free[index].Tag, free[index].Text, free[index].Nc) : ("", "", false);
     }
 
     private void DeleteItem()
@@ -376,6 +482,9 @@ public sealed class CubicleView : UserControl
 
     private void Redraw()
     {
+        _modeHint.Text = _edit.IsChecked == true
+            ? "Right mouse button operates: hold it on a push button, click a mushroom or a switch (left = move)."
+            : "Operating: hold the mouse button on a push button, click a mushroom or a switch.";
         _door.Children.Clear();
         if (Cubicle is not { } cubicle)
         {
@@ -515,13 +624,18 @@ public sealed class CubicleView : UserControl
         group.ToolTip = ItemTitle(item);
         Place(group, cx, cy);
         group.MouseLeftButtonDown += (_, e) => Item_MouseDown(item, e);
-        group.MouseLeftButtonUp += (_, _) =>
+        group.MouseLeftButtonUp += (_, _) => Release(item);
+
+        // The right mouse button always operates (also while placing devices): hold it on a push button.
+        group.MouseRightButtonDown += (_, e) =>
         {
-            if (item.Pressed && !item.IsEmergencyStop)
-            {
-                item.Pressed = false;
-                Redraw();
-            }
+            e.Handled = true;
+            Operate(item, e);
+        };
+        group.MouseRightButtonUp += (_, e) =>
+        {
+            e.Handled = true;
+            Release(item);
         };
         group.MouseLeave += (_, _) =>
         {
@@ -590,7 +704,22 @@ public sealed class CubicleView : UserControl
             return;
         }
 
-        // Operating the devices.
+        Operate(item, e);
+    }
+
+    /// <summary>A momentary push button springs back when the mouse button is released.</summary>
+    private void Release(CubicleItem item)
+    {
+        if (item.Pressed && !item.IsEmergencyStop)
+        {
+            item.Pressed = false;
+            Redraw();
+        }
+    }
+
+    /// <summary>Operating a device: push button held down, mushroom latched / released, switch turned.</summary>
+    private void Operate(CubicleItem item, MouseButtonEventArgs e)
+    {
         if (item.IsEmergencyStop)
         {
             item.Pressed = !item.Pressed; // press latches it, a second click turns it free
@@ -784,6 +913,16 @@ public sealed class CubicleView : UserControl
                     Changed();
                     ShowProperties();
                 }, "The selector switch of the relay logic this knob turns (type to search, e.g. s1 or gate control). A new tag renames the switch everywhere.", DimBrush);
+            }
+            else if (item.IsButton && Model is { } buttonModel)
+            {
+                var choices = FreeButtonTags(buttonModel).Select(free => $"{free.Tag}{PortRow.Separator}{free.Text}  (page {free.Pages})").ToList();
+                SignalSearchField.Add(_properties, "Tag", item.Tag, choices, value =>
+                {
+                    item.Tag = value.Trim();
+                    Changed();
+                    ShowProperties();
+                }, "The device of the schematics it operates (type to search; only devices not on a cubicle yet are offered), e.g. -S13.", DimBrush);
             }
             else
             {
