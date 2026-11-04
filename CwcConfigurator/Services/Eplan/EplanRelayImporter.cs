@@ -90,9 +90,58 @@ public static class EplanRelayImporter
             {
                 ImportPage(page, import);
             }
+
+            // Selector switches of the whole project (also on pages not imported, e.g. wired straight to PLC inputs),
+            // so every switch is there for the relay logic and the cubicle doors.
+            CollectSwitches(page, import);
         });
         return import;
     }
+
+    /// <summary>Selector switches (function category 600 with a switch symbol): tag, text and position names.</summary>
+    private static void CollectSwitches(XElement page, EplanRelayImport import)
+    {
+        foreach (var item in page.Elements("O17").Where(item => item.Attribute("A1381")?.Value == "600"))
+        {
+            var symbol = $"{item.Attribute("A1261")?.Value}/{item.Attribute("A1262")?.Value}/{item.Attribute("A1263")?.Value}";
+            if (!SwitchSymbols.Contains(symbol))
+            {
+                continue;
+            }
+
+            var tag = Tag(item);
+            var p11 = item.Element("P11");
+            var text = Text(p11?.Attribute("P20011")?.Value);
+            var positions = Enumerable.Range(10, 6).Select(i => Text(p11?.Attribute($"P20901_{i}")?.Value)).Where(name => name.Length > 0).ToList();
+            var existing = import.Switches.FirstOrDefault(selector => selector.Tag.Equals(tag, StringComparison.OrdinalIgnoreCase));
+            if (existing is null)
+            {
+                import.Switches.Add(new RelaySwitch
+                {
+                    Tag = tag,
+                    Text = text,
+                    Positions = positions.Count >= 2 ? string.Join("/", positions) : "0/1",
+                    Position = positions.Count >= 2 ? positions[0] : "0"
+                });
+                continue;
+            }
+
+            // The same switch drawn on several pages (contact blocks): keep the first text and named positions found.
+            if (existing.Text.Length == 0)
+            {
+                existing.Text = text;
+            }
+
+            if (existing.Positions == "0/1" && positions.Count >= 2)
+            {
+                existing.Positions = string.Join("/", positions);
+                existing.Position = positions[0];
+            }
+        }
+    }
+
+    /// <summary>Symbols of selector switches (maintained positions), whatever their contacts are wired to.</summary>
+    private static readonly HashSet<string> SwitchSymbols = new(StringComparer.Ordinal) { "5/35/0", "5/32/0" };
 
     private static void ForEachPage(string path, CancellationToken cancellationToken, Action<int, XElement> action)
     {
@@ -468,10 +517,15 @@ public static class EplanRelayImporter
             case Leaf { Device.Symbol.Kind: SymbolKind.Selector } leaf:
             {
                 var device = leaf.Device;
-                var positions = device.Positions.Count >= 2 ? device.Positions : [device.Points.ElementAtOrDefault(1) ?? "1", "0", device.Points.ElementAtOrDefault(2) ?? "2"];
+                // The switch's own position names (as first read in the project), so the contacts of every page match.
+                var known = import.Switches.FirstOrDefault(item => item.Tag.Equals(device.Tag, StringComparison.OrdinalIgnoreCase))?.PositionList();
+                var positions = known is { Count: >= 2 } ? known
+                    : device.Positions.Count >= 2 ? device.Positions
+                    : [device.Points.ElementAtOrDefault(1) ?? "1", "0", device.Points.ElementAtOrDefault(2) ?? "2"];
                 var position = leaf.UsedPin == 1 ? positions[0] : positions[^1];
                 if (!import.Switches.Any(item => item.Tag.Equals(device.Tag, StringComparison.OrdinalIgnoreCase)))
                 {
+                    // (normally already collected from the whole project)
                     import.Switches.Add(new RelaySwitch { Tag = device.Tag, Text = device.Text, Positions = string.Join("/", positions), Position = positions[0] });
                 }
 
