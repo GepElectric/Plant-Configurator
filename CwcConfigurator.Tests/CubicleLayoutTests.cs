@@ -46,23 +46,36 @@ public sealed class CubicleLayoutTests
     }
 
     [Fact]
-    public void ReplaceAll_PutsEveryDeviceOnOneDoor_KeepingTextsTypedByHand()
+    public void Sync_KeepsDevicesOnTheirDoor_AddsTheMissing_RemovesTheOld()
     {
         var model = new ProcessModel
         {
-            Cubicles = [new Cubicle { Name = "+1 Cubicle", Items = [new CubicleItem { Kind = CubicleItemKind.Lamp, Tag = "-H101", Text = "Warning" }, new CubicleItem { Kind = CubicleItemKind.Switch, Tag = "-S1" }] }]
+            Cubicles =
+            [
+                new Cubicle
+                {
+                    Name = "+1 Cubicle",
+                    Items =
+                    [
+                        new CubicleItem { Kind = CubicleItemKind.Switch, Tag = "-S1", Text = "Gate control", X = 120, Y = 200 },
+                        new CubicleItem { Kind = CubicleItemKind.Lamp, Tag = "-H9", Text = "Old" },
+                        new CubicleItem { Kind = CubicleItemKind.Label, Text = "GATE 1" }
+                    ]
+                }
+            ]
         };
         var devices = new[]
         {
-            new CubicleItem { Kind = CubicleItemKind.Lamp, Tag = "-H101" },
             new CubicleItem { Kind = CubicleItemKind.Switch, Tag = "-S1", Text = "GATE 1 CONTROL" },
             new CubicleItem { Kind = CubicleItemKind.Switch, Tag = "-S4" }
         };
 
-        Assert.Equal(3, CubicleLayout.ReplaceAll(model, devices, "EPLAN devices"));
-        var door = Assert.Single(model.Cubicles);
-        Assert.Equal("EPLAN devices", door.Name);
-        Assert.Equal("Warning", door.Items.Single(item => item.Tag == "-H101").Text);
-        Assert.Equal("GATE 1 CONTROL", door.Items.Single(item => item.Tag == "-S1").Text);
+        Assert.Equal((2, 1, 1), CubicleLayout.Sync(model, devices, "EPLAN devices"));
+        var own = model.Cubicles.Single(cubicle => cubicle.Name == "+1 Cubicle");
+        var s1 = own.Items.Single(item => item.Tag == "-S1");
+        Assert.Equal(("Gate control", 120.0, 200.0), (s1.Text, s1.X, s1.Y));               // stays as arranged
+        Assert.Contains(own.Items, item => item.IsLabel);
+        Assert.DoesNotContain(own.Items, item => item.Tag == "-H9");                          // not in the project
+        Assert.Equal("-S4", model.Cubicles.Single(cubicle => cubicle.Name == "EPLAN devices").Items.Single().Tag);
     }
 }

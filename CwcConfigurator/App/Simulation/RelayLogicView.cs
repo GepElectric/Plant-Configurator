@@ -405,7 +405,7 @@ public sealed class RelayLogicView : UserControl
         var removed = existing.Count + RemoveDuplicates(model);
 
         // Operator devices of the project (push buttons, mushrooms, switches, lamps) on a cubicle door, to be arranged.
-        var onDoor = import.CubicleDevices.Count > 0 ? CubicleLayout.ReplaceAll(model, import.CubicleDevices, "EPLAN devices") : 0;
+        var (onDoor, doorAdded, doorRemoved) = import.CubicleDevices.Count > 0 ? CubicleLayout.Sync(model, import.CubicleDevices, "EPLAN devices") : (0, 0, 0);
         // PLC card points → DI / DO of the simulator (by the EPLAN terminal of each channel), then the relays by tag.
         var missing = new List<string>();
         var points = 0;
@@ -449,7 +449,8 @@ public sealed class RelayLogicView : UserControl
 
         if (onDoor > 0)
         {
-            message += $" The cubicle doors were replaced by 'EPLAN devices' with all {onDoor} push button(s), switch(es) and lamp(s) of the project (Cubicle tab) — arrange them there.";
+            message += $" Cubicle: {onDoor} push button(s), switch(es) and lamp(s) of the project — {doorAdded} new on 'EPLAN devices' (arrange them there), the others stay where they are" +
+                       (doorRemoved > 0 ? $", {doorRemoved} not in the project any more removed." : ".");
         }
         if (import.Warnings.Count > 0)
         {

@@ -108,27 +108,36 @@ public static class CubicleLayout
     private const double RowPitch = 85;
 
     /// <summary>
-    /// All cubicle doors are replaced by one door with every operator device of the project (EPLAN import). Plate
-    /// texts and colours typed by hand are kept where the project has none.
+    /// The cubicle doors follow the operator devices of the project (EPLAN import): devices already on a door stay
+    /// where they are (with their texts and signals), the missing ones go on the door <paramref name="name"/>, and
+    /// devices the project no longer has are removed (label plates stay). Empty doors are removed.
     /// </summary>
-    /// <returns>Number of devices on the new door.</returns>
-    public static int ReplaceAll(ProcessModel model, IEnumerable<CubicleItem> devices, string name)
+    /// <returns>Devices of the project on the doors (kept + added) and how many were added / removed.</returns>
+    public static (int Total, int Added, int Removed) Sync(ProcessModel model, IEnumerable<CubicleItem> devices, string name)
     {
-        var old = model.Cubicles.SelectMany(cubicle => cubicle.Items).Where(item => item.Tag.Trim().Length > 0)
+        var list = devices.Where(item => item.Tag.Trim().Length > 0).ToList();
+        var tags = list.Select(item => item.Tag.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var removed = 0;
+        foreach (var cubicle in model.Cubicles)
+        {
+            removed += cubicle.Items.RemoveAll(item => !item.IsLabel && item.Tag.Trim().Length > 0 && !tags.Contains(item.Tag.Trim()));
+        }
+
+        // Kept devices: an empty plate text or lamp source is filled from the project.
+        var kept = model.Cubicles.SelectMany(cubicle => cubicle.Items).Where(item => !item.IsLabel)
             .GroupBy(item => item.Tag.Trim(), StringComparer.OrdinalIgnoreCase).ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
-        var list = devices.ToList();
         foreach (var item in list)
         {
-            if (old.TryGetValue(item.Tag.Trim(), out var previous))
+            if (kept.TryGetValue(item.Tag.Trim(), out var existing))
             {
-                item.Text = item.Text.Trim().Length > 0 ? item.Text : previous.Text;
-                item.Outputs = item.Outputs.Trim().Length > 0 ? item.Outputs : previous.Outputs;
-                item.Source = item.Source.Trim().Length > 0 ? item.Source : previous.Source;
+                existing.Text = existing.Text.Trim().Length > 0 ? existing.Text : item.Text;
+                existing.Source = existing.Source.Trim().Length > 0 ? existing.Source : item.Source;
             }
         }
 
-        model.Cubicles.Clear();
-        return AddDevices(model, list, name);
+        model.Cubicles.RemoveAll(cubicle => cubicle.Items.Count == 0 && !cubicle.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        var added = AddDevices(model, list, name);
+        return (kept.Count + added, added, removed);
     }
 
     /// <summary>
