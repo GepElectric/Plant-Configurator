@@ -237,6 +237,13 @@
                             <DataGridTextColumn Header="SYSTEM" Width="150" MinWidth="100" Binding="{Binding System}"/>
                             <DataGridTextColumn Header="NAME" Width="*" MinWidth="180" Binding="{Binding Name}"/>
                             <DataGridTextColumn Header="PLC NAME" Width="160" MinWidth="100" Binding="{Binding PlcName}"/>
+                            <DataGridTemplateColumn Header="SIMULATOR" Width="200" MinWidth="100" SortMemberPath="Links">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Links}" ToolTip="{Binding Links}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="#1F6FEB"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="CONFIG" Width="64" MinWidth="64" Binding="{Binding ConfigText}"/>
                             <DataGridTextColumn Header="ADDRESS" Width="80" MinWidth="80" Binding="{Binding Address}"/>
                             <DataGridTemplateColumn Header="COMM (PLC)" Width="110" MinWidth="90" SortMemberPath="ValueText">

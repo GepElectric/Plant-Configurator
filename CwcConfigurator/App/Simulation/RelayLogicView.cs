@@ -78,7 +78,6 @@ public sealed class RelayLogicView : UserControl
         toolbar.Children.Add(ToolButton("Import EPLAN…", "Build relay-logic sheets from the schematic pages of an EPLAN export (.epj): contacts, coils, branches and selector switches.", async (_, _) => await ImportEplanAsync()));
         toolbar.Children.Add(ToolButton("Import EPLAN power…", "Build the power part from the EPLAN distribution pages: an SLD screen (busbar, breakers, contactors following their relays, motors) and an overview sheet of the feeders.", async (_, _) => await ImportEplanPowerAsync()));
         toolbar.Children.Add(ToolButton("Copy sheet", "Copy this sheet for the same circuit with other relays and signals (find / replace rules).", (_, _) => CopySheet()));
-        toolbar.Children.Add(ToolButton("Remove duplicates", "Sheets imported twice (same name and page): keep the last import, delete the older copies — a relay must be drawn once.", (_, _) => RemoveDuplicateSheets()));
         toolbar.Children.Add(ToolButton("Delete sheet", "Delete this sheet with all its paths.", (_, _) => DeleteSheet()));
         toolbar.Children.Add(new Separator { Width = 14, Opacity = 0 });
         toolbar.Children.Add(ToolButton("New path", "Add a current path (one contact and a relay coil) at the right.", (_, _) => NewPath()));
@@ -348,6 +347,7 @@ public sealed class RelayLogicView : UserControl
         DockPanel.SetDock(header, Dock.Top);
         panel.Children.Add(header);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+        AddSelectButtons(buttons, boxes);
         buttons.Children.Add(ok);
         buttons.Children.Add(cancel);
         DockPanel.SetDock(buttons, Dock.Bottom);
@@ -608,6 +608,17 @@ public sealed class RelayLogicView : UserControl
         MessageBox.Show(Window.GetWindow(this)!, message, "Import EPLAN power", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
+    /// <summary>"Select all" / "Select none" for the page tick boxes.</summary>
+    private static void AddSelectButtons(Panel buttons, List<CheckBox> boxes)
+    {
+        var all = new Button { Content = "Select all", Width = 90, Margin = new Thickness(0, 0, 8, 0) };
+        all.Click += (_, _) => boxes.ForEach(box => box.IsChecked = true);
+        var none = new Button { Content = "Select none", Width = 90, Margin = new Thickness(0, 0, 24, 0) };
+        none.Click += (_, _) => boxes.ForEach(box => box.IsChecked = false);
+        buttons.Children.Add(all);
+        buttons.Children.Add(none);
+    }
+
     /// <summary>Page selection dialog (tick boxes); true when confirmed.</summary>
     private bool ChoosePages(string title, string text, List<CheckBox> boxes)
     {
@@ -620,6 +631,7 @@ public sealed class RelayLogicView : UserControl
         DockPanel.SetDock(header, Dock.Top);
         panel.Children.Add(header);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+        AddSelectButtons(buttons, boxes);
         buttons.Children.Add(ok);
         buttons.Children.Add(cancel);
         DockPanel.SetDock(buttons, Dock.Bottom);
@@ -650,36 +662,6 @@ public sealed class RelayLogicView : UserControl
         var duplicates = Duplicates(model);
         duplicates.ForEach(sheet => model.RelaySheets.Remove(sheet));
         return duplicates.Count;
-    }
-
-    /// <summary>Sheets with the same name and page (an EPLAN page imported twice): the last one is kept.</summary>
-    private void RemoveDuplicateSheets()
-    {
-        if (Model is not { } model)
-        {
-            return;
-        }
-
-        var duplicates = Duplicates(model);
-        if (duplicates.Count == 0)
-        {
-            MessageBox.Show(Window.GetWindow(this)!, "No sheet is in the model twice.", "Remove duplicates", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        var list = string.Join("\n", duplicates.Select(sheet => $"• {sheet.Name} (page {sheet.Page})").Take(30));
-        if (MessageBox.Show(Window.GetWindow(this)!,
-                $"{duplicates.Count} older copy(ies) of sheets that are in the model twice will be deleted (the last import of each is kept):\n\n{list}",
-                "Remove duplicates", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
-        {
-            return;
-        }
-
-        duplicates.ForEach(sheet => model.RelaySheets.Remove(sheet));
-        _sheetIndex = Math.Clamp(_sheetIndex, 0, Math.Max(0, model.RelaySheets.Count - 1));
-        _selected = Sheet;
-        Changed();
-        ShowProperties();
     }
 
     private void CopySheet()

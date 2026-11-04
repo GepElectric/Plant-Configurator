@@ -82,7 +82,9 @@ public static class ProcessModelStore
         model.Screens ??= [];
         model.SldScreens ??= [];
         model.RelaySheets ??= [];
-        model.RelaySwitches = (model.RelaySwitches ?? []).Where(item => item is not null).ToList();
+        // One switch per tag (older models could hold the same switch twice).
+        model.RelaySwitches = (model.RelaySwitches ?? []).Where(item => item is not null)
+            .GroupBy(item => (item.Tag ?? "").Trim(), StringComparer.OrdinalIgnoreCase).Select(group => group.First()).ToList();
         model.RelayDevices = (model.RelayDevices ?? []).Where(item => item is not null).ToList();
         foreach (var device in model.RelayDevices)
         {

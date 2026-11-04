@@ -42,6 +42,7 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
     private double? _comm;
     private int? _commRaw;
     private string _setText = "";
+    private string _links = "";
     private bool _forceTrue;
     private bool _forceFalse;
     private bool _forceValueOn;
@@ -197,6 +198,13 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
         return string.IsNullOrWhiteSpace(Unit) || (!IsReal && !HasScaling) ? text : $"{text} {Unit}";
     }
 
+    /// <summary>Where the simulator uses this signal (object ports, relay logic, cubicle), e.g. "@Gate1.Open, contact /37.2".</summary>
+    public string Links
+    {
+        get => _links;
+        set => Set(ref _links, value ?? "");
+    }
+
     /// <summary>Text typed in the SET box of an analog channel.</summary>
     public string SetText
     {
@@ -204,7 +212,7 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
         set => Set(ref _setText, value ?? "");
     }
 
-    public string SearchText => $"{Kind} {Module} {ModuleName} {Channel} {Id} {System} {Name} {PlcName} {Address}";
+    public string SearchText => $"{Kind} {Module} {ModuleName} {Channel} {Id} {System} {Name} {PlcName} {Address} {Links}";
 
     /// <summary>Updates the value read from the PLC (simulator DB / devices DB).</summary>
     public void UpdateFrom(byte[] simulatorDb, byte[] devicesDb) => UpdateFrom(InDeviceDb ? devicesDb : simulatorDb);

@@ -98,6 +98,7 @@ public partial class SimulatorWindow : Window
         ScadaPanel.Attach(_controller);
         RelayPanel.Attach(_controller);
         CubiclePanel.Attach(_controller);
+        _controller.ModelChanged += UpdateLinks;
         foreach (var session in _sessions)
         {
             PlcSelector.Items.Add(session);
@@ -296,6 +297,15 @@ public partial class SimulatorWindow : Window
         }
     }
 
+    /// <summary>The SIMULATOR column: where the model uses each signal (objects, relay logic, cubicle).</summary>
+    private void UpdateLinks()
+    {
+        foreach (var session in _sessions)
+        {
+            SignalLinks.Apply(session.Signals, _controller.Models.GetValueOrDefault(session.Name));
+        }
+    }
+
     private void ShowSignals()
     {
         if (_session is null)
@@ -303,6 +313,7 @@ public partial class SimulatorWindow : Window
             return;
         }
 
+        UpdateLinks();
         _view = CollectionViewSource.GetDefaultView(_session.Signals);
         _view.Filter = item => item is SimulatorSignal signal && Matches(signal);
         SignalsGrid.ItemsSource = _view;
