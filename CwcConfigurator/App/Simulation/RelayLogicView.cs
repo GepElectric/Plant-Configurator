@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using CwcConfigurator.Services.Eplan;
 using CwcConfigurator.Services.Simulation;
 using CwcConfigurator.Services.Simulation.Process;
 
@@ -74,6 +75,7 @@ public sealed class RelayLogicView : UserControl
         };
         toolbar.Children.Add(_sheets);
         toolbar.Children.Add(ToolButton("New sheet", "Add a relay-logic sheet.", (_, _) => NewSheet()));
+        toolbar.Children.Add(ToolButton("Import EPLAN…", "Build relay-logic sheets from the schematic pages of an EPLAN export (.epj): contacts, coils, branches and selector switches.", async (_, _) => await ImportEplanAsync()));
         toolbar.Children.Add(ToolButton("Copy sheet", "Copy this sheet for the same circuit with other relays and signals (find / replace rules).", (_, _) => CopySheet()));
         toolbar.Children.Add(ToolButton("Delete sheet", "Delete this sheet with all its paths.", (_, _) => DeleteSheet()));
         toolbar.Children.Add(new Separator { Width = 14, Opacity = 0 });
@@ -270,6 +272,136 @@ public sealed class RelayLogicView : UserControl
     /// Copies the sheet with replacement rules (prefilled with every tag and signal of the sheet as "x=x", so only the
     /// right side needs editing). Switches of renamed switch contacts are copied with their positions.
     /// </summary>
+    /// <summary>
+    /// Relay logic from an EPLAN export: choose the .epj and the schematic pages; each page becomes a sheet (its
+    /// coils' paths, branches, selector switches). Sources of contacts that are no relay of the sheets are set later.
+    /// </summary>
+    private async Task ImportEplanAsync()
+    {
+        if (Model is not { } model)
+        {
+            return;
+        }
+
+        var open = new Microsoft.Win32.OpenFileDialog { Filter = "EPLAN export (*.epj)|*.epj|All files (*.*)|*.*", Title = "EPLAN project export" };
+        if (open.ShowDialog(Window.GetWindow(this)) != true)
+        {
+            return;
+        }
+
+        List<EplanSchematicPage> pages;
+        try
+        {
+            Mouse.OverrideCursor = Cursors.Wait;
+            _status.Text = "Reading the EPLAN pages…";
+            pages = await Task.Run(() => EplanRelayImporter.ListPages(open.FileName));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(Window.GetWindow(this)!, "The EPLAN export could not be read: " + ex.Message, "Import EPLAN", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        finally
+        {
+            Mouse.OverrideCursor = null;
+            _status.Text = "";
+        }
+
+        if (pages.Count == 0)
+        {
+            MessageBox.Show(Window.GetWindow(this)!, "No page of this export has relay coils or contacts.", "Import EPLAN", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        // Pages with coils are ticked: each becomes a sheet.
+        var boxes = pages.Select(page => new CheckBox
+        {
+            Content = $"{page.Title}   ({page.Coils} coil(s), {page.Contacts} contact(s))",
+            IsChecked = page.Coils > 0,
+            Tag = page.Index,
+            Margin = new Thickness(0, 2, 0, 2)
+        }).ToList();
+        var list = new StackPanel();
+        boxes.ForEach(box => list.Children.Add(box));
+        var ok = new Button { Content = "Import", Width = 90, IsDefault = true, Margin = new Thickness(0, 0, 8, 0) };
+        var cancel = new Button { Content = "Cancel", Width = 90, IsCancel = true };
+        var panel = new DockPanel { Margin = new Thickness(14) };
+        var header = new TextBlock
+        {
+            Text = $"{System.IO.Path.GetFileName(open.FileName)} — tick the schematic pages to import. Each page becomes a relay-logic sheet; " +
+                   "the wires are rebuilt from the drawing (EPLAN autoconnect).",
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        DockPanel.SetDock(header, Dock.Top);
+        panel.Children.Add(header);
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+        buttons.Children.Add(ok);
+        buttons.Children.Add(cancel);
+        DockPanel.SetDock(buttons, Dock.Bottom);
+        panel.Children.Add(buttons);
+        panel.Children.Add(new ScrollViewer { Content = list, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        var dialog = new Window
+        {
+            Title = "Import relay logic from EPLAN",
+            Content = panel,
+            Width = 720,
+            Height = 560,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = Window.GetWindow(this)
+        };
+        ok.Click += (_, _) => dialog.DialogResult = true;
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var chosen = boxes.Where(box => box.IsChecked == true).Select(box => (int)box.Tag).ToHashSet();
+        if (chosen.Count == 0)
+        {
+            return;
+        }
+
+        EplanRelayImport import;
+        try
+        {
+            Mouse.OverrideCursor = Cursors.Wait;
+            import = await Task.Run(() => EplanRelayImporter.Import(open.FileName, chosen));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(Window.GetWindow(this)!, "The import failed: " + ex.Message, "Import EPLAN", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        finally
+        {
+            Mouse.OverrideCursor = null;
+        }
+
+        foreach (var selector in import.Switches.Where(selector => !model.RelaySwitches.Any(item => item.Tag.Trim().Equals(selector.Tag.Trim(), StringComparison.OrdinalIgnoreCase))))
+        {
+            model.RelaySwitches.Add(selector);
+        }
+
+        var first = model.RelaySheets.Count;
+        model.RelaySheets.AddRange(import.Sheets);
+        _sheetIndex = import.Sheets.Count > 0 ? first : _sheetIndex;
+        _selected = Sheet;
+        Changed();
+        ShowProperties();
+
+        var paths = import.Sheets.Sum(sheet => sheet.Circuits.Count);
+        var message = $"Imported {import.Sheets.Count} sheet(s) with {paths} path(s) and {import.Switches.Count} selector switch(es).";
+        if (import.Warnings.Count > 0)
+        {
+            message += "\n\nTo check:\n" + string.Join("\n", import.Warnings.Take(25).Select(warning => "• " + warning))
+                       + (import.Warnings.Count > 25 ? $"\n… and {import.Warnings.Count - 25} more." : "");
+        }
+
+        message += "\n\nContacts of relays that are not on the imported sheets (e.g. PLC relays) need their source (DO / DI / object).";
+        MessageBox.Show(Window.GetWindow(this)!, message, "Import EPLAN", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
     private void CopySheet()
     {
         if (Model is not { } model || Sheet is not { } sheet)
