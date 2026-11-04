@@ -108,6 +108,30 @@ public static class CubicleLayout
     private const double RowPitch = 85;
 
     /// <summary>
+    /// All cubicle doors are replaced by one door with every operator device of the project (EPLAN import). Plate
+    /// texts and colours typed by hand are kept where the project has none.
+    /// </summary>
+    /// <returns>Number of devices on the new door.</returns>
+    public static int ReplaceAll(ProcessModel model, IEnumerable<CubicleItem> devices, string name)
+    {
+        var old = model.Cubicles.SelectMany(cubicle => cubicle.Items).Where(item => item.Tag.Trim().Length > 0)
+            .GroupBy(item => item.Tag.Trim(), StringComparer.OrdinalIgnoreCase).ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var list = devices.ToList();
+        foreach (var item in list)
+        {
+            if (old.TryGetValue(item.Tag.Trim(), out var previous))
+            {
+                item.Text = item.Text.Trim().Length > 0 ? item.Text : previous.Text;
+                item.Outputs = item.Outputs.Trim().Length > 0 ? item.Outputs : previous.Outputs;
+                item.Source = item.Source.Trim().Length > 0 ? item.Source : previous.Source;
+            }
+        }
+
+        model.Cubicles.Clear();
+        return AddDevices(model, list, name);
+    }
+
+    /// <summary>
     /// Adds the devices not on any cubicle yet to the door <paramref name="name"/> (created when missing): one row per
     /// kind — switches, push buttons and mushrooms, lamps — in a grid.
     /// </summary>

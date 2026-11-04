@@ -137,6 +137,17 @@ public static class EplanRelayImporter
     /// <summary>Push buttons / mushrooms (category 600 with a push-button symbol or part) and lamps of a page, for a cubicle door.</summary>
     private static void CollectOperatorDevices(XElement page, EplanRelayImport import, IReadOnlyDictionary<string, string> parts)
     {
+        // Path function texts (the text above a current path, e.g. "Warning"): what a device on that path is for.
+        var pathTexts = page.Elements("O83")
+            .Select(text => (Position: (text.Attribute("A501")?.Value ?? "").Split('/'), Text: Text(text.Attribute("A511")?.Value).Replace("\r", "").Replace('\n', ' ').Trim()))
+            .Where(text => text.Position.Length == 2 && text.Text.Length > 0
+                           && double.TryParse(text.Position[0], NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+            .Select(text => (X: double.Parse(text.Position[0], NumberStyles.Float, CultureInfo.InvariantCulture), text.Text))
+            .ToList();
+        string PathText(XElement item) => Position(item) is { } at
+            ? pathTexts.Where(text => Math.Abs(text.X - at.X) <= 20).OrderBy(text => Math.Abs(text.X - at.X)).Select(text => text.Text).FirstOrDefault() ?? ""
+            : "";
+
         foreach (var item in page.Elements("O17"))
         {
             var symbol = $"{item.Attribute("A1261")?.Value}/{item.Attribute("A1262")?.Value}/{item.Attribute("A1263")?.Value}";
@@ -148,7 +159,7 @@ public static class EplanRelayImporter
             }
 
             var p11 = item.Element("P11");
-            var text = FirstNonEmpty(Text(p11?.Attribute("P20011")?.Value), category == "600" ? Text(p11?.Attribute("P20027")?.Value) : "");
+            var text = FirstNonEmpty(Text(p11?.Attribute("P20011")?.Value), category == "600" ? Text(p11?.Attribute("P20027")?.Value) : "", PathText(item));
             var existing = import.CubicleDevices.FirstOrDefault(device => device.Tag.Equals(tag, StringComparison.OrdinalIgnoreCase));
             var part = PartText(item, parts);
             var buttonPart = Has(part, "pushbutton", "push button", "push-button", "mushroom", "emergency stop") && !Has(part, "push-in");
@@ -180,7 +191,7 @@ public static class EplanRelayImporter
                 var color = LampColor(Text(p11?.Attribute("P20025")?.Value)) ?? LampColor(part);
                 if (existing is null)
                 {
-                    import.CubicleDevices.Add(new CubicleItem { Kind = CubicleItemKind.Lamp, Tag = tag, Text = Text(p11?.Attribute("P20011")?.Value), Color = color ?? "White", Source = LampTag(tag) });
+                    import.CubicleDevices.Add(new CubicleItem { Kind = CubicleItemKind.Lamp, Tag = tag, Text = FirstNonEmpty(Text(p11?.Attribute("P20011")?.Value), PathText(item)), Color = color ?? "White", Source = LampTag(tag) });
                 }
                 else if (!existing.IsSwitch)
                 {

@@ -405,7 +405,7 @@ public sealed class RelayLogicView : UserControl
         var removed = existing.Count + RemoveDuplicates(model);
 
         // Operator devices of the project (push buttons, mushrooms, switches, lamps) on a cubicle door, to be arranged.
-        var onDoor = CubicleLayout.AddDevices(model, import.CubicleDevices, "EPLAN devices");
+        var onDoor = import.CubicleDevices.Count > 0 ? CubicleLayout.ReplaceAll(model, import.CubicleDevices, "EPLAN devices") : 0;
         // PLC card points → DI / DO of the simulator (by the EPLAN terminal of each channel), then the relays by tag.
         var missing = new List<string>();
         var points = 0;
@@ -418,6 +418,11 @@ public sealed class RelayLogicView : UserControl
 
         // Contacts of breakers / contactors follow their objects of the power part (when it is imported).
         var powerContacts = RelayPlcSignals.LinkPowerObjects(model);
+        if (onDoor > 0 && _controller?.Session(_plc)?.Project is { } signals)
+        {
+            // Names and PLC inputs of the cubicle devices from the signal table (unless the relay logic already wires them).
+            CubicleSignals.Link(model, model.Cubicles.SelectMany(cubicle => cubicle.Items), signals.DigitalInputs, signals.DigitalOutputs);
+        }
 
         _sheetIndex = import.Sheets.Count > 0 ? first : _sheetIndex;
         _selected = Sheet;
@@ -444,7 +449,7 @@ public sealed class RelayLogicView : UserControl
 
         if (onDoor > 0)
         {
-            message += $" {onDoor} push button(s), switch(es) and lamp(s) were put on the cubicle 'EPLAN devices' (Cubicle tab) — arrange them there.";
+            message += $" The cubicle doors were replaced by 'EPLAN devices' with all {onDoor} push button(s), switch(es) and lamp(s) of the project (Cubicle tab) — arrange them there.";
         }
         if (import.Warnings.Count > 0)
         {

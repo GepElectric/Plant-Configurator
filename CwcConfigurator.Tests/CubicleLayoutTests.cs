@@ -44,4 +44,25 @@ public sealed class CubicleLayoutTests
         engine.Step(0.1, _ => io);
         Assert.True(engine.Relays.IsLampOn(door.Items[2]));
     }
+
+    [Fact]
+    public void ReplaceAll_PutsEveryDeviceOnOneDoor_KeepingTextsTypedByHand()
+    {
+        var model = new ProcessModel
+        {
+            Cubicles = [new Cubicle { Name = "+1 Cubicle", Items = [new CubicleItem { Kind = CubicleItemKind.Lamp, Tag = "-H101", Text = "Warning" }, new CubicleItem { Kind = CubicleItemKind.Switch, Tag = "-S1" }] }]
+        };
+        var devices = new[]
+        {
+            new CubicleItem { Kind = CubicleItemKind.Lamp, Tag = "-H101" },
+            new CubicleItem { Kind = CubicleItemKind.Switch, Tag = "-S1", Text = "GATE 1 CONTROL" },
+            new CubicleItem { Kind = CubicleItemKind.Switch, Tag = "-S4" }
+        };
+
+        Assert.Equal(3, CubicleLayout.ReplaceAll(model, devices, "EPLAN devices"));
+        var door = Assert.Single(model.Cubicles);
+        Assert.Equal("EPLAN devices", door.Name);
+        Assert.Equal("Warning", door.Items.Single(item => item.Tag == "-H101").Text);
+        Assert.Equal("GATE 1 CONTROL", door.Items.Single(item => item.Tag == "-S1").Text);
+    }
 }
