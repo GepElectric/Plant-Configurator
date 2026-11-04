@@ -63,6 +63,7 @@ public static class ProcessModelStore
         foreach (var item in items)
         {
             item.Kind ??= RelayElementKind.Contact;
+            item.Id = string.IsNullOrWhiteSpace(item.Id) ? RelayElement.NewId() : item.Id.Trim();
             item.Tag ??= "";
             item.Source ??= "";
             item.Contact ??= "NO";
@@ -112,6 +113,7 @@ public static class ProcessModelStore
             foreach (var circuit in sheet.Circuits)
             {
                 circuit.Coil ??= new RelayCoil();
+                circuit.Feed = circuit.Feed?.Trim() ?? "";
                 circuit.Coil.Tag ??= "";
                 circuit.Coil.Text ??= "";
                 circuit.Coil.Outputs ??= "";

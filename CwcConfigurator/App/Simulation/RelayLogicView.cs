@@ -27,6 +27,10 @@ public sealed class RelayLogicView : UserControl
     private const double CoilWidth = 28;
     private const double LeftMargin = 24;
 
+    // Working area at least an A3 landscape page (420 × 297 mm at 4 px/mm).
+    private const double PageWidth = 1680;
+    private const double PageHeight = 1188;
+
     private static readonly Brush WireBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x1F, 0x29, 0x37)));
     private static readonly Brush LiveBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A)));
     private static readonly Brush OperatedBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x25, 0x63, 0xEB)));
@@ -46,6 +50,13 @@ public sealed class RelayLogicView : UserControl
     private int _sheetIndex;
     private object? _selected; // RelayElement, RelayCoil, RelaySwitch or RelaySheet
     private bool _loadingSheets;
+    private bool _dry; // layout pass: positions only, nothing drawn
+    private ScrollViewer _scroll = null!;
+    private readonly ScaleTransform _zoom = new(1, 1);
+    private Point? _panStart;
+    private Point _panOffset;
+    private bool _panned;
+    private readonly Dictionary<string, (double X, double Bottom)> _positions = new(StringComparer.OrdinalIgnoreCase);
 
     public RelayLogicView()
     {
@@ -68,6 +79,7 @@ public sealed class RelayLogicView : UserControl
         toolbar.Children.Add(new Separator { Width = 14, Opacity = 0 });
         toolbar.Children.Add(ToolButton("New path", "Add a current path (one contact and a relay coil) at the right.", (_, _) => NewPath()));
         toolbar.Children.Add(ToolButton("Contact below", "Add a contact in series below the selected contact (or above the selected coil).", (_, _) => AddSeries()));
+        toolbar.Children.Add(ToolButton("Path from here", "Start a new path below the selected contact: the current branches off there (e.g. after a switch, one path per position) to its own coil.", (_, _) => PathFromHere()));
         toolbar.Children.Add(ToolButton("Contact beside", "Add a contact in parallel to the selected contact or parallel group.", (_, _) => AddParallel()));
         toolbar.Children.Add(ToolButton("Delete", "Delete the selected contact (or the whole path when the coil is selected). Del key.", (_, _) => DeleteSelected()));
         toolbar.Children.Add(ToolButton("Switch contact", "Make the selected contact a contact of a selector switch (2 or 3 positions), or add one below the selected element. Turn the switch by clicking its knob on the sheet.", (_, _) => SwitchContact()));
@@ -75,7 +87,7 @@ public sealed class RelayLogicView : UserControl
         toolbar.Children.Add(ToolButton("▶", "Move the selected path to the right.", (_, _) => MovePath(1)));
         toolbar.Children.Add(_status);
 
-        var canvasHost = new ScrollViewer
+        var canvasHost = _scroll = new ScrollViewer
         {
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
@@ -91,14 +103,68 @@ public sealed class RelayLogicView : UserControl
                 e.Handled = true;
             }
         };
+        // Pan: drag the empty sheet with the left button, or anywhere with the middle button. Zoom: Ctrl + wheel.
+        _sheet.LayoutTransform = _zoom;
         _sheet.MouseLeftButtonDown += (_, e) =>
         {
             if (e.OriginalSource == _sheet)
             {
-                Select(Sheet);
+                StartPan(e);
             }
 
             canvasHost.Focus();
+        };
+        canvasHost.PreviewMouseDown += (_, e) =>
+        {
+            if (e.ChangedButton == MouseButton.Middle)
+            {
+                StartPan(e);
+                e.Handled = true;
+            }
+        };
+        canvasHost.PreviewMouseMove += (_, e) =>
+        {
+            if (_panStart is not { } start)
+            {
+                return;
+            }
+
+            var position = e.GetPosition(canvasHost);
+            var delta = position - start;
+            if (Math.Abs(delta.X) + Math.Abs(delta.Y) > 4)
+            {
+                _panned = true;
+            }
+
+            canvasHost.ScrollToHorizontalOffset(_panOffset.X - delta.X);
+            canvasHost.ScrollToVerticalOffset(_panOffset.Y - delta.Y);
+        };
+        canvasHost.PreviewMouseUp += (_, e) =>
+        {
+            if (_panStart is null)
+            {
+                return;
+            }
+
+            _panStart = null;
+            canvasHost.ReleaseMouseCapture();
+            canvasHost.Cursor = null;
+            if (!_panned && e.ChangedButton == MouseButton.Left)
+            {
+                Select(Sheet); // a click (not a drag) on the empty sheet selects the sheet
+            }
+        };
+        canvasHost.PreviewMouseWheel += (_, e) =>
+        {
+            if (Keyboard.Modifiers != ModifierKeys.Control)
+            {
+                return;
+            }
+
+            var scale = Math.Clamp(_zoom.ScaleX * (e.Delta > 0 ? 1.1 : 1 / 1.1), 0.3, 2.5);
+            _zoom.ScaleX = scale;
+            _zoom.ScaleY = scale;
+            e.Handled = true;
         };
 
         var left = new DockPanel();
@@ -122,6 +188,15 @@ public sealed class RelayLogicView : UserControl
         grid.Children.Add(left);
         grid.Children.Add(right);
         Content = grid;
+    }
+
+    private void StartPan(MouseButtonEventArgs e)
+    {
+        _panStart = e.GetPosition(_scroll);
+        _panOffset = new Point(_scroll.HorizontalOffset, _scroll.VerticalOffset);
+        _panned = false;
+        _scroll.CaptureMouse();
+        _scroll.Cursor = Cursors.ScrollAll;
     }
 
     public void Attach(SimulationController controller)
@@ -464,6 +539,33 @@ public sealed class RelayLogicView : UserControl
         ShowProperties();
     }
 
+    /// <summary>A new path that takes its supply below the selected contact (a branch to its own coil).</summary>
+    private void PathFromHere()
+    {
+        if (_selected is not RelayElement element || Sheet is not { } sheet)
+        {
+            _status.Text = "Select the contact the new path branches off from.";
+            return;
+        }
+
+        var feeder = sheet.Circuits.FindIndex(circuit => RelayLogicRunner.AllElements(circuit.Elements).Contains(element));
+        var contact = new RelayElement { Tag = "", Contact = "NO", Pins = "11/12/14" };
+        var circuit = new RelayCircuit { Feed = element.Id, Elements = [contact], Coil = new RelayCoil { Tag = NextRelayTag() } };
+        var index = feeder + 1;
+        while (index < sheet.Circuits.Count && sheet.Circuits[index].Feed.Length > 0 && FeedsFrom(sheet, index, feeder))
+        {
+            index++; // after the other branches of the same path
+        }
+
+        sheet.Circuits.Insert(Math.Clamp(index, 0, sheet.Circuits.Count), circuit);
+        _selected = contact;
+        Changed();
+        ShowProperties();
+    }
+
+    private static bool FeedsFrom(RelaySheet sheet, int path, int feeder) =>
+        feeder >= 0 && RelayLogicRunner.AllElements(sheet.Circuits[feeder].Elements).Any(element => element.Id.Equals(sheet.Circuits[path].Feed, StringComparison.OrdinalIgnoreCase));
+
     private void AddSeries()
     {
         var contact = NewContact();
@@ -525,6 +627,12 @@ public sealed class RelayLogicView : UserControl
         else if (_selected is RelayElement element && Locate(element) is { } place)
         {
             place.Series.RemoveAt(place.Index);
+            var removed = RelayLogicRunner.AllElements([element]).Select(item => item.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var fed in Sheet!.Circuits.Where(circuit => removed.Contains(circuit.Feed)))
+            {
+                fed.Feed = "";
+            }
+
             Simplify(Sheet!);
             PruneSwitches();
             _selected = Sheet;
@@ -702,37 +810,134 @@ public sealed class RelayLogicView : UserControl
         }
 
         var sheetIndex = Model!.RelaySheets.IndexOf(sheet);
-        var maxRows = Math.Max(1, sheet.Circuits.Select(circuit => Measure(circuit.Elements).Rows).DefaultIfEmpty(1).Max());
-        var coilTop = PathTop + maxRows * RowHeight + 10;
-        var railBottom = coilTop + CoilHeight + 26;
-        var columns = sheet.Circuits.Sum(circuit => Math.Max(1, Measure(circuit.Elements).Columns));
-        var width = LeftMargin * 2 + Math.Max(1, columns) * ColumnWidth;
-        var mirrorRows = sheet.Circuits.Select(circuit => Relays?.ContactsOf(_plc, circuit.Coil.Tag).Count ?? 0).DefaultIfEmpty(0).Max();
-        _sheet.Width = Math.Max(width, 700);
-        _sheet.Height = railBottom + 70 + mirrorRows * 15;
+        var lefts = new double[sheet.Circuits.Count];
+        var x = LeftMargin;
+        for (var path = 0; path < sheet.Circuits.Count; path++)
+        {
+            lefts[path] = x;
+            x += Math.Max(1, Measure(sheet.Circuits[path].Elements).Columns) * ColumnWidth;
+        }
 
-        // Rails.
+        // Layout pass: where each element ends, so a path branching off a contact starts below it.
+        var tops = new double[sheet.Circuits.Count];
+        var bottoms = new double[sheet.Circuits.Count];
+        _positions.Clear();
+        _dry = true;
+        try
+        {
+            foreach (var path in DrawOrder(sheet))
+            {
+                var circuit = sheet.Circuits[path];
+                tops[path] = circuit.Feed.Length > 0 && _positions.TryGetValue(circuit.Feed, out var feed) ? feed.Bottom + 16 : PathTop;
+                bottoms[path] = DrawSeries(circuit.Elements, lefts[path], tops[path]);
+            }
+        }
+        finally
+        {
+            _dry = false;
+        }
+
+        var coilTop = Math.Max(PathTop + RowHeight, bottoms.DefaultIfEmpty(PathTop).Max()) + 10;
+        var railBottom = coilTop + CoilHeight + 26;
+        var width = Math.Max(x, LeftMargin + ColumnWidth) + LeftMargin;
+        var mirrorRows = sheet.Circuits.Select(circuit => Relays?.ContactsOf(_plc, circuit.Coil.Tag).Count ?? 0).DefaultIfEmpty(0).Max();
+        _sheet.Width = Math.Max(width, PageWidth);
+        _sheet.Height = Math.Max(railBottom + 70 + mirrorRows * 15, PageHeight);
+
+        // Page frame (A3 landscape or larger) and the rails across the page.
+        var frame = new Rectangle { Width = _sheet.Width - 8, Height = _sheet.Height - 8, Stroke = DimBrush, StrokeThickness = 0.8, IsHitTestVisible = false };
+        Canvas.SetLeft(frame, 4);
+        Canvas.SetTop(frame, 4);
+        _sheet.Children.Add(frame);
+        AddText($"{sheet.Name}   ·   page {(sheet.Page > 0 ? sheet.Page : sheetIndex + 1)}", _sheet.Width - 360, _sheet.Height - 26, 11, DimBrush);
+        width = _sheet.Width;
         AddLine(LeftMargin, RailTop, width - LeftMargin, RailTop, WireBrush, 2);
         AddText("L+", 4, RailTop - 20, 12, TextBrush, FontWeights.SemiBold);
         AddLine(LeftMargin, railBottom, width - LeftMargin, railBottom, WireBrush, 2);
         AddText("M", 6, railBottom - 20, 12, TextBrush, FontWeights.SemiBold);
 
-        var x = LeftMargin;
-        for (var path = 0; path < sheet.Circuits.Count; path++)
+        foreach (var path in DrawOrder(sheet))
         {
             var circuit = sheet.Circuits[path];
-            var size = Measure(circuit.Elements);
-            var wireX = x + WireOffset;
+            var wireX = lefts[path] + WireOffset;
 
             // Path number on top, like the column numbers of a diagram page.
             AddText((path + 1).ToString(CultureInfo.InvariantCulture), wireX - 4, 14, 11, DimBrush);
-            AddLine(wireX, RailTop, wireX, PathTop, IsLive(true) ? LiveBrush : WireBrush, 1.4);
-            var bottom = DrawSeries(circuit.Elements, x, PathTop);
+            if (circuit.Feed.Length > 0 && _positions.TryGetValue(circuit.Feed, out var feed))
+            {
+                // Branch: from the junction below the feeding contact across and down to this path.
+                var feedLive = IsLive(FeedLive(circuit.Feed));
+                var junctionY = feed.Bottom + 8;
+                AddLine(feed.X, junctionY, wireX, junctionY, feedLive ? LiveBrush : WireBrush, 1.4);
+                AddLine(wireX, junctionY, wireX, tops[path], feedLive ? LiveBrush : WireBrush, 1.4);
+                AddDot(feed.X, junctionY, feedLive ? LiveBrush : WireBrush);
+            }
+            else
+            {
+                AddLine(wireX, RailTop, wireX, tops[path], IsLive(true) ? LiveBrush : WireBrush, 1.4);
+            }
+
+            var bottom = DrawSeries(circuit.Elements, lefts[path], tops[path]);
             var powered = Relays?.IsPowered(circuit) == true;
             AddLine(wireX, bottom, wireX, coilTop, IsLive(powered) ? LiveBrush : WireBrush, 1.4);
             DrawCoil(circuit, sheet, sheetIndex, path, wireX, coilTop, railBottom);
-            x += Math.Max(1, size.Columns) * ColumnWidth;
         }
+    }
+
+    /// <summary>Paths in an order where a feeding path comes before the paths branching off it.</summary>
+    private static List<int> DrawOrder(RelaySheet sheet)
+    {
+        var owner = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var path = 0; path < sheet.Circuits.Count; path++)
+        {
+            foreach (var element in RelayLogicRunner.AllElements(sheet.Circuits[path].Elements))
+            {
+                owner.TryAdd(element.Id, path);
+            }
+        }
+
+        var order = new List<int>();
+        var seen = new HashSet<int>();
+        void Visit(int path)
+        {
+            if (!seen.Add(path))
+            {
+                return;
+            }
+
+            if (owner.TryGetValue(sheet.Circuits[path].Feed, out var feeder) && feeder != path)
+            {
+                Visit(feeder);
+            }
+
+            order.Add(path);
+        }
+
+        for (var path = 0; path < sheet.Circuits.Count; path++)
+        {
+            Visit(path);
+        }
+
+        return order;
+    }
+
+    private bool FeedLive(string id)
+    {
+        var element = Sheet?.Circuits.SelectMany(circuit => RelayLogicRunner.AllElements(circuit.Elements)).FirstOrDefault(item => item.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+        return element is not null && Relays?.StateOf(element) is { PoweredIn: true, Closed: true };
+    }
+
+    private void AddDot(double x, double y, Brush brush)
+    {
+        if (_dry)
+        {
+            return;
+        }
+
+        var dot = new Ellipse { Width = 7, Height = 7, Fill = brush, IsHitTestVisible = false };
+        Canvas.SetLeft(dot, x - 3.5);
+        Canvas.SetTop(dot, y - 3.5);
+        _sheet.Children.Add(dot);
     }
 
     private bool IsLive(bool powered) => powered && _controller?.Running == true;
@@ -769,6 +974,7 @@ public sealed class RelayLogicView : UserControl
             {
                 DrawContact(element, wireX, y);
                 y += RowHeight;
+                _positions[element.Id] = (wireX, y);
                 continue;
             }
 
@@ -795,6 +1001,7 @@ public sealed class RelayLogicView : UserControl
             AddLine(firstX, groupBottom, lastX, groupBottom, IsLive(poweredIn && closed) ? LiveBrush : WireBrush, 1.4);
             AddHitArea(element, firstX - 20, y - 6, lastX - firstX + 40, 12, "Parallel group — 'Contact beside' adds a branch.");
             y = groupBottom;
+            _positions[element.Id] = (wireX, groupBottom);
         }
 
         return y;
@@ -864,7 +1071,11 @@ public sealed class RelayLogicView : UserControl
         {
             // Manually operated: the dashed actuator line to the switch knob (drawn after the hit area, so it is clickable).
             var actuator = new Line { X1 = x + 8, Y1 = (pivotY + contactY) / 2, X2 = x + 34, Y2 = (pivotY + contactY) / 2, Stroke = WireBrush, StrokeThickness = 1, StrokeDashArray = [3, 2], IsHitTestVisible = false };
-            _sheet.Children.Add(actuator);
+            if (!_dry)
+            {
+                _sheet.Children.Add(actuator);
+            }
+
             switchKnob = selector;
             location = $"closed in {(contact.Position.Length > 0 ? contact.Position : "?")}";
             if (contact.Text.Trim().Length == 0)
@@ -884,7 +1095,7 @@ public sealed class RelayLogicView : UserControl
 
         AddHitArea(contact, x - WireOffset + 6, y + 2, ColumnWidth - 12, RowHeight - 4,
             $"{Display(contact.Tag, "Contact")} {(contact.IsNormallyClosed ? "NC" : "NO")} {contact.Pins}" + (contact.Source.Length > 0 ? $" · {contact.Source}" : ""));
-        if (switchKnob is not null)
+        if (switchKnob is not null && !_dry)
         {
             DrawSwitchKnob(switchKnob, x + 46, (pivotY + contactY) / 2);
         }
@@ -1015,6 +1226,11 @@ public sealed class RelayLogicView : UserControl
 
     private void AddHitArea(object item, double x, double y, double width, double height, string tooltip)
     {
+        if (_dry)
+        {
+            return;
+        }
+
         var area = new Rectangle { Width = Math.Max(4, width), Height = Math.Max(4, height), Fill = Brushes.Transparent, ToolTip = tooltip, Cursor = Cursors.Hand };
         area.MouseLeftButtonDown += (_, e) =>
         {
@@ -1026,11 +1242,21 @@ public sealed class RelayLogicView : UserControl
         _sheet.Children.Add(area);
     }
 
-    private void AddLine(double x1, double y1, double x2, double y2, Brush brush, double thickness) =>
-        _sheet.Children.Add(new Line { X1 = x1, Y1 = y1, X2 = x2, Y2 = y2, Stroke = brush, StrokeThickness = thickness, IsHitTestVisible = false });
+    private void AddLine(double x1, double y1, double x2, double y2, Brush brush, double thickness)
+    {
+        if (!_dry)
+        {
+            _sheet.Children.Add(new Line { X1 = x1, Y1 = y1, X2 = x2, Y2 = y2, Stroke = brush, StrokeThickness = thickness, IsHitTestVisible = false });
+        }
+    }
 
     private void AddRect(double x, double y, double width, double height, Brush fill)
     {
+        if (_dry)
+        {
+            return;
+        }
+
         var rect = new Rectangle { Width = width, Height = height, Fill = fill, RadiusX = 3, RadiusY = 3, IsHitTestVisible = false };
         Canvas.SetLeft(rect, x);
         Canvas.SetTop(rect, y);
@@ -1039,6 +1265,11 @@ public sealed class RelayLogicView : UserControl
 
     private void AddText(string text, double x, double y, double size, Brush brush, FontWeight? weight = null)
     {
+        if (_dry)
+        {
+            return;
+        }
+
         var block = new TextBlock { Text = text, FontSize = size, Foreground = brush, FontWeight = weight ?? FontWeights.Normal, IsHitTestVisible = false };
         Canvas.SetLeft(block, x);
         Canvas.SetTop(block, y);
@@ -1047,7 +1278,7 @@ public sealed class RelayLogicView : UserControl
 
     private void AddTextRight(string text, double right, double y, double size, Brush brush)
     {
-        if (string.IsNullOrWhiteSpace(text))
+        if (_dry || string.IsNullOrWhiteSpace(text))
         {
             return;
         }
@@ -1212,6 +1443,20 @@ public sealed class RelayLogicView : UserControl
     private void CoilProperties(RelayCoil coil)
     {
         Header("Relay coil");
+        if (CircuitOf(coil) is { Feed.Length: > 0 } fed)
+        {
+            var feed = Sheet?.Circuits.SelectMany(circuit => RelayLogicRunner.AllElements(circuit.Elements)).FirstOrDefault(element => element.Id.Equals(fed.Feed, StringComparison.OrdinalIgnoreCase));
+            Note($"This path branches off below {(feed is null ? "a contact that no longer exists" : Display(feed.Tag, "a contact"))}.");
+            var toRail = new Button { Content = "Supply from L+ instead", HorizontalAlignment = HorizontalAlignment.Left, Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(0, 0, 0, 8) };
+            toRail.Click += (_, _) =>
+            {
+                fed.Feed = "";
+                Changed();
+                ShowProperties();
+            };
+            _properties.Children.Add(toRail);
+        }
+
         Field("Tag", coil.Tag, value =>
         {
             coil.Tag = value.Trim();

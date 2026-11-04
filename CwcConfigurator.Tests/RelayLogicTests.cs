@@ -159,6 +159,36 @@ public sealed class RelayLogicTests
     }
 
     [Fact]
+    public void PathFromContact_BranchesOffBelowItAfterTheSwitch()
+    {
+        // L+ → -K104 (NC, DO:4) → -S1 LOCAL → -K101;  branch below -K104 → -S1 AUTO → -K102.
+        var esd = Contact("-K104", "NC", "DO:4");
+        var local = new RelayCircuit { Elements = [esd, new RelayElement { Tag = "-S1", Position = "LOCAL" }], Coil = new RelayCoil { Tag = "-K101" } };
+        var auto = new RelayCircuit { Feed = esd.Id, Elements = [new RelayElement { Tag = "-S1", Position = "AUTO" }], Coil = new RelayCoil { Tag = "-K102" } };
+        var model = new ProcessModel
+        {
+            RelaySheets = [new RelaySheet { Name = "Gate 1", Circuits = [auto, local] }], // fed path listed first on purpose
+            RelaySwitches = [new RelaySwitch { Tag = "-S1", Positions = "LOCAL/0/AUTO", Position = "AUTO" }]
+        };
+        var engine = new ProcessEngine(new Dictionary<string, ProcessModel> { ["Intake"] = model });
+        var io = new FakeIo();
+
+        engine.Step(0.1, _ => io);
+        Assert.Empty(engine.Problems);
+        Assert.True(engine.Relays.IsOn("Intake", "-K102"));
+        Assert.False(engine.Relays.IsOn("Intake", "-K101"));
+
+        io.Values[(SimulatorSignalKind.DO, 4)] = 1; // -K104 opens: both branches lose the supply
+        engine.Step(0.1, _ => io);
+        Assert.False(engine.Relays.IsOn("Intake", "-K102"));
+
+        var copy = RelaySheetCopy.Copy(model.RelaySheets[0], []);
+        var copiedEsd = copy.Circuits[1].Elements[0];
+        Assert.Equal(copiedEsd.Id, copy.Circuits[0].Feed);
+        Assert.NotEqual(esd.Id, copiedEsd.Id);
+    }
+
+    [Fact]
     public void CopySheet_ReplacesTagsSignalsAndTexts()
     {
         var sheet = new RelaySheet

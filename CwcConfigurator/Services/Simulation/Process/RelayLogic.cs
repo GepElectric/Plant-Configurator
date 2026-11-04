@@ -21,6 +21,12 @@ public sealed class RelaySheet
 /// <summary>One current path: contacts in series (top to bottom) and the coil it energises.</summary>
 public sealed class RelayCircuit
 {
+    /// <summary>
+    /// Where the path takes its supply: "" = the L+ rail, otherwise the <see cref="RelayElement.Id"/> of a contact
+    /// (or parallel group) of another path — the path branches off below that element, like a split after a switch.
+    /// </summary>
+    public string Feed { get; set; } = "";
+
     public List<RelayElement> Elements { get; set; } = [];
 
     public RelayCoil Coil { get; set; } = new();
@@ -64,6 +70,11 @@ public static class RelayElementKind
 /// </summary>
 public sealed class RelayElement
 {
+    /// <summary>Identity of the element, so other paths can branch off below it (<see cref="RelayCircuit.Feed"/>).</summary>
+    public string Id { get; set; } = NewId();
+
+    public static string NewId() => Guid.NewGuid().ToString("N")[..10];
+
     public string Kind { get; set; } = RelayElementKind.Contact;
 
     public string Tag { get; set; } = "";
@@ -195,6 +206,48 @@ public sealed class RelayLogicRunner
                 }
             }
         }
+
+        // A path fed from a contact of another path is solved after it (unknown feeds are reported).
+        var owner = new Dictionary<string, CoilState>(StringComparer.OrdinalIgnoreCase);
+        foreach (var coil in _coils)
+        {
+            foreach (var element in AllElements(coil.Circuit.Elements))
+            {
+                owner.TryAdd(coil.Plc + "/" + element.Id, coil);
+            }
+        }
+
+        var ordered = new List<CoilState>();
+        var visiting = new HashSet<CoilState>();
+        void Visit(CoilState coil)
+        {
+            if (!visiting.Add(coil))
+            {
+                return;
+            }
+
+            if (coil.Circuit.Feed.Length > 0)
+            {
+                if (owner.TryGetValue(coil.Plc + "/" + coil.Circuit.Feed, out var feeder) && feeder != coil)
+                {
+                    Visit(feeder);
+                }
+                else
+                {
+                    problems.Add($"{coil.Plc}/{coil.Sheet.Name} {Display(coil.Circuit.Coil.Tag, coil.Location)}: the contact this path branches off from no longer exists.");
+                }
+            }
+
+            ordered.Add(coil);
+        }
+
+        foreach (var coil in _coils.ToList())
+        {
+            Visit(coil);
+        }
+
+        _coils.Clear();
+        _coils.AddRange(ordered);
     }
 
     /// <summary>Cross-reference location of a path: "/page.path".</summary>
@@ -251,7 +304,7 @@ public sealed class RelayLogicRunner
             var changed = false;
             foreach (var coil in _coils)
             {
-                coil.Powered = Solve(coil.Plc, coil.Circuit.Elements, true, io(coil.Plc), engine);
+                coil.Powered = Solve(coil.Plc, coil.Circuit.Elements, FeedPowered(coil), io(coil.Plc), engine);
                 if (coil.Circuit.Coil.Timer.Length == 0 && coil.On != coil.Powered)
                 {
                     coil.On = coil.Powered;
@@ -300,6 +353,31 @@ public sealed class RelayLogicRunner
         }
 
         _elements.Clear();
+    }
+
+    /// <summary>Current at the start of a path: the L+ rail, or the output of the element it branches off from.</summary>
+    private bool FeedPowered(CoilState coil)
+    {
+        if (coil.Circuit.Feed.Length == 0)
+        {
+            return true;
+        }
+
+        var feed = _elements.Keys.FirstOrDefault(element => element.Id.Equals(coil.Circuit.Feed, StringComparison.OrdinalIgnoreCase));
+        return feed is not null && _elements[feed] is { PoweredIn: true, Closed: true };
+    }
+
+    /// <summary>Contacts and parallel groups of a series, nested ones included.</summary>
+    public static IEnumerable<RelayElement> AllElements(IEnumerable<RelayElement> series)
+    {
+        foreach (var element in series)
+        {
+            yield return element;
+            foreach (var nested in element.Branches.SelectMany(AllElements))
+            {
+                yield return nested;
+            }
+        }
     }
 
     /// <summary>Current through a series of elements: in at the top, out at the bottom.</summary>
@@ -398,13 +476,29 @@ public static class RelaySheetCopy
             .Where(rule => rule.Old.Length > 0)
             .ToList();
 
-    public static RelaySheet Copy(RelaySheet source, IReadOnlyList<(string Old, string New)> rules) => new()
+    public static RelaySheet Copy(RelaySheet source, IReadOnlyList<(string Old, string New)> rules)
     {
-        Name = ReplaceText(source.Name, rules),
-        Page = 0,
-        Circuits = source.Circuits.Select(circuit => new RelayCircuit
+        var ids = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var copy = new RelaySheet
         {
-            Elements = CopySeries(circuit.Elements, rules),
+            Name = ReplaceText(source.Name, rules),
+            Page = 0,
+            Circuits = source.Circuits.Select(circuit => CopyCircuit(circuit, rules, ids)).ToList()
+        };
+
+        // A path branching off a contact of the copied sheet branches off the copy of that contact.
+        foreach (var circuit in copy.Circuits.Where(circuit => circuit.Feed.Length > 0))
+        {
+            circuit.Feed = ids.TryGetValue(circuit.Feed, out var id) ? id : circuit.Feed;
+        }
+
+        return copy;
+    }
+
+    private static RelayCircuit CopyCircuit(RelayCircuit circuit, IReadOnlyList<(string Old, string New)> rules, Dictionary<string, string> ids) => new()
+        {
+            Feed = circuit.Feed,
+            Elements = CopySeries(circuit.Elements, rules, ids),
             Coil = new RelayCoil
             {
                 Tag = ReplaceItem(circuit.Coil.Tag, rules),
@@ -413,12 +507,12 @@ public static class RelaySheetCopy
                 Timer = circuit.Coil.Timer,
                 Time = circuit.Coil.Time
             }
-        }).ToList()
-    };
+        };
 
-    private static List<RelayElement> CopySeries(List<RelayElement> series, IReadOnlyList<(string Old, string New)> rules) =>
+    private static List<RelayElement> CopySeries(List<RelayElement> series, IReadOnlyList<(string Old, string New)> rules, Dictionary<string, string> ids) =>
         series.Select(element => new RelayElement
         {
+            Id = ids[element.Id] = RelayElement.NewId(),
             Kind = element.Kind,
             Tag = ReplaceItem(element.Tag, rules),
             Source = ReplaceList(element.Source, rules),
@@ -426,7 +520,7 @@ public static class RelaySheetCopy
             Pins = element.Pins,
             Position = element.Position,
             Text = ReplaceText(element.Text, rules),
-            Branches = element.Branches.Select(branch => CopySeries(branch, rules)).ToList()
+            Branches = element.Branches.Select(branch => CopySeries(branch, rules, ids)).ToList()
         }).ToList();
 
     /// <summary>A whole item: exact rule first, then the longest matching prefix rule ("-K1*").</summary>
