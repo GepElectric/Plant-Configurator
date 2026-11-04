@@ -8,7 +8,7 @@ namespace CwcConfigurator.Services.Simulation.Process;
 /// Connects the relay logic to the PLC from the start, by the device each PLC channel is wired to (EPLAN hardware
 /// import, e.g. DO:0 → -2K05:A1, DI:65 ← -1K01:14; or "(-2K05)" in the signal name):
 /// <list type="bullet">
-/// <item>output relay (2-K…): the coil's path, when it is only an empty contact, gets the DO as source;</item>
+/// <item>output relay (2-K…): the relay's input is the DO itself (no contact in its path);</item>
 /// <item>input relay (1-K…): the coil drives the DI (its contact is wired to the PLC input);</item>
 /// <item>a contact of such a relay whose coil is not drawn on the sheets reads the DO / DI directly.</item>
 /// </list>
@@ -40,40 +40,55 @@ public static class RelayPlcSignals
         return map;
     }
 
+    /// <summary>
+    /// Paths that are only a contact operated by a PLC output ("DO:160", the old way of driving an output relay)
+    /// become the relay's direct input.
+    /// </summary>
+    public static int MigrateInputs(ProcessModel model)
+    {
+        var changed = 0;
+        foreach (var circuit in model.RelaySheets.SelectMany(sheet => sheet.Circuits))
+        {
+            if (!circuit.Coil.HasInput && circuit.Feed.Length == 0 && circuit.Coil.Tag.Trim().Length > 0
+                && circuit.Elements is [{ IsParallel: false, Tag.Length: 0, IsNormallyClosed: false } contact]
+                && PortBinding.Parse(contact.Source) is { Kind: BindingKind.Signal, SignalKind: SimulatorSignalKind.DO })
+            {
+                circuit.Coil.Input = contact.Source.Trim();
+                circuit.Elements.Clear();
+                changed++;
+            }
+        }
+
+        return changed;
+    }
+
     /// <summary>"2-K05", "-2K05", "-2K05:A1" → "2K05" (the same relay however EPLAN writes the tag).</summary>
     public static string Normalize(string tag) => new((tag ?? "").Split(':')[0].Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
 
     /// <returns>Number of sources and outputs filled.</returns>
     public static int Link(ProcessModel model, IEnumerable<DigitalSignalConfig> outputs, IEnumerable<DigitalSignalConfig> inputs)
     {
+        var filled = MigrateInputs(model);
         var doMap = Map(outputs);
         var diMap = Map(inputs);
         if (doMap.Count + diMap.Count == 0)
         {
-            return 0;
+            return filled;
         }
 
         var coils = model.RelaySheets.SelectMany(sheet => sheet.Circuits).Select(circuit => Normalize(circuit.Coil.Tag))
             .Where(tag => tag.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var filled = 0;
         foreach (var circuit in model.RelaySheets.SelectMany(sheet => sheet.Circuits))
         {
             var coilTag = Normalize(circuit.Coil.Tag);
 
-            // Output relay: its path is only a contact without a source (the PLC output card).
-            if (doMap.TryGetValue(coilTag, out var output))
+            // Output relay: driven by the PLC output itself; its path has no contact (or only an empty one).
+            if (doMap.TryGetValue(coilTag, out var output) && !circuit.Coil.HasInput && circuit.Feed.Length == 0
+                && circuit.Elements is [] or [{ IsParallel: false, Tag.Length: 0, Source.Length: 0 }])
             {
-                if (circuit.Elements.Count == 0)
-                {
-                    circuit.Elements.Add(new RelayElement { Contact = "NO" });
-                }
-
-                if (circuit.Elements is [{ IsParallel: false, Tag.Length: 0, Source.Length: 0 } supply])
-                {
-                    supply.Source = "DO:" + output.ToString(CultureInfo.InvariantCulture);
-                    supply.Text = "PLC OUTPUT";
-                    filled++;
-                }
+                circuit.Elements.Clear();
+                circuit.Coil.Input = "DO:" + output.ToString(CultureInfo.InvariantCulture);
+                filled++;
             }
 
             // Input relay: its contact is wired to the PLC input.

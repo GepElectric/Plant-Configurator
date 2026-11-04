@@ -717,7 +717,7 @@ public class ProcessModelTests
                 {
                     Circuits =
                     [
-                        new RelayCircuit { Elements = [new RelayElement { Source = "DO:51" }], Coil = new RelayCoil { Tag = "2-K13" } },
+                        new RelayCircuit { Coil = new RelayCoil { Tag = "2-K13", Input = "DO:51" } },
                         new RelayCircuit { Elements = [new RelayElement { Tag = "2-K13", Contact = "NO" }], Coil = new RelayCoil { Tag = "1-K13", Outputs = "DI:7" } }
                     ]
                 }

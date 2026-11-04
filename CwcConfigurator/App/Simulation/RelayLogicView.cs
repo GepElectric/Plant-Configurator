@@ -1138,7 +1138,7 @@ public sealed class RelayLogicView : UserControl
             {
                 var circuit = sheet.Circuits[path];
                 tops[path] = circuit.Feed.Length > 0 && _positions.TryGetValue(circuit.Feed, out var feed) ? feed.Bottom + 16 : PathTop;
-                bottoms[path] = DrawSeries(circuit.Elements, lefts[path], tops[path]);
+                bottoms[path] = circuit.Coil.HasInput ? tops[path] + InputBoxHeight : DrawSeries(circuit.Elements, lefts[path], tops[path]);
             }
         }
         finally
@@ -1172,6 +1172,16 @@ public sealed class RelayLogicView : UserControl
 
             // Path number on top, like the column numbers of a diagram page.
             AddText((path + 1).ToString(CultureInfo.InvariantCulture), wireX - 4, 14, 11, DimBrush);
+            if (circuit.Coil.HasInput)
+            {
+                // Relay driven directly by its input (PLC output card): no supply from the rail, no contact.
+                var driven = Relays?.IsPowered(circuit) == true;
+                DrawRelayInput(circuit.Coil, wireX, tops[path], driven);
+                AddLine(wireX, tops[path] + InputBoxHeight, wireX, coilTop, IsLive(driven) ? LiveBrush : WireBrush, 1.4);
+                DrawCoil(circuit, sheet, sheetIndex, path, wireX, coilTop, railBottom);
+                continue;
+            }
+
             if (circuit.Feed.Length > 0 && _positions.TryGetValue(circuit.Feed, out var feed))
             {
                 // Branch: from the junction below the feeding contact across and down to this path.
@@ -1521,6 +1531,42 @@ public sealed class RelayLogicView : UserControl
         AddHitArea(coil, x - WireOffset + 6, top - 8, ColumnWidth - 12, CoilHeight + 16, $"Coil {Display(coil.Tag, "")} — {RelayLogicRunner.Location(sheet, sheetIndex, path)}");
     }
 
+    private const double InputBoxHeight = 64;
+
+    /// <summary>The direct input of a relay (e.g. the PLC output DO:160): a box with the signal and its state.</summary>
+    private void DrawRelayInput(RelayCoil coil, double x, double top, bool on)
+    {
+        if (_dry)
+        {
+            return;
+        }
+
+        var input = coil.Input.Trim();
+        var signal = PortBinding.Parse(input);
+        var title = signal is { Kind: BindingKind.Signal, SignalKind: SimulatorSignalKind.DO } ? "PLC OUTPUT" : "INPUT";
+        var label = new TextBlock { TextAlignment = TextAlignment.Center, FontSize = 10.5, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        label.Inlines.Add(new System.Windows.Documents.Run(input) { FontWeight = FontWeights.SemiBold });
+        label.Inlines.Add(new System.Windows.Documents.LineBreak());
+        label.Inlines.Add(new System.Windows.Documents.Run(title) { FontSize = 9.5 });
+        var running = _controller?.Running == true;
+        var box = new Border
+        {
+            Width = ColumnWidth - 24,
+            Height = InputBoxHeight - 12,
+            BorderBrush = WireBrush,
+            BorderThickness = new Thickness(1.6),
+            CornerRadius = new CornerRadius(3),
+            Background = on && running ? CoilOnBrush : Brushes.White,
+            Child = label,
+            IsHitTestVisible = false
+        };
+        Canvas.SetLeft(box, x - (ColumnWidth - 24) / 2);
+        Canvas.SetTop(box, top);
+        _sheet.Children.Add(box);
+        AddHitArea(coil, x - (ColumnWidth - 24) / 2, top, ColumnWidth - 24, InputBoxHeight - 12,
+            $"{Display(coil.Tag, "Relay")} is driven by {input} (its simulator variable; SET TRUE / SET FALSE in the signal list act here).");
+    }
+
     /// <summary>A path without a relay, wired straight to PLC inputs: a terminal box with the input addresses.</summary>
     private void DrawPlcInput(RelayCoil coil, double x, double top, bool on)
     {
@@ -1784,6 +1830,11 @@ public sealed class RelayLogicView : UserControl
             coil.Text = value;
             Changed();
         }, "Function text, e.g. GATE 1 / OPEN (CMD) (Enter = new line).", multiline: true);
+        SearchField("Input", coil.Input, Suggestions(PortDirection.Input), value =>
+        {
+            coil.Input = value.Trim();
+            Changed();
+        }, "What drives the relay directly, e.g. the PLC output DO:160 (module/port) — the relay follows its simulator variable. Empty = the current path above the coil.");
         SearchField("Drives", coil.Outputs, Suggestions(PortDirection.Output), value =>
         {
             coil.Outputs = value;

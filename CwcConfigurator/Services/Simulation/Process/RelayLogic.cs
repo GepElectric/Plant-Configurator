@@ -117,11 +117,21 @@ public static class RelayTimer
     public const string OffDelay = "OffDelay";
 }
 
-/// <summary>The relay coil at the bottom of a current path. Its state drives the contacts with the same tag and the
-/// <see cref="Outputs"/> signals (e.g. "DI:13, DI:46" — the relay's contact wired to PLC inputs).</summary>
+/// <summary>
+/// A relay (its coil at the bottom of a current path). The relay is one object: its input is either
+/// <see cref="Input"/> (a PLC output, e.g. "DO:160" — the relay follows the simulator variable of that module/port
+/// directly, SET TRUE / SET FALSE included) or, when empty, the current path above it. Its state drives all its
+/// auxiliary contacts (contacts with the same tag) and the <see cref="Outputs"/> signals (e.g. "DI:13, DI:46").
+/// </summary>
 public sealed class RelayCoil
 {
     public string Tag { get; set; } = "";
+
+    /// <summary>What drives the relay directly: "DO:160", "@Object.Port", "=1"; empty = the current path.</summary>
+    public string Input { get; set; } = "";
+
+    [YamlIgnore]
+    public bool HasInput => Input.Trim().Length > 0;
 
     public string Text { get; set; } = "";
 
@@ -159,6 +169,10 @@ public sealed class RelayLogicRunner
         public required RelayCircuit Circuit { get; init; }
         public required string Location { get; init; }
         public List<PortBinding> Outputs { get; } = [];
+
+        /// <summary>The relay's direct input (<see cref="RelayCoil.Input"/>) as a contact source, or null.</summary>
+        public RelayElement? Input { get; init; }
+
         public bool On { get; set; }
         public bool Powered { get; set; }
         public double Elapsed { get; set; }
@@ -221,7 +235,24 @@ public sealed class RelayLogicRunner
                 for (var path = 0; path < sheet.Circuits.Count; path++)
                 {
                     var circuit = sheet.Circuits[path];
-                    var state = new CoilState { Plc = plc, Sheet = sheet, Circuit = circuit, Location = Location(sheet, sheetIndex, path) };
+                    var state = new CoilState
+                    {
+                        Plc = plc,
+                        Sheet = sheet,
+                        Circuit = circuit,
+                        Location = Location(sheet, sheetIndex, path),
+                        Input = circuit.Coil.HasInput ? new RelayElement { Source = circuit.Coil.Input.Trim() } : null
+                    };
+                    if (state.Input is not null && PortBinding.Parse(state.Input.Source).Kind == BindingKind.None)
+                    {
+                        problems.Add($"{plc}/{sheet.Name} {Display(circuit.Coil.Tag, state.Location)}: input '{circuit.Coil.Input}' is not a signal, object port or constant.");
+                    }
+
+                    if (state.Input is not null && circuit.Elements.Count > 0)
+                    {
+                        problems.Add($"{plc}/{sheet.Name} {Display(circuit.Coil.Tag, state.Location)}: the relay has a direct input ({circuit.Coil.Input}); the contacts of its path are not used.");
+                    }
+
                     foreach (var target in PortBinding.ParseList(circuit.Coil.Outputs))
                     {
                         if (target.Kind != BindingKind.Signal || target.SignalKind is SimulatorSignalKind.DO or SimulatorSignalKind.AO)
@@ -354,7 +385,10 @@ public sealed class RelayLogicRunner
             var changed = false;
             foreach (var coil in _coils)
             {
-                coil.Powered = Solve(coil.Plc, coil.Circuit.Elements, FeedPowered(coil), io(coil.Plc), engine);
+                // A relay with a direct input (PLC output) follows it; otherwise the current through its path.
+                coil.Powered = coil.Input is { } input
+                    ? SourceOn(coil.Plc, input, io(coil.Plc), engine)
+                    : Solve(coil.Plc, coil.Circuit.Elements, FeedPowered(coil), io(coil.Plc), engine);
                 if (coil.Circuit.Coil.Timer.Length == 0 && coil.On != coil.Powered)
                 {
                     coil.On = coil.Powered;
@@ -588,6 +622,7 @@ public static class RelaySheetCopy
             Coil = new RelayCoil
             {
                 Tag = ReplaceItem(circuit.Coil.Tag, rules),
+                Input = ReplaceList(circuit.Coil.Input, rules),
                 Text = ReplaceText(circuit.Coil.Text, rules),
                 Outputs = ReplaceList(circuit.Coil.Outputs, rules),
                 Timer = circuit.Coil.Timer,
