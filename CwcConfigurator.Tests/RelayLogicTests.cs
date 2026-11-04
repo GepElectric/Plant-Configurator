@@ -254,6 +254,32 @@ public sealed class RelayLogicTests
     }
 
     [Fact]
+    public void ContactorObject_FollowsTheRelayCoilWithTheSameTag()
+    {
+        var model = new ProcessModel
+        {
+            RelaySheets = [new RelaySheet { Circuits = [new RelayCircuit { Elements = [Contact("", source: "DO:7")], Coil = new RelayCoil { Tag = "-K53" } }] }],
+            Objects =
+            [
+                new ObjectConfig { Name = "K53", Type = "Contactor", Ports = new(StringComparer.OrdinalIgnoreCase) { ["Command"] = "@Relays.-K53" } },
+                new ObjectConfig { Name = "M3", Type = "Motor", Ports = new(StringComparer.OrdinalIgnoreCase) { ["Supply"] = "@K53.Live" } }
+            ]
+        };
+        var engine = new ProcessEngine(new Dictionary<string, ProcessModel> { ["Intake"] = model });
+        var io = new FakeIo();
+        Assert.Empty(engine.Problems);
+
+        io.Values[(SimulatorSignalKind.DO, 7)] = 1;
+        for (var i = 0; i < 3; i++)
+        {
+            engine.Step(0.1, _ => io);
+        }
+
+        Assert.True(engine.Find("Intake", "K53")!.Value("State") >= 0.5);
+        Assert.True(engine.Find("Intake", "M3")!.Value("Speed") > 0);
+    }
+
+    [Fact]
     public void CopySheet_ReplacesTagsSignalsAndTexts()
     {
         var sheet = new RelaySheet

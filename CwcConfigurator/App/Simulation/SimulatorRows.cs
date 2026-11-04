@@ -353,6 +353,16 @@ public static class BindingSuggestions
                         list.Add($"{prefix}.{output.Name}{PortRow.Separator}{info.Title}: {output.Description}");
                     }
                 }
+
+                // Relay coils of the relay logic (e.g. a contactor's command follows -K53).
+                if (port.Type == PortType.Bool)
+                {
+                    var relays = otherPlc.Equals(plc, StringComparison.OrdinalIgnoreCase) ? "@" + ProcessEngine.RelaysLink : $"@{otherPlc}/{ProcessEngine.RelaysLink}";
+                    foreach (var coil in model.RelaySheets.SelectMany(sheet => sheet.Circuits).Select(circuit => circuit.Coil).Where(coil => coil.Tag.Trim().Length > 0))
+                    {
+                        list.Add($"{relays}.{coil.Tag.Trim()}{PortRow.Separator}relay coil {coil.Text.Replace("\r", "").Replace('\n', ' ').Trim()}");
+                    }
+                }
             }
 
         }
