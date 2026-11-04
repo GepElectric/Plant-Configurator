@@ -95,6 +95,7 @@ public partial class SimulatorWindow : Window
         UpdateModelFileText();
         ProgramPanel.Attach(_controller);
         ProgramPanel.SaveRequested += SaveModel_Click;
+        ScadaPanel.SaveRequested += SaveModel_Click;
         ScadaPanel.Attach(_controller);
         RelayPanel.Attach(_controller);
         CubiclePanel.Attach(_controller);

@@ -21,7 +21,9 @@ public enum PowerDeviceKind
 /// A device of the power circuits and what feeds it: another device's tag, or "" for the busbar. An incomer (main
 /// switch) is fed from outside and supplies the busbar.
 /// </summary>
-public sealed record PowerDevice(string Tag, PowerDeviceKind Kind, string Text, string Upstream, string Page = "", bool Incomer = false, string Key = "")
+/// <param name="Source">Supply of a device fed straight from a busbar: "" = the main (L1) busbar, otherwise the
+/// potential ("L+110VDC", "L2230VAC") or "?" when no supply reaches it.</param>
+public sealed record PowerDevice(string Tag, PowerDeviceKind Kind, string Text, string Upstream, string Page = "", bool Incomer = false, string Key = "", string Source = "")
 {
     /// <summary>Identity of the device (its EPLAN function + location + tag when known; two -Q1 can be different devices).</summary>
     public string Id => Key.Length > 0 ? Key : Tag.Trim();
@@ -98,52 +100,20 @@ public static class EplanPowerBuilder
             objects.Add(config);
         }
 
-        // Feeders of the busbar: devices fed from it, left to right in the drawing order.
+        // Feeders of the busbars: devices fed from them, left to right in the drawing order; one busbar (or a row of
+        // busbars) per supply — the main L1 busbar first, then L2230VAC, L+110VDC…
         var incomers = devices.Where(device => device.Incomer).ToList();
         var feeders = devices.Where(device => !device.Incomer && (device.Upstream.Length == 0 || !byTag.ContainsKey(device.Upstream))).ToList();
         // 11 feeders per busbar; its 12th feeder supplies the next bar when there are more.
         const int perBusbar = FeedersPerBusbar - 1;
         var busbars = new List<ObjectConfig>();
-        var busbarCount = Math.Max(1, (feeders.Count + perBusbar - 1) / perBusbar);
-        for (var b = 0; b < busbarCount; b++)
+        var groups = feeders.GroupBy(device => device.Source).OrderBy(group => group.Key == "" ? 0 : group.Key == "?" ? 2 : 1)
+            .Select(group => (Key: group.Key, Members: group.ToList())).ToList();
+        if (groups.Count == 0)
         {
-            var busbar = new ObjectConfig
-            {
-                Name = Unique(b == 0 ? "Busbar" : $"Busbar{b + 1}"),
-                Type = "Busbar",
-                Description = "Busbar L1/L2/L3 (EPLAN)",
-                Screen = screen,
-                X = Left - 40 + b * perBusbar * ColumnWidth,
-                Y = BusbarY
-            };
-            busbar.Options["Feeders"] = FeedersPerBusbar.ToString(CultureInfo.InvariantCulture);
-            busbar.Params["Length"] = Math.Max(300, Math.Min(perBusbar, feeders.Count - b * perBusbar) * ColumnWidth + 40);
-            if (b > 0)
-            {
-                busbar.Ports["Supply1"] = $"@{busbars[^1].Name}.Feeder{FeedersPerBusbar}";
-            }
-            else if (incomers.Count > 0)
-            {
-                // The main switch supplies the busbar; drawn above it.
-                busbar.Ports["Supply1"] = $"@{byTag[incomers[0].Id].Name}.Live";
-                byTag[incomers[0].Id].X = Left;
-                byTag[incomers[0].Id].Y = IncomerY;
-            }
-
-            busbars.Add(busbar);
+            groups.Add(("", []));
         }
 
-        for (var i = 0; i < feeders.Count; i++)
-        {
-            byTag[feeders[i].Id].Ports["Supply"] = $"@{busbars[i / perBusbar].Name}.Feeder{i % perBusbar + 1}";
-        }
-
-        foreach (var device in devices.Where(device => device.Upstream.Length > 0 && byTag.ContainsKey(device.Upstream)))
-        {
-            byTag[device.Id].Ports["Supply"] = $"@{byTag[device.Upstream].Name}.Live";
-        }
-
-        // Layout as a tree: every device above its first child, branches side by side, one column per leaf.
         var nextColumn = Left;
         var placed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         void Place(PowerDevice device, int row)
@@ -169,25 +139,70 @@ public static class EplanPowerBuilder
             }
         }
 
-        var feederColumns = new List<double>();
-        foreach (var feeder in feeders)
+        foreach (var (supply, members) in groups)
         {
-            feederColumns.Add(nextColumn);
-            Place(feeder, 0);
-        }
-
-        // Each busbar spans the columns of its feeders.
-        for (var b = 0; b < busbars.Count; b++)
-        {
-            var columns = feederColumns.Skip(b * perBusbar).Take(perBusbar).ToList();
-            if (columns.Count == 0)
+            var groupBars = new List<ObjectConfig>();
+            var count = Math.Max(1, (members.Count + perBusbar - 1) / perBusbar);
+            for (var b = 0; b < count; b++)
             {
-                continue;
+                var label = supply.Length == 0 ? "" : supply == "?" ? "NoSupply" : ObjectName(supply);
+                var busbar = new ObjectConfig
+                {
+                    Name = Unique(b == 0 ? "Busbar" + label : $"Busbar{label}_{b + 1}"),
+                    Type = "Busbar",
+                    Description = supply.Length == 0 ? "Busbar L1/L2/L3 (EPLAN)" : supply == "?" ? "Devices without a readable supply (EPLAN)" : $"Busbar {supply} (EPLAN)",
+                    Screen = screen,
+                    Y = BusbarY
+                };
+                busbar.Options["Feeders"] = FeedersPerBusbar.ToString(CultureInfo.InvariantCulture);
+                if (b > 0)
+                {
+                    busbar.Ports["Supply1"] = $"@{groupBars[^1].Name}.Feeder{FeedersPerBusbar}";
+                }
+                else if (supply.Length == 0 && incomers.Count > 0)
+                {
+                    // The main switch supplies the busbar; drawn above it.
+                    busbar.Ports["Supply1"] = $"@{byTag[incomers[0].Id].Name}.Live";
+                    byTag[incomers[0].Id].X = Left;
+                    byTag[incomers[0].Id].Y = IncomerY;
+                }
+                else if (supply.Length > 0)
+                {
+                    busbar.Ports["Supply1"] = "=1"; // its own supply (power supply unit, transformer, battery) is not simulated
+                }
+
+                groupBars.Add(busbar);
             }
 
-            var end = b + 1 < busbars.Count ? feederColumns[(b + 1) * perBusbar] : nextColumn;
-            busbars[b].X = columns[0] - 40;
-            busbars[b].Params["Length"] = Math.Max(300, end - columns[0] + 20);
+            for (var i = 0; i < members.Count; i++)
+            {
+                byTag[members[i].Id].Ports["Supply"] = $"@{groupBars[i / perBusbar].Name}.Feeder{i % perBusbar + 1}";
+            }
+
+            // Layout: each busbar spans the columns of its feeders; a gap between the supplies.
+            var feederColumns = new List<double>();
+            foreach (var feeder in members)
+            {
+                feederColumns.Add(nextColumn);
+                Place(feeder, 0);
+            }
+
+            for (var b = 0; b < groupBars.Count; b++)
+            {
+                var columns = feederColumns.Skip(b * perBusbar).Take(perBusbar).ToList();
+                var first = columns.Count > 0 ? columns[0] : nextColumn;
+                var end = b + 1 < groupBars.Count ? feederColumns[(b + 1) * perBusbar] : nextColumn;
+                groupBars[b].X = first - 40;
+                groupBars[b].Params["Length"] = Math.Max(300, end - first + 20);
+            }
+
+            busbars.AddRange(groupBars);
+            nextColumn += ColumnWidth / 2;
+        }
+
+        foreach (var device in devices.Where(device => device.Upstream.Length > 0 && byTag.ContainsKey(device.Upstream)))
+        {
+            byTag[device.Id].Ports["Supply"] = $"@{byTag[device.Upstream].Name}.Live";
         }
 
         objects.InsertRange(0, busbars);

@@ -65,4 +65,26 @@ public sealed class EplanPowerBuilderTests
 
         Assert.True(engine.Find("Intake", "M3")!.Value("Running") < 0.5);
     }
+
+    [Fact]
+    public void Build_PutsEverySupplyOnItsOwnBusbar()
+    {
+        var devices = new[]
+        {
+            new PowerDevice("-Q1", PowerDeviceKind.Breaker, "", "", "3", Incomer: true),
+            new PowerDevice("-F55", PowerDeviceKind.Breaker, "", "", "6"),
+            new PowerDevice("-F11", PowerDeviceKind.Breaker, "", "", "11", Source: "L+110VDC"),
+            new PowerDevice("-F10", PowerDeviceKind.Breaker, "", "-F11", "11", Source: "L+110VDC"),
+            new PowerDevice("-F60", PowerDeviceKind.Breaker, "", "", "7", Source: "?")
+        };
+
+        var byName = EplanPowerBuilder.Build(devices, "Power", new HashSet<string>(), new HashSet<string>()).ToDictionary(item => item.Name);
+
+        Assert.Equal("@Busbar.Feeder1", byName["F55"].Ports["Supply"]);
+        Assert.Equal("=1", byName["BusbarL110VDC"].Ports["Supply1"]);
+        Assert.Equal("@BusbarL110VDC.Feeder1", byName["F11"].Ports["Supply"]);
+        Assert.Equal("@F11.Live", byName["F10"].Ports["Supply"]);
+        Assert.Equal("@BusbarNoSupply.Feeder1", byName["F60"].Ports["Supply"]);
+        Assert.True(byName["F11"].X > byName["F55"].X && byName["F60"].X > byName["F10"].X);
+    }
 }

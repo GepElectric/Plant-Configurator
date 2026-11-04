@@ -41,6 +41,8 @@
                     <CheckBox x:Name="SldCheck" Content="SLD screen" VerticalAlignment="Center" Margin="16,0,0,0"
                               Checked="SldCheck_Changed" Unchecked="SldCheck_Changed"
                               ToolTip="Draw this screen as a single-line diagram: busbars, breakers, contactors, disconnectors, earthing switches and motors as symbols."/>
+                    <Button Content="Save actual" MinWidth="85" Height="24" Margin="16,0,0,0" Click="SaveActual_Click" FontWeight="SemiBold"
+                            ToolTip="Save the model now with the actual state of the breakers, disconnectors, earthing switches and selector switches — the simulation starts from it next time."/>
                     <ToggleButton x:Name="ShowLinksToggle" Content="Show all links" MinWidth="100" Height="24" Margin="16,0,0,0"
                                   Checked="ShowLinks_Changed" Unchecked="ShowLinks_Changed"
                                   ToolTip="Off: only the links of the selected object (power lines are always shown). On: every link."/>

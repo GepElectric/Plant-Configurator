@@ -184,25 +184,36 @@ public static class EplanPowerImporter
             graph[b].Add((a, edge.Device));
         }
 
-        var previous = new Dictionary<string, (string From, Device? Device)?> { [source] = null };
-        var queue = new Queue<string>([source]);
-        while (queue.Count > 0)
+        // Supply potentials besides the L1 busbar (single phase L2230VAC, DC L+110VDC / L+24VDC…) and the rails that
+        // end a trace (L2, L3, N, PE, L-…, M).
+        var names = parent.Keys.Where(key => key.StartsWith("NAME:", StringComparison.Ordinal)).Select(key => key[5..]).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var rails = names.Where(IsReturn).Select(name => Find("NAME:" + name)).ToHashSet();
+        var supplies = names.Where(name => IsSupplyName(name) && Find("NAME:" + name) != source).OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList();
+
+        Dictionary<string, (string From, Device? Device)?> Trace(string start, HashSet<string> visited, Func<string, bool> blocked)
         {
-            var node = queue.Dequeue();
-            foreach (var (to, device) in graph.GetValueOrDefault(node) ?? [])
+            var steps = new Dictionary<string, (string From, Device? Device)?> { [start] = null };
+            var pending = new Queue<string>([start]);
+            while (pending.Count > 0)
             {
-                if (!previous.ContainsKey(to) && !IsRail(to, source, Find))
+                var node = pending.Dequeue();
+                foreach (var (to, device) in graph.GetValueOrDefault(node) ?? [])
                 {
-                    previous[to] = (node, device);
-                    queue.Enqueue(to);
+                    if (!steps.ContainsKey(to) && !visited.Contains(to) && !blocked(to))
+                    {
+                        steps[to] = (node, device);
+                        pending.Enqueue(to);
+                    }
                 }
             }
+
+            return steps;
         }
 
-        List<Device> PathTo(string node)
+        List<Device> ChainTo(Dictionary<string, (string From, Device? Device)?> steps, string node)
         {
             var path = new List<Device>();
-            while (previous.TryGetValue(node, out var step) && step is { } value)
+            while (steps.TryGetValue(node, out var step) && step is { } value)
             {
                 if (value.Device is not null && (path.Count == 0 || path[^1] != value.Device))
                 {
@@ -216,40 +227,69 @@ public static class EplanPowerImporter
             return path;
         }
 
-        // Power devices on the L1 paths and what feeds them; motors at the end of their path.
+        var previous = Trace(source, [], node => IsRail(node, source, Find));
+        List<Device> PathTo(string node) => ChainTo(previous, node);
+
+        // Power devices on the paths and what feeds them; motors at the end of their path.
         var added = new Dictionary<string, PowerDevice>(StringComparer.OrdinalIgnoreCase);
-        void Add(Device device, Device? upstream)
+        void Add(Device device, Device? upstream, string supply)
         {
             if (added.ContainsKey(device.Key) || PowerKind(device) is not { } kind)
             {
                 return;
             }
 
-            var power = new PowerDevice(device.Tag, kind, device.Text, upstream is null ? "" : upstream.Key, device.Page, Incomer: device.Category == "506", Key: device.Key);
+            var power = new PowerDevice(device.Tag, kind, device.Text, upstream is null ? "" : upstream.Key, device.Page, Incomer: supply.Length == 0 && device.Category == "506",
+                Key: device.Key, Source: supply);
             added[device.Key] = power;
             import.Devices.Add(power);
         }
 
-        var reached = previous.Keys.Where(node => previous[node] is not null).ToList();
-        foreach (var node in reached)
+        void AddReached(Dictionary<string, (string From, Device? Device)?> steps, string supply)
         {
-            var chain = PathTo(node).Where(device => PowerKind(device) is not null).ToList();
-            for (var i = 0; i < chain.Count; i++)
+            foreach (var node in steps.Keys.Where(node => steps[node] is not null).ToList())
             {
-                Add(chain[i], i == 0 ? null : chain[i - 1]);
+                var chain = ChainTo(steps, node).Where(device => PowerKind(device) is not null).ToList();
+                for (var i = 0; i < chain.Count; i++)
+                {
+                    Add(chain[i], i == 0 ? null : chain[i - 1], supply);
+                }
+            }
+
+            foreach (var (device, net) in loads.Where(load => load.Device.Category == "1000"))
+            {
+                var node = Find(net);
+                if (steps.ContainsKey(node))
+                {
+                    Add(device, ChainTo(steps, node).Where(item => PowerKind(item) is not null).LastOrDefault(), supply);
+                }
             }
         }
 
-        foreach (var (device, net) in loads.Where(load => load.Device.Category == "1000"))
+        AddReached(previous, "");
+
+        // The other supplies, each on its own busbar; what L1 reached already is not traced again.
+        var visited = previous.Keys.ToHashSet();
+        foreach (var supply in supplies)
         {
-            var node = Find(net);
-            if (!previous.ContainsKey(node))
+            var start = Find("NAME:" + supply);
+            if (visited.Contains(start))
             {
                 continue;
             }
 
-            var chain = PathTo(node).Where(item => PowerKind(item) is not null).ToList();
-            Add(device, chain.LastOrDefault());
+            var steps = Trace(start, visited, node => node != start && (rails.Contains(node) || supplies.Any(other => Find("NAME:" + other) == node)));
+            AddReached(steps, Bare(supply));
+            visited.UnionWith(steps.Keys);
+        }
+
+        // Breakers no supply reaches (fed from a page not imported, an unknown symbol…): drawn anyway.
+        foreach (var device in devices.Where(device => PowerKind(device) is PowerDeviceKind.Breaker or PowerDeviceKind.MotorProtection))
+        {
+            if (!added.ContainsKey(device.Key))
+            {
+                Add(device, null, "?");
+            }
         }
 
         // Device tags shared by two devices (e.g. a local -Q1 and the main -Q1) get their location in the text.
@@ -276,6 +316,29 @@ public static class EplanPowerImporter
         }
 
         return import;
+    }
+
+    /// <summary>Potential name without its page / group prefix: "11-L+110VDC" → "L+110VDC".</summary>
+    private static string Bare(string name)
+    {
+        var dash = name.IndexOf('-');
+        return dash > 0 && name[..dash].All(c => char.IsDigit(c) || c == '.') ? name[(dash + 1)..] : name;
+    }
+
+    /// <summary>A supply potential: L+…, +…, a single-phase L…VAC (not the L2 / L3 phases of the busbar).</summary>
+    private static bool IsSupplyName(string name)
+    {
+        var bare = Bare(name).Replace(" ", "").ToUpperInvariant();
+        return bare.StartsWith("L+", StringComparison.Ordinal) || bare.StartsWith('+') || bare.EndsWith("L+", StringComparison.Ordinal)
+               || (bare.StartsWith('L') && bare.Contains("VAC", StringComparison.Ordinal) && bare is not ("L1" or "L2" or "L3"));
+    }
+
+    /// <summary>A return / other phase: N…, PE, M, L-…, L2, L3.</summary>
+    private static bool IsReturn(string name)
+    {
+        var bare = Bare(name).Replace(" ", "").ToUpperInvariant();
+        return bare is "L2" or "L3" or "PE" or "M" || bare.StartsWith('N') || bare.StartsWith("L-", StringComparison.Ordinal) || bare.EndsWith("L-", StringComparison.Ordinal)
+               || bare.StartsWith('-');
     }
 
     private static bool IsRail(string node, string source, Func<string, string> find) =>

@@ -86,6 +86,15 @@ public partial class ScadaView : UserControl
         return brush;
     }
 
+    /// <summary>"Save actual": save the model with the present switching states (handled by the simulator window).</summary>
+    public event RoutedEventHandler? SaveRequested;
+
+    private void SaveActual_Click(object sender, RoutedEventArgs e)
+    {
+        _controller?.MarkDirty();
+        SaveRequested?.Invoke(this, e);
+    }
+
     public void Attach(SimulationController controller)
     {
         _controller = controller;
