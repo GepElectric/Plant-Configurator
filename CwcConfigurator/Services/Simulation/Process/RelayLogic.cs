@@ -359,7 +359,8 @@ public sealed class RelayLogicRunner
         var result = new List<(string, RelayElement)>();
         foreach (var coil in _coils.Where(coil => coil.Plc.Equals(plc, StringComparison.OrdinalIgnoreCase)))
         {
-            foreach (var contact in Contacts(coil.Circuit.Elements).Where(contact => contact.Tag.Trim().Equals(tag.Trim(), StringComparison.OrdinalIgnoreCase)))
+            foreach (var contact in Contacts(coil.Circuit.Elements).Where(contact => RelayOfContact(coil.Plc, contact) is { } relay
+                         && relay.Plc.Equals(plc, StringComparison.OrdinalIgnoreCase) && relay.Tag.Equals(tag.Trim(), StringComparison.OrdinalIgnoreCase)))
             {
                 result.Add((coil.Location, contact));
             }
@@ -522,11 +523,35 @@ public sealed class RelayLogicRunner
         return powered;
     }
 
+    /// <summary>
+    /// The relay a contact belongs to: its tag, or a source "@Relays.2-K01" / "@Common/Relays.2-K01" (an auxiliary
+    /// contact of that relay, like the tag).
+    /// </summary>
+    public (string Plc, string Tag)? RelayOfContact(string plc, RelayElement contact)
+    {
+        if (contact.Tag.Trim().Length > 0 && _byTag.ContainsKey(Key(plc, contact.Tag)))
+        {
+            return (plc, contact.Tag.Trim());
+        }
+
+        if (PortBinding.Parse(contact.Source) is { Kind: BindingKind.Link } link)
+        {
+            var parts = link.LinkObject.Split('/', 2);
+            var (relayPlc, name) = parts.Length == 2 ? (parts[0], parts[1]) : (plc, parts[0]);
+            if (name.Equals(ProcessEngine.RelaysLink, StringComparison.OrdinalIgnoreCase) && _byTag.ContainsKey(Key(relayPlc, link.LinkPort)))
+            {
+                return (relayPlc, link.LinkPort.Trim());
+            }
+        }
+
+        return null;
+    }
+
     private bool SourceOn(string plc, RelayElement contact, ISignalIo? io, ProcessEngine engine)
     {
-        if (contact.Tag.Trim().Length > 0 && _byTag.TryGetValue(Key(plc, contact.Tag), out var coil))
+        if (RelayOfContact(plc, contact) is { } relay)
         {
-            return coil.On;
+            return _byTag[Key(relay.Plc, relay.Tag)].On;
         }
 
         if (contact.Tag.Trim().Length > 0 && _buttons.TryGetValue(Key(plc, contact.Tag), out var button))

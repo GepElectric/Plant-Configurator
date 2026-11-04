@@ -1383,8 +1383,10 @@ public sealed class RelayLogicView : UserControl
         }
 
         // Tag, cross reference to the coil and function text, right-aligned to the left of the contact.
-        var location = Relays?.CoilLocation(_plc, contact.Tag) ?? "";
-        var text = contact.Text.Trim().Length > 0 ? contact.Text : Relays?.CoilText(_plc, contact.Tag) ?? "";
+        var relay = Relays?.RelayOfContact(_plc, contact);
+        var tagText = contact.Tag.Trim().Length > 0 ? contact.Tag.Trim() : relay?.Tag ?? "";
+        var location = relay is { } owner ? (owner.Plc.Equals(_plc, StringComparison.OrdinalIgnoreCase) ? "" : owner.Plc + " ") + Relays!.CoilLocation(owner.Plc, owner.Tag) : "";
+        var text = contact.Text.Trim().Length > 0 ? contact.Text : relay is { } coilOf ? Relays!.CoilText(coilOf.Plc, coilOf.Tag) : "";
         RelaySwitch? switchKnob = null;
         if (Relays?.SwitchOf(_plc, contact.Tag) is { } selector)
         {
@@ -1410,13 +1412,25 @@ public sealed class RelayLogicView : UserControl
                 text = button.Text;
             }
         }
-        else if (location.Length == 0 && contact.Source.Trim().Length > 0)
+        else if (relay is null && contact.Source.Trim().Length > 0)
         {
-            location = contact.Source.Trim();
+            // A PLC signal: module and port with the ID, its name as the function text.
+            if (SignalOf(contact.Source.Trim()) is { } signal)
+            {
+                location = $"{signal.ModuleText} port {signal.Channel} · {signal.Kind}:{signal.Id}";
+                if (contact.Text.Trim().Length == 0)
+                {
+                    text = signal.Name;
+                }
+            }
+            else
+            {
+                location = contact.Source.Trim();
+            }
         }
 
         var labelRight = x - 26;
-        AddTextRight(Display(contact.Tag, ""), labelRight, y + 22, 15, TextBrush);
+        AddTextRight(tagText, labelRight, y + 22, 15, TextBrush);
         AddTextRight(location, labelRight, y + 42, 10.5, DimBrush);
         AddTextRight(text, labelRight, y + 56, 10.5, TextBrush);
 
@@ -1531,7 +1545,12 @@ public sealed class RelayLogicView : UserControl
         AddHitArea(coil, x - WireOffset + 6, top - 8, ColumnWidth - 12, CoilHeight + 16, $"Coil {Display(coil.Tag, "")} — {RelayLogicRunner.Location(sheet, sheetIndex, path)}");
     }
 
-    private const double InputBoxHeight = 64;
+    private const double InputBoxHeight = 84;
+
+    /// <summary>The signal of a source "DO:160" in this PLC (module, port, name), or null.</summary>
+    private SimulatorSignal? SignalOf(string source) =>
+        PortBinding.Parse(source) is { Kind: BindingKind.Signal } binding ? _controller?.Session(_plc)?.Find(binding.SignalKind, binding.SignalId).FirstOrDefault() : null;
+
 
     /// <summary>The direct input of a relay (e.g. the PLC output DO:160): a box with the signal and its state.</summary>
     private void DrawRelayInput(RelayCoil coil, double x, double top, bool on)
@@ -1544,10 +1563,22 @@ public sealed class RelayLogicView : UserControl
         var input = coil.Input.Trim();
         var signal = PortBinding.Parse(input);
         var title = signal is { Kind: BindingKind.Signal, SignalKind: SimulatorSignalKind.DO } ? "PLC OUTPUT" : "INPUT";
-        var label = new TextBlock { TextAlignment = TextAlignment.Center, FontSize = 10.5, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        label.Inlines.Add(new System.Windows.Documents.Run(input) { FontWeight = FontWeights.SemiBold });
+        var label = new TextBlock { TextAlignment = TextAlignment.Center, FontSize = 10, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4, 0, 4, 0),
+            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        var found = SignalOf(input);
+        if (found is { } info)
+        {
+            label.Inlines.Add(new System.Windows.Documents.Run($"{info.ModuleText}  port {info.Channel}") { FontWeight = FontWeights.SemiBold });
+            label.Inlines.Add(new System.Windows.Documents.LineBreak());
+            label.Inlines.Add(new System.Windows.Documents.Run($"{info.Kind}:{info.Id}  {info.Name}"));
+        }
+        else
+        {
+            label.Inlines.Add(new System.Windows.Documents.Run(input) { FontWeight = FontWeights.SemiBold });
+        }
+
         label.Inlines.Add(new System.Windows.Documents.LineBreak());
-        label.Inlines.Add(new System.Windows.Documents.Run(title) { FontSize = 9.5 });
+        label.Inlines.Add(new System.Windows.Documents.Run(title) { FontSize = 9, Foreground = DimBrush });
         var running = _controller?.Running == true;
         var box = new Border
         {

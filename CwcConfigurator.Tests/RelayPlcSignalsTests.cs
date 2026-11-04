@@ -51,7 +51,8 @@ public sealed class RelayPlcSignalsTests
         var output = new RelayCircuit { Elements = [new RelayElement { Source = "DO:160", Text = "PLC OUTPUT" }], Coil = new RelayCoil { Tag = "2-K01" } };
         var user = new RelayCircuit { Elements = [new RelayElement { Tag = "2-K01" }], Coil = new RelayCoil { Tag = "-K10" } };
         var userNc = new RelayCircuit { Elements = [new RelayElement { Tag = "2-K01", Contact = "NC" }], Coil = new RelayCoil { Tag = "-K11" } };
-        var model = new ProcessModel { RelaySheets = [new RelaySheet { Circuits = [user, userNc, output] }] };
+        var bySource = new RelayCircuit { Elements = [new RelayElement { Source = "@Relays.2-K01" }], Coil = new RelayCoil { Tag = "-K12" } };
+        var model = new ProcessModel { RelaySheets = [new RelaySheet { Circuits = [user, userNc, bySource, output] }] };
 
         Assert.Equal(1, RelayPlcSignals.MigrateInputs(model));
         Assert.Equal("DO:160", output.Coil.Input);
@@ -65,6 +66,8 @@ public sealed class RelayPlcSignalsTests
         Assert.True(engine.Relays.IsOn("Unit", "2-K01"));
         Assert.True(engine.Relays.IsOn("Unit", "-K10"));        // NO auxiliary contact closed in the same step
         Assert.False(engine.Relays.IsOn("Unit", "-K11"));       // NC auxiliary contact opened
+        Assert.True(engine.Relays.IsOn("Unit", "-K12"));        // contact with source @Relays.2-K01 follows the relay too
+        Assert.Equal(3, engine.Relays.ContactsOf("Unit", "2-K01").Count);
 
         io.Values[(CwcConfigurator.Services.Simulation.SimulatorSignalKind.DO, 160)] = 0;
         engine.Step(0.1, _ => io);
