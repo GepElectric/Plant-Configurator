@@ -78,6 +78,7 @@ public sealed class RelayLogicView : UserControl
         toolbar.Children.Add(ToolButton("Import EPLAN…", "Build relay-logic sheets from the schematic pages of an EPLAN export (.epj): contacts, coils, branches and selector switches.", async (_, _) => await ImportEplanAsync()));
         toolbar.Children.Add(ToolButton("Import EPLAN power…", "Build the power part from the EPLAN distribution pages: an SLD screen (busbar, breakers, contactors following their relays, motors) and an overview sheet of the feeders.", async (_, _) => await ImportEplanPowerAsync()));
         toolbar.Children.Add(ToolButton("Copy sheet", "Copy this sheet for the same circuit with other relays and signals (find / replace rules).", (_, _) => CopySheet()));
+        toolbar.Children.Add(ToolButton("Remove duplicates", "Sheets imported twice (same name and page): keep the last import, delete the older copies — a relay must be drawn once.", (_, _) => RemoveDuplicateSheets()));
         toolbar.Children.Add(ToolButton("Delete sheet", "Delete this sheet with all its paths.", (_, _) => DeleteSheet()));
         toolbar.Children.Add(new Separator { Width = 14, Opacity = 0 });
         toolbar.Children.Add(ToolButton("New path", "Add a current path (one contact and a relay coil) at the right.", (_, _) => NewPath()));
@@ -394,6 +395,26 @@ public sealed class RelayLogicView : UserControl
             model.RelaySwitches.Add(selector);
         }
 
+        // Pages imported before: replace them (a second import must not draw every relay twice).
+        var importedPages = import.Sheets.Where(sheet => sheet.Page > 0).Select(sheet => sheet.Page).ToHashSet();
+        var existing = model.RelaySheets.Where(sheet => importedPages.Contains(sheet.Page)).ToList();
+        if (existing.Count > 0)
+        {
+            var answer = MessageBox.Show(Window.GetWindow(this)!,
+                $"{existing.Count} sheet(s) with these page numbers are already in the model ({string.Join(", ", existing.Select(sheet => sheet.Page).Distinct().OrderBy(page => page))}).\n\n" +
+                "Yes = replace them with the new import (recommended: otherwise every relay is drawn twice).\nNo = keep them and add the new sheets.",
+                "Import EPLAN", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            if (answer == MessageBoxResult.Cancel)
+            {
+                return;
+            }
+
+            if (answer == MessageBoxResult.Yes)
+            {
+                existing.ForEach(sheet => model.RelaySheets.Remove(sheet));
+            }
+        }
+
         var first = model.RelaySheets.Count;
         model.RelaySheets.AddRange(import.Sheets);
         var linked = _controller?.Session(_plc)?.Project is { } project ? RelayPlcSignals.Link(model, project.DigitalOutputs, project.DigitalInputs) : 0;
@@ -411,7 +432,7 @@ public sealed class RelayLogicView : UserControl
                        + (import.Warnings.Count > 25 ? $"\n… and {import.Warnings.Count - 25} more." : "");
         }
 
-        message += "\n\nContacts of relays that are not on the imported sheets (e.g. PLC relays) need their source (DO / DI / object).";
+        message += "\n\nDevices that are not on the imported sheets (breakers, field contacts) need their input: select a contact and fill 'Device input'.";
         MessageBox.Show(Window.GetWindow(this)!, message, "Import EPLAN", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
@@ -594,6 +615,40 @@ public sealed class RelayLogicView : UserControl
         };
         ok.Click += (_, _) => dialog.DialogResult = true;
         return dialog.ShowDialog() == true && boxes.Any(box => box.IsChecked == true);
+    }
+
+    /// <summary>Sheets with the same name and page (an EPLAN page imported twice): the last one is kept.</summary>
+    private void RemoveDuplicateSheets()
+    {
+        if (Model is not { } model)
+        {
+            return;
+        }
+
+        var duplicates = model.RelaySheets
+            .GroupBy(sheet => (sheet.Name.Trim().ToUpperInvariant(), sheet.Page))
+            .Where(group => group.Count() > 1)
+            .SelectMany(group => group.Take(group.Count() - 1))
+            .ToList();
+        if (duplicates.Count == 0)
+        {
+            MessageBox.Show(Window.GetWindow(this)!, "No sheet is in the model twice.", "Remove duplicates", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var list = string.Join("\n", duplicates.Select(sheet => $"• {sheet.Name} (page {sheet.Page})").Take(30));
+        if (MessageBox.Show(Window.GetWindow(this)!,
+                $"{duplicates.Count} older copy(ies) of sheets that are in the model twice will be deleted (the last import of each is kept):\n\n{list}",
+                "Remove duplicates", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        duplicates.ForEach(sheet => model.RelaySheets.Remove(sheet));
+        _sheetIndex = Math.Clamp(_sheetIndex, 0, Math.Max(0, model.RelaySheets.Count - 1));
+        _selected = Sheet;
+        Changed();
+        ShowProperties();
     }
 
     private void CopySheet()

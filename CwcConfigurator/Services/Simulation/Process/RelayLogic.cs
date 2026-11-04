@@ -172,6 +172,9 @@ public sealed class RelayLogicRunner
 
     private readonly List<CoilState> _coils = [];
     private readonly Dictionary<string, CoilState> _byTag = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>All coils drawn for a relay tag: one relay, on when any of them picks up.</summary>
+    private readonly Dictionary<string, List<CoilState>> _coilsOf = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<RelayElement, (bool PoweredIn, bool Closed)> _elements = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, RelaySwitch> _switches = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, RelayDevice> _devices = new(StringComparer.OrdinalIgnoreCase);
@@ -288,9 +291,14 @@ public sealed class RelayLogicRunner
                     }
 
                     var key = Key(plc, circuit.Coil.Tag);
-                    if (circuit.Coil.Tag.Trim().Length > 0 && !_byTag.TryAdd(key, state))
+                    if (circuit.Coil.Tag.Trim().Length > 0)
                     {
-                        problems.Add($"{plc}: relay {circuit.Coil.Tag} has more than one coil ({_byTag[key].Location} and {state.Location}).");
+                        if (!_byTag.TryAdd(key, state))
+                        {
+                            problems.Add($"{plc}: relay {circuit.Coil.Tag} is drawn more than once ({_byTag[key].Location} and {state.Location}) — it is one relay; delete the duplicate sheet.");
+                        }
+
+                        (_coilsOf.TryGetValue(key, out var list) ? list : _coilsOf[key] = []).Add(state);
                     }
 
                     if (previous?._coils.FirstOrDefault(old => old.Circuit == circuit || (circuit.Coil.Tag.Trim().Length > 0 && Key(old.Plc, old.Circuit.Coil.Tag) == key)) is { } old)
@@ -366,9 +374,13 @@ public sealed class RelayLogicRunner
     public RelaySwitch? SwitchOf(string plc, string tag) => _switches.GetValueOrDefault(Key(plc, tag));
 
     /// <summary>Relay picked up (coil energised, after its time delay).</summary>
-    public bool IsOn(string plc, string tag) => _byTag.TryGetValue(Key(plc, tag), out var coil) && coil.On;
+    public bool IsOn(string plc, string tag) => RelayOn(Key(plc, tag));
 
-    public bool IsOn(RelayCircuit circuit) => _coils.FirstOrDefault(coil => coil.Circuit == circuit)?.On == true;
+    /// <summary>The relay of the path is picked up (the relay with this tag, wherever its coil is drawn).</summary>
+    public bool IsOn(RelayCircuit circuit) => _coils.FirstOrDefault(coil => coil.Circuit == circuit) is { } state
+        && (state.Circuit.Coil.Tag.Trim().Length > 0 ? RelayOn(Key(state.Plc, state.Circuit.Coil.Tag)) : state.On);
+
+    private bool RelayOn(string key) => _coilsOf.TryGetValue(key, out var coils) && coils.Any(coil => coil.On);
 
     /// <summary>Current reaches the coil of the path (a time relay may not have picked up yet).</summary>
     public bool IsPowered(RelayCircuit circuit) => _coils.FirstOrDefault(coil => coil.Circuit == circuit)?.Powered == true;
@@ -444,9 +456,10 @@ public sealed class RelayLogicRunner
         foreach (var coil in _coils)
         {
             var plcIo = io(coil.Plc);
+            var on = coil.Circuit.Coil.Tag.Trim().Length > 0 ? RelayOn(Key(coil.Plc, coil.Circuit.Coil.Tag)) : coil.On;
             foreach (var target in coil.Outputs)
             {
-                plcIo?.Write(target.SignalKind, target.SignalId, coil.On ? 1 : 0);
+                plcIo?.Write(target.SignalKind, target.SignalId, on ? 1 : 0);
             }
         }
     }
@@ -597,7 +610,7 @@ public sealed class RelayLogicRunner
 
         if (RelayOfTag(plc, tag) is { } relay)
         {
-            return _byTag[Key(relay.Plc, relay.Tag)].On;
+            return RelayOn(Key(relay.Plc, relay.Tag));
         }
 
         if (_buttons.TryGetValue(Key(plc, tag), out var button))

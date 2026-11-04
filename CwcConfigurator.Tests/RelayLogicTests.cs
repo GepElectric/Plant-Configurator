@@ -352,6 +352,22 @@ public sealed class RelayLogicTests
     }
 
     [Fact]
+    public void RelayDrawnTwice_IsOneRelay()
+    {
+        var old = new RelayCircuit { Elements = [Contact("=0")], Coil = new RelayCoil { Tag = "2-K01" } };
+        var current = new RelayCircuit { Coil = new RelayCoil { Tag = "2-K01", Input = "DO:160" } };
+        var esd = new RelayCircuit { Elements = [Contact("2-K01")], Coil = new RelayCoil { Tag = "-K301" } };
+        var (engine, io) = Build(old, esd, current);
+        io.Values[(SimulatorSignalKind.DO, 160)] = 1;
+
+        engine.Step(0.1, _ => io);
+
+        Assert.Contains(engine.Problems, problem => problem.Contains("drawn more than once"));
+        Assert.True(engine.Relays.IsOn(old) && engine.Relays.IsOn(current));
+        Assert.True(engine.Relays.IsOn("Intake", "-K301"));
+    }
+
+    [Fact]
     public void Cubicles_SurviveYamlRoundTrip()
     {
         var model = new ProcessModel
