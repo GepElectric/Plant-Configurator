@@ -217,8 +217,18 @@ public sealed class RelayLogicView : UserControl
         _sheetIndex = 0;
         LoadSheets();
         _selected = Sheet;
+        LinkPlcOutputs();
         Redraw();
         ShowProperties();
+    }
+
+    /// <summary>PLC digital outputs drive their output relays (2-K…) and input relays (1-K…) drive their inputs from the start (only empty sources are filled).</summary>
+    private void LinkPlcOutputs()
+    {
+        if (Model is { } model && _controller?.Session(_plc)?.Project is { } project && RelayPlcSignals.Link(model, project.DigitalOutputs, project.DigitalInputs) > 0)
+        {
+            Changed();
+        }
     }
 
     /// <summary>Live colours (called by the window timer).</summary>
@@ -385,13 +395,15 @@ public sealed class RelayLogicView : UserControl
 
         var first = model.RelaySheets.Count;
         model.RelaySheets.AddRange(import.Sheets);
+        var linked = _controller?.Session(_plc)?.Project is { } project ? RelayPlcSignals.Link(model, project.DigitalOutputs, project.DigitalInputs) : 0;
         _sheetIndex = import.Sheets.Count > 0 ? first : _sheetIndex;
         _selected = Sheet;
         Changed();
         ShowProperties();
 
         var paths = import.Sheets.Sum(sheet => sheet.Circuits.Count);
-        var message = $"Imported {import.Sheets.Count} sheet(s) with {paths} path(s) and {import.Switches.Count} selector switch(es).";
+        var message = $"Imported {import.Sheets.Count} sheet(s) with {paths} path(s) and {import.Switches.Count} selector switch(es); " +
+                      $"{linked} contact(s) / coil(s) connected to their PLC input or output.";
         if (import.Warnings.Count > 0)
         {
             message += "\n\nTo check:\n" + string.Join("\n", import.Warnings.Take(25).Select(warning => "• " + warning))
