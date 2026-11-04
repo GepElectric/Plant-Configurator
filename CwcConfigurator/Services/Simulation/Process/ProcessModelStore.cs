@@ -52,7 +52,7 @@ public static class ProcessModelStore
             .Build();
         var file = new ModelFile
         {
-            Plcs = models.Where(pair => pair.Value.Objects.Count > 0 || pair.Value.Forces.Count > 0 || pair.Value.RelaySheets.Count > 0 || pair.Value.RelaySwitches.Count > 0 || pair.Value.Cubicles.Count > 0).ToDictionary(pair => pair.Key, pair => pair.Value)
+            Plcs = models.Where(pair => pair.Value.Objects.Count > 0 || pair.Value.Forces.Count > 0 || pair.Value.RelaySheets.Count > 0 || pair.Value.RelaySwitches.Count > 0 || pair.Value.RelayDevices.Count > 0 || pair.Value.Cubicles.Count > 0).ToDictionary(pair => pair.Key, pair => pair.Value)
         };
         return Header + serializer.Serialize(file);
     }
@@ -65,7 +65,6 @@ public static class ProcessModelStore
             item.Kind ??= RelayElementKind.Contact;
             item.Id = string.IsNullOrWhiteSpace(item.Id) ? RelayElement.NewId() : item.Id.Trim();
             item.Tag ??= "";
-            item.Source ??= "";
             item.Contact ??= "NO";
             item.Pins ??= "11/12/14";
             item.Position ??= "";
@@ -84,6 +83,13 @@ public static class ProcessModelStore
         model.SldScreens ??= [];
         model.RelaySheets ??= [];
         model.RelaySwitches = (model.RelaySwitches ?? []).Where(item => item is not null).ToList();
+        model.RelayDevices = (model.RelayDevices ?? []).Where(item => item is not null).ToList();
+        foreach (var device in model.RelayDevices)
+        {
+            device.Tag ??= "";
+            device.Text ??= "";
+            device.Input ??= "";
+        }
         model.Cubicles = (model.Cubicles ?? []).Where(item => item is not null).ToList();
         foreach (var cubicle in model.Cubicles)
         {
@@ -119,10 +125,13 @@ public static class ProcessModelStore
                 circuit.Coil.Tag ??= "";
                 circuit.Coil.Text ??= "";
                 circuit.Coil.Outputs ??= "";
+                circuit.Coil.Input ??= "";
                 circuit.Coil.Timer ??= "";
                 circuit.Elements = NormalizeSeries(circuit.Elements);
             }
         }
+
+        RelayDevices.Unify(model);
 
         foreach (var item in model.Objects)
         {

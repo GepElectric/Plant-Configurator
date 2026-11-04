@@ -512,8 +512,25 @@ public sealed class RelayLogicView : UserControl
         var overview = new RelaySheet { Name = "Power distribution (EPLAN)" };
         foreach (var (_, chain, load) in import.Feeders.OrderBy(feeder => int.TryParse(feeder.Page, out var number) ? number : 0))
         {
-            var elements = chain.Select(item => new RelayElement { Tag = item.Tag, Source = SourceOf(item.Key, item.Tag), Contact = "NO", Pins = "1//2" }).ToList();
-            overview.Circuits.Add(new RelayCircuit { Elements = elements.Count > 0 ? elements : [new RelayElement { Source = "=1" }], Coil = new RelayCoil { Text = load } });
+            var elements = new List<RelayElement>();
+            foreach (var item in chain)
+            {
+                var source = SourceOf(item.Key, item.Tag);
+                if (item.Tag.Trim().Length == 0)
+                {
+                    elements.Add(new RelayElement { Tag = source, Contact = "NO", Pins = "1//2" });
+                    continue;
+                }
+
+                if (source.Length > 0)
+                {
+                    RelayDevices.Define(model, item.Tag, source);
+                }
+
+                elements.Add(new RelayElement { Tag = item.Tag, Contact = "NO", Pins = "1//2" });
+            }
+
+            overview.Circuits.Add(new RelayCircuit { Elements = elements.Count > 0 ? elements : [new RelayElement { Tag = "=1" }], Coil = new RelayCoil { Text = load } });
         }
 
         model.RelaySheets.Add(overview);
@@ -524,11 +541,11 @@ public sealed class RelayLogicView : UserControl
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         var auxiliary = 0;
         foreach (var contact in model.RelaySheets.Where(sheet => sheet != overview).SelectMany(sheet => sheet.Circuits).SelectMany(circuit => RelayLogicRunner.AllElements(circuit.Elements))
-                     .Where(element => !element.IsParallel && element.Source.Trim().Length == 0 && !coils.Contains(element.Tag.Trim())))
+                     .Where(element => !element.IsParallel && !coils.Contains(element.Tag.Trim())))
         {
-            if (byTag.TryGetValue(contact.Tag.Trim(), out var device) && SourceOf(device.Id, device.Tag) is { Length: > 0 } source)
+            if (byTag.TryGetValue(contact.Tag.Trim(), out var device) && SourceOf(device.Id, device.Tag) is { Length: > 0 } source
+                && RelayDevices.Define(model, contact.Tag, source))
             {
-                contact.Source = source;
                 auxiliary++;
             }
         }
@@ -597,8 +614,11 @@ public sealed class RelayLogicView : UserControl
                     continue;
                 }
 
-                items.Add(element.Tag.Trim());
-                items.AddRange(element.Source.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+                items.AddRange(element.Tag.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+                if (Model is { } current && RelayDevices.Find(current, element.Tag) is { } device)
+                {
+                    items.AddRange(device.Input.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+                }
             }
         }
 
@@ -659,6 +679,7 @@ public sealed class RelayLogicView : UserControl
         var parsed = RelaySheetCopy.ParseRules(rulesBox.Text);
         var copy = RelaySheetCopy.Copy(sheet, parsed);
         copy.Name = nameBox.Text.Trim().Length > 0 ? nameBox.Text.Trim() : copy.Name;
+        RelaySheetCopy.CopyDevices(model, copy, parsed);
 
         // Switch contacts that got a new tag: a copy of the switch with the same positions.
         foreach (var selector in model.RelaySwitches.ToList())
@@ -752,7 +773,6 @@ public sealed class RelayLogicView : UserControl
             }
 
             contact.Tag = tag;
-            contact.Source = "";
             contact.Pins = "13/12/14";
             contact.Position = "1";
         }
@@ -1384,7 +1404,7 @@ public sealed class RelayLogicView : UserControl
 
         // Tag, cross reference to the coil and function text, right-aligned to the left of the contact.
         var relay = Relays?.RelayOfContact(_plc, contact);
-        var tagText = contact.Tag.Trim().Length > 0 ? contact.Tag.Trim() : relay?.Tag ?? "";
+        var tagText = relay?.Tag ?? contact.Tag.Trim();
         var location = relay is { } owner ? (owner.Plc.Equals(_plc, StringComparison.OrdinalIgnoreCase) ? "" : owner.Plc + " ") + Relays!.CoilLocation(owner.Plc, owner.Tag) : "";
         var text = contact.Text.Trim().Length > 0 ? contact.Text : relay is { } coilOf ? Relays!.CoilText(coilOf.Plc, coilOf.Tag) : "";
         RelaySwitch? switchKnob = null;
@@ -1412,20 +1432,32 @@ public sealed class RelayLogicView : UserControl
                 text = button.Text;
             }
         }
-        else if (relay is null && contact.Source.Trim().Length > 0)
+        else if (relay is null)
         {
-            // A PLC signal: module and port with the ID, its name as the function text.
-            if (SignalOf(contact.Source.Trim()) is { } signal)
+            // A device (its input) or directly a PLC signal: module and port with the ID, its name as the function text.
+            var device = Relays?.DeviceOf(_plc, contact.Tag);
+            var input = device?.Input.Trim() ?? (PortBinding.Parse(contact.Tag).Kind != BindingKind.None ? contact.Tag.Trim() : "");
+            if (device is not null && contact.Text.Trim().Length == 0 && device.Text.Trim().Length > 0)
+            {
+                text = device.Text;
+            }
+
+            if (SignalOf(input) is { } signal)
             {
                 location = $"{signal.ModuleText} port {signal.Channel} · {signal.Kind}:{signal.Id}";
-                if (contact.Text.Trim().Length == 0)
+                if (text.Trim().Length == 0)
                 {
                     text = signal.Name;
                 }
+
+                if (device is null)
+                {
+                    tagText = "";
+                }
             }
-            else
+            else if (device is not null)
             {
-                location = contact.Source.Trim();
+                location = "← " + input;
             }
         }
 
@@ -1435,7 +1467,7 @@ public sealed class RelayLogicView : UserControl
         AddTextRight(text, labelRight, y + 56, 10.5, TextBrush);
 
         AddHitArea(contact, x - WireOffset + 6, y + 2, ColumnWidth - 12, RowHeight - 4,
-            $"{Display(contact.Tag, "Contact")} {(contact.IsNormallyClosed ? "NC" : "NO")} {contact.Pins}" + (contact.Source.Length > 0 ? $" · {contact.Source}" : ""));
+            $"{Display(contact.Tag, "Contact")} {(contact.IsNormallyClosed ? "NC" : "NO")} {contact.Pins}");
         if (switchKnob is not null && !_dry)
         {
             DrawSwitchKnob(switchKnob, x + 46, (pivotY + contactY) / 2);
@@ -1741,13 +1773,13 @@ public sealed class RelayLogicView : UserControl
     private void ContactProperties(RelayElement contact)
     {
         Header("Contact");
-        SearchField("Tag", contact.Tag, RelaySuggestions(), value =>
+        SearchField("Tag", contact.Tag, RelaySuggestions().Concat(Suggestions(PortDirection.Input)).ToList(), value =>
         {
             contact.Tag = value;
             PruneSwitches();
             Changed();
             ShowProperties();
-        }, "Relay or selector switch of these sheets (type to search, e.g. k107 or gate open). Any other device tag (-F1, -Q1) needs a source.");
+        }, "What the contact belongs to (type to search): a relay or switch of these sheets (-K107), a push button, a device (-F1 with its input), or directly a signal DO / DI, an object (@Object.Port) or =1.");
         Choice("Contact", ["NO", "NC"], contact.IsNormallyClosed ? "NC" : "NO", value =>
         {
             contact.Contact = value;
@@ -1822,16 +1854,55 @@ public sealed class RelayLogicView : UserControl
         });
     }
 
+    /// <summary>
+    /// What the tag of a contact is; a device that is not a relay, switch, push button or signal gets its input here
+    /// (defined once for the tag, all its contacts follow it).
+    /// </summary>
     private void SourceField(RelayElement contact)
     {
-        var isRelay = Relays?.IsRelay(_plc, contact.Tag) == true;
-        SearchField("Source", contact.Source, Suggestions(PortDirection.Input), value =>
+        var tag = contact.Tag.Trim();
+        if (tag.Length == 0 || Model is not { } model)
         {
-            contact.Source = value;
+            Note("Enter the tag of the device the contact belongs to.");
+            return;
+        }
+
+        if (Relays?.RelayOfContact(_plc, contact) is { } relay)
+        {
+            Note($"Auxiliary contact of relay {relay.Tag} ({Relays!.CoilLocation(relay.Plc, relay.Tag)}).");
+            return;
+        }
+
+        if (Relays?.ButtonOf(_plc, tag) is not null)
+        {
+            Note($"Contact of push button {tag} on the cubicle.");
+            return;
+        }
+
+        if (PortBinding.Parse(tag).Kind != BindingKind.None)
+        {
+            Note(SignalOf(tag) is { } signal ? $"Directly the signal {signal.ModuleText} port {signal.Channel} · {signal.Kind}:{signal.Id} {signal.Name}." : $"Directly {tag}.");
+            return;
+        }
+
+        var device = RelayDevices.Find(model, tag);
+        SearchField("Device input", device?.Input ?? "", Suggestions(PortDirection.Input), value =>
+        {
+            if (RelayDevices.Find(model, tag) is { } existing)
+            {
+                existing.Input = value.Trim();
+                if (existing.Input.Length == 0)
+                {
+                    model.RelayDevices.Remove(existing);
+                }
+            }
+            else
+            {
+                RelayDevices.Define(model, tag, value);
+            }
+
             Changed();
-        }, isRelay
-            ? $"Not used: {contact.Tag} is a relay on {Relays!.CoilLocation(_plc, contact.Tag)}."
-            : "What operates the contact (type to search, e.g. gate 1 open): a PLC output DO, an input DI, an object (@Object.Port) or =1.");
+        }, $"What operates device {tag} (all its contacts): a PLC signal DI / DO, an object (@F53.On) or =1. Defined once for the tag.");
     }
 
     private void CoilProperties(RelayCoil coil)

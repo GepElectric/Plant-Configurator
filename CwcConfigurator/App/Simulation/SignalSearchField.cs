@@ -95,6 +95,14 @@ public static class SignalSearchField
             }
         }
 
+        foreach (var device in model?.RelayDevices ?? [])
+        {
+            if (device.Tag.Trim().Length > 0)
+            {
+                list.Add($"{device.Tag.Trim()}{PortRow.Separator}{OneLine(device.Text)}  ← {device.Input.Trim()}");
+            }
+        }
+
         foreach (var button in model?.Cubicles.SelectMany(cubicle => cubicle.Items).Where(item => item.IsButton) ?? [])
         {
             if (button.Tag.Trim().Length > 0)

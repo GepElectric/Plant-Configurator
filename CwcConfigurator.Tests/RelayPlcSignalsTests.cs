@@ -36,12 +36,12 @@ public sealed class RelayPlcSignalsTests
         Assert.Equal("DO:0", outputRelay.Coil.Input);           // relay 2-K05 driven directly by DO:0
         Assert.Empty(outputRelay.Elements);                     // no contact in its path
         Assert.Equal("DI:65", inputRelay.Coil.Outputs);         // 1-K01 drives DI:65
-        Assert.Equal("", inputRelay.Elements[0].Source);        // its own supply (field contact) is set by hand
-        Assert.Equal("DO:1", gate.Elements[0].Source);          // contact of 2-K04 (coil not drawn) reads DO:1
-        Assert.Equal("DI:3", handSet.Source);                   // set by hand: unchanged
-        Assert.Equal("", gate.Elements[2].Source);              // 2-K05 has its coil on the sheets: follows it
-        Assert.Equal("", gate.Elements[3].Source);              // disabled output
-        Assert.Equal("DI:64", gate.Elements[4].Source);         // contact of input relay 1-K02 (coil not drawn) reads DI:64
+        Assert.Equal("", inputRelay.Elements[0].Tag);           // its own supply (field contact) is set by hand
+        Assert.Equal("DI:3", RelayDevices.Find(model, "2-K04")!.Input); // device 2-K04 (coil not drawn) set by hand: kept, all its contacts follow it
+        Assert.Null(handSet.Source);                            // a contact has only its tag
+        Assert.Null(RelayDevices.Find(model, "2-K05"));         // 2-K05 has its coil on the sheets: follows it
+        Assert.Null(RelayDevices.Find(model, "2-K09"));         // disabled output
+        Assert.Equal("DI:64", RelayDevices.Find(model, "1-K02")!.Input); // input relay 1-K02 (coil not drawn) reads DI:64
         Assert.Equal(0, RelayPlcSignals.Link(model, outputs, inputs)); // nothing left to fill
     }
 

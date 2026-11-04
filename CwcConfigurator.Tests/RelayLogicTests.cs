@@ -290,7 +290,7 @@ public sealed class RelayLogicTests
             [
                 new RelayCircuit
                 {
-                    Elements = [Parallel([Contact("-K107")], [Contact("-K108", "NC")]), Contact("", source: "DI:64, DI:640")],
+                    Elements = [Parallel([Contact("-K107")], [Contact("-K108", "NC")]), Contact("DI:64, DI:640")],
                     Coil = new RelayCoil { Tag = "-K105", Text = "GATE 1\nOPEN", Outputs = "DI:64" }
                 }
             ]
@@ -307,8 +307,48 @@ public sealed class RelayLogicTests
         Assert.Equal("DI:84", circuit.Coil.Outputs);
         Assert.Equal("-K207", circuit.Elements[0].Branches[0][0].Tag);
         Assert.Equal("-K308", circuit.Elements[0].Branches[1][0].Tag); // exact rule wins over the prefix
-        Assert.Equal("DI:84, DI:640", circuit.Elements[1].Source);     // whole items only
+        Assert.Equal("DI:84, DI:640", circuit.Elements[1].Tag);     // whole items only
         Assert.Equal("-K107", sheet.Circuits[0].Elements[0].Branches[0][0].Tag); // original untouched
+    }
+
+    [Fact]
+    public void OldContactSources_BecomeTagsAndDevices_AndAreNotSaved()
+    {
+        const string yaml = """
+            plcs:
+              Intake:
+                relaySheets:
+                - name: ESD
+                  circuits:
+                  - elements:
+                    - tag: -F53
+                      source: DO:4
+                    - source: '@Relays.-K1'
+                    coil: { tag: -K2 }
+                  - elements:
+                    - tag: -F53
+                      contact: NC
+                    coil: { tag: -K3 }
+                  - elements:
+                    - source: DO:9
+                    coil: { tag: -K1 }
+            """;
+        var model = ProcessModelStore.FromYaml(yaml)["Intake"];
+        var paths = model.RelaySheets.Single().Circuits;
+
+        Assert.Equal("DO:4", RelayDevices.Find(model, "-F53")!.Input);   // defined once for the device
+        Assert.Equal("@Relays.-K1", paths[0].Elements[1].Tag);
+        Assert.DoesNotContain("source", ProcessModelStore.ToYaml(new Dictionary<string, ProcessModel> { ["Intake"] = model }));
+
+        var engine = new ProcessEngine(new Dictionary<string, ProcessModel> { ["Intake"] = model });
+        Assert.Empty(engine.Problems);
+        var io = new FakeIo();
+        io.Values[(SimulatorSignalKind.DO, 4)] = 1;
+        io.Values[(SimulatorSignalKind.DO, 9)] = 1;
+        engine.Step(0.1, _ => io);
+        Assert.True(engine.Relays.IsOn("Intake", "-K1"));
+        Assert.True(engine.Relays.IsOn("Intake", "-K2"));          // -F53 NO and the contact of -K1
+        Assert.False(engine.Relays.IsOn("Intake", "-K3"));         // -F53 NC: the same device, opened
     }
 
     [Fact]

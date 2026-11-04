@@ -64,9 +64,25 @@ public static class RelayElementKind
 }
 
 /// <summary>
-/// A contact or a group of parallel branches. A contact is an auxiliary contact of a relay on a relay sheet (by its
-/// tag, e.g. -K107) or of anything else given by <see cref="Source"/>: a signal ("DO:188", "DI:23"), an object port
-/// ("@Mcb1.Closed", "@Common/Reservoir.High") or a constant ("=true").
+/// A device whose contacts are used on the relay sheets but that is not a relay, switch or push button of the
+/// sheets (a breaker -F53, a field contact, a relay whose coil is not drawn): defined once, with its
+/// <see cref="Input"/> — a signal ("DI:23", "DO:188"), an object port ("@F53.On") or a constant ("=1").
+/// All its contacts follow it.
+/// </summary>
+public sealed class RelayDevice
+{
+    public string Tag { get; set; } = "";
+
+    public string Text { get; set; } = "";
+
+    public string Input { get; set; } = "";
+}
+
+/// <summary>
+/// A contact or a group of parallel branches. A contact has only a <see cref="Tag"/>: the device it belongs to — a
+/// relay of the sheets (-K107, also "@Relays.-K107" / "@Common/Relays.-K107"), a selector switch, a push button, a
+/// <see cref="RelayDevice"/> — or directly a signal ("DO:188", "DI:23"), an object port ("@Mcb1.Closed") or a
+/// constant ("=1").
 /// </summary>
 public sealed class RelayElement
 {
@@ -79,8 +95,9 @@ public sealed class RelayElement
 
     public string Tag { get; set; } = "";
 
-    /// <summary>Used when the tag is not a relay coil of this PLC: "DO:188", "@Object.Port", "=true".</summary>
-    public string Source { get; set; } = "";
+    /// <summary>Old models only (a contact had a tag and a source); moved into <see cref="Tag"/> / a
+    /// <see cref="RelayDevice"/> when loaded (<see cref="RelayDevices.Unify"/>). Never saved.</summary>
+    public string? Source { get; set; }
 
     /// <summary>"NO" (closes when the source is on, terminals 11-14) or "NC" (opens, terminals 11-12).</summary>
     public string Contact { get; set; } = "NO";
@@ -157,6 +174,7 @@ public sealed class RelayLogicRunner
     private readonly Dictionary<string, CoilState> _byTag = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<RelayElement, (bool PoweredIn, bool Closed)> _elements = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, RelaySwitch> _switches = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, RelayDevice> _devices = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, CubicleItem> _buttons = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<(string Plc, CubicleItem Item, List<(string Position, List<PortBinding> Targets)> Outputs)> _cubicleOutputs = [];
     private readonly List<(string Plc, CubicleItem Lamp)> _lamps = [];
@@ -171,7 +189,7 @@ public sealed class RelayLogicRunner
         public List<PortBinding> Outputs { get; } = [];
 
         /// <summary>The relay's direct input (<see cref="RelayCoil.Input"/>) as a contact source, or null.</summary>
-        public RelayElement? Input { get; init; }
+        public string? Input { get; init; }
 
         public bool On { get; set; }
         public bool Powered { get; set; }
@@ -182,6 +200,15 @@ public sealed class RelayLogicRunner
     {
         foreach (var (plc, model) in models)
         {
+            RelayDevices.Unify(model);
+            foreach (var device in model.RelayDevices.Where(item => item.Tag.Trim().Length > 0))
+            {
+                if (!_devices.TryAdd(Key(plc, device.Tag), device))
+                {
+                    problems.Add($"{plc}: device {device.Tag} is defined more than once.");
+                }
+            }
+
             // Cubicle devices: push buttons operate their contacts, buttons and switches drive PLC inputs, lamps show a source.
             foreach (var item in model.Cubicles.SelectMany(cubicle => cubicle.Items))
             {
@@ -241,12 +268,8 @@ public sealed class RelayLogicRunner
                         Sheet = sheet,
                         Circuit = circuit,
                         Location = Location(sheet, sheetIndex, path),
-                        Input = circuit.Coil.HasInput ? new RelayElement { Source = circuit.Coil.Input.Trim() } : null
+                        Input = circuit.Coil.HasInput ? circuit.Coil.Input.Trim() : null
                     };
-                    if (state.Input is not null && PortBinding.Parse(state.Input.Source).Kind == BindingKind.None)
-                    {
-                        problems.Add($"{plc}/{sheet.Name} {Display(circuit.Coil.Tag, state.Location)}: input '{circuit.Coil.Input}' is not a signal, object port or constant.");
-                    }
 
                     if (state.Input is not null && circuit.Elements.Count > 0)
                     {
@@ -388,7 +411,7 @@ public sealed class RelayLogicRunner
             {
                 // A relay with a direct input (PLC output) follows it; otherwise the current through its path.
                 coil.Powered = coil.Input is { } input
-                    ? SourceOn(coil.Plc, input, io(coil.Plc), engine)
+                    ? TagOn(coil.Plc, input, io(coil.Plc), engine)
                     : Solve(coil.Plc, coil.Circuit.Elements, FeedPowered(coil), io(coil.Plc), engine);
                 if (coil.Circuit.Coil.Timer.Length == 0 && coil.On != coil.Powered)
                 {
@@ -453,9 +476,7 @@ public sealed class RelayLogicRunner
 
         foreach (var (plc, lamp) in _lamps)
         {
-            var source = lamp.Source.Trim();
-            var probe = source.StartsWith('-') ? new RelayElement { Tag = source } : new RelayElement { Source = source };
-            _lampStates[lamp] = SourceOn(plc, probe, io(plc), engine);
+            _lampStates[lamp] = TagOn(plc, lamp.Source, io(plc), engine);
         }
     }
 
@@ -523,18 +544,20 @@ public sealed class RelayLogicRunner
         return powered;
     }
 
-    /// <summary>
-    /// The relay a contact belongs to: its tag, or a source "@Relays.2-K01" / "@Common/Relays.2-K01" (an auxiliary
-    /// contact of that relay, like the tag).
-    /// </summary>
-    public (string Plc, string Tag)? RelayOfContact(string plc, RelayElement contact)
+    /// <summary>The relay a contact belongs to: its tag "2-K01", or "@Relays.2-K01" / "@Common/Relays.2-K01".</summary>
+    public (string Plc, string Tag)? RelayOfContact(string plc, RelayElement contact) => RelayOfTag(plc, contact.Tag);
+
+    /// <summary>The device defined for a tag (not a relay, switch or push button), or null.</summary>
+    public RelayDevice? DeviceOf(string plc, string tag) => _devices.GetValueOrDefault(Key(plc, tag));
+
+    public (string Plc, string Tag)? RelayOfTag(string plc, string tag)
     {
-        if (contact.Tag.Trim().Length > 0 && _byTag.ContainsKey(Key(plc, contact.Tag)))
+        if (tag.Trim().Length > 0 && _byTag.ContainsKey(Key(plc, tag)))
         {
-            return (plc, contact.Tag.Trim());
+            return (plc, tag.Trim());
         }
 
-        if (PortBinding.Parse(contact.Source) is { Kind: BindingKind.Link } link)
+        if (PortBinding.Parse(tag) is { Kind: BindingKind.Link } link)
         {
             var parts = link.LinkObject.Split('/', 2);
             var (relayPlc, name) = parts.Length == 2 ? (parts[0], parts[1]) : (plc, parts[0]);
@@ -549,16 +572,6 @@ public sealed class RelayLogicRunner
 
     private bool SourceOn(string plc, RelayElement contact, ISignalIo? io, ProcessEngine engine)
     {
-        if (RelayOfContact(plc, contact) is { } relay)
-        {
-            return _byTag[Key(relay.Plc, relay.Tag)].On;
-        }
-
-        if (contact.Tag.Trim().Length > 0 && _buttons.TryGetValue(Key(plc, contact.Tag), out var button))
-        {
-            return button.Pressed; // operated while held down on the cubicle
-        }
-
         if (contact.Tag.Trim().Length > 0 && _switches.TryGetValue(Key(plc, contact.Tag), out var selector))
         {
             // Operated in the positions listed on the contact (switching table).
@@ -567,7 +580,42 @@ public sealed class RelayLogicRunner
                 .Any(position => position.Equals(current, StringComparison.OrdinalIgnoreCase));
         }
 
-        var binding = PortBinding.Parse(contact.Source);
+        return TagOn(plc, contact.Tag, io, engine);
+    }
+
+    /// <summary>
+    /// State of the device with this tag: a relay, push button, selector switch (not in its first position), a
+    /// defined device (its input), or directly a signal, object port or constant.
+    /// </summary>
+    private bool TagOn(string plc, string tag, ISignalIo? io, ProcessEngine engine, int depth = 0)
+    {
+        tag = (tag ?? "").Trim();
+        if (tag.Length == 0 || depth > 4)
+        {
+            return false;
+        }
+
+        if (RelayOfTag(plc, tag) is { } relay)
+        {
+            return _byTag[Key(relay.Plc, relay.Tag)].On;
+        }
+
+        if (_buttons.TryGetValue(Key(plc, tag), out var button))
+        {
+            return button.Pressed; // operated while held down on the cubicle
+        }
+
+        if (_switches.TryGetValue(Key(plc, tag), out var selector))
+        {
+            return !selector.Current.Equals(selector.PositionList().FirstOrDefault() ?? "", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (_devices.TryGetValue(Key(plc, tag), out var device))
+        {
+            return TagOn(plc, device.Input, io, engine, depth + 1);
+        }
+
+        var binding = PortBinding.Parse(tag);
         switch (binding.Kind)
         {
             case BindingKind.Constant:
@@ -660,14 +708,33 @@ public static class RelaySheetCopy
         {
             Id = ids[element.Id] = RelayElement.NewId(),
             Kind = element.Kind,
-            Tag = ReplaceItem(element.Tag, rules),
-            Source = ReplaceList(element.Source, rules),
+            Tag = ReplaceList(element.Tag, rules),
             Contact = element.Contact,
             Pins = element.Pins,
             Position = element.Position,
             Text = ReplaceText(element.Text, rules),
             Branches = element.Branches.Select(branch => CopySeries(branch, rules, ids)).ToList()
         }).ToList();
+
+    /// <summary>Devices used on the copied sheet whose tag a rule changes: copies with the new tag and input.</summary>
+    public static int CopyDevices(ProcessModel model, RelaySheet copy, IReadOnlyList<(string Old, string New)> rules)
+    {
+        var used = copy.Circuits.SelectMany(circuit => RelayLogicRunner.AllElements(circuit.Elements)).Select(element => element.Tag.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var added = 0;
+        foreach (var device in model.RelayDevices.ToList())
+        {
+            var tag = ReplaceItem(device.Tag, rules);
+            if (!tag.Equals(device.Tag.Trim(), StringComparison.OrdinalIgnoreCase) && used.Contains(tag)
+                && !model.RelayDevices.Any(item => item.Tag.Trim().Equals(tag, StringComparison.OrdinalIgnoreCase)))
+            {
+                model.RelayDevices.Add(new RelayDevice { Tag = tag, Text = ReplaceText(device.Text, rules), Input = ReplaceList(device.Input, rules) });
+                added++;
+            }
+        }
+
+        return added;
+    }
 
     /// <summary>A whole item: exact rule first, then the longest matching prefix rule ("-K1*").</summary>
     public static string ReplaceItem(string value, IReadOnlyList<(string Old, string New)> rules)
@@ -711,4 +778,66 @@ public static class RelaySheetCopy
 
         return text;
     }
+}
+
+/// <summary>Devices of the relay sheets: one field per contact (its tag), devices defined once.</summary>
+public static class RelayDevices
+{
+    /// <summary>
+    /// Old models had a tag and a source on each contact; now a contact has only its tag:
+    /// <list type="bullet">
+    /// <item>no tag: the source becomes the tag ("DI:3", "@Relays.2-K01", "=1");</item>
+    /// <item>a tag that is not a relay, switch or push button: its source becomes the device input (defined once);</item>
+    /// <item>a relay, switch or push button: the source was not used and is dropped.</item>
+    /// </list>
+    /// </summary>
+    /// <returns>Number of contacts changed.</returns>
+    public static int Unify(ProcessModel model)
+    {
+        var known = model.RelaySheets.SelectMany(sheet => sheet.Circuits).Select(circuit => circuit.Coil.Tag.Trim())
+            .Concat(model.RelaySwitches.Select(item => item.Tag.Trim()))
+            .Concat(model.Cubicles.SelectMany(cubicle => cubicle.Items).Where(item => item.IsButton).Select(item => item.Tag.Trim()))
+            .Where(tag => tag.Length > 0)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var changed = 0;
+        foreach (var contact in model.RelaySheets.SelectMany(sheet => sheet.Circuits).SelectMany(circuit => RelayLogicRunner.AllElements(circuit.Elements)))
+        {
+            var source = (contact.Source ?? "").Trim();
+            contact.Source = null;
+            if (source.Length == 0)
+            {
+                continue;
+            }
+
+            changed++;
+            var tag = contact.Tag.Trim();
+            if (tag.Length == 0)
+            {
+                contact.Tag = source;
+            }
+            else if (!known.Contains(tag))
+            {
+                Define(model, tag, source);
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>Defines the input of a device unless it is already defined; true when added.</summary>
+    public static bool Define(ProcessModel model, string tag, string input, string text = "")
+    {
+        tag = tag.Trim();
+        if (tag.Length == 0 || input.Trim().Length == 0 || model.RelayDevices.Any(item => item.Tag.Trim().Equals(tag, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        model.RelayDevices.Add(new RelayDevice { Tag = tag, Input = input.Trim(), Text = text });
+        return true;
+    }
+
+    /// <summary>The device of a tag, or null.</summary>
+    public static RelayDevice? Find(ProcessModel model, string tag) =>
+        model.RelayDevices.FirstOrDefault(item => item.Tag.Trim().Equals((tag ?? "").Trim(), StringComparison.OrdinalIgnoreCase));
 }

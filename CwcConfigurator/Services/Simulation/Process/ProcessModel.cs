@@ -23,6 +23,9 @@ public sealed class ProcessModel
     /// <summary>Selector switches (2 or 3 positions) whose contacts are used on the relay-logic sheets.</summary>
     public List<RelaySwitch> RelaySwitches { get; set; } = [];
 
+    /// <summary>Devices whose contacts are used on the sheets (breakers, field contacts…), each with its input.</summary>
+    public List<RelayDevice> RelayDevices { get; set; } = [];
+
     /// <summary>Cubicle doors with push buttons, selector switches, lamps and label plates.</summary>
     public List<Cubicle> Cubicles { get; set; } = [];
 

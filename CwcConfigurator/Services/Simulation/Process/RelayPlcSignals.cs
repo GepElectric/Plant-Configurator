@@ -10,9 +10,9 @@ namespace CwcConfigurator.Services.Simulation.Process;
 /// <list type="bullet">
 /// <item>output relay (2-K…): the relay's input is the DO itself (no contact in its path);</item>
 /// <item>input relay (1-K…): the coil drives the DI (its contact is wired to the PLC input);</item>
-/// <item>a contact of such a relay whose coil is not drawn on the sheets reads the DO / DI directly.</item>
+/// <item>such a relay whose coil is not drawn on the sheets becomes a device with the DO / DI as its input.</item>
 /// </list>
-/// Only empty sources and outputs are filled — nothing set by hand is changed.
+/// Only empty inputs and outputs are filled — nothing set by hand is changed.
 /// </summary>
 public static class RelayPlcSignals
 {
@@ -46,14 +46,15 @@ public static class RelayPlcSignals
     /// </summary>
     public static int MigrateInputs(ProcessModel model)
     {
+        RelayDevices.Unify(model);
         var changed = 0;
         foreach (var circuit in model.RelaySheets.SelectMany(sheet => sheet.Circuits))
         {
             if (!circuit.Coil.HasInput && circuit.Feed.Length == 0 && circuit.Coil.Tag.Trim().Length > 0
-                && circuit.Elements is [{ IsParallel: false, Tag.Length: 0, IsNormallyClosed: false } contact]
-                && PortBinding.Parse(contact.Source) is { Kind: BindingKind.Signal, SignalKind: SimulatorSignalKind.DO })
+                && circuit.Elements is [{ IsParallel: false, IsNormallyClosed: false } contact]
+                && PortBinding.Parse(contact.Tag) is { Kind: BindingKind.Signal, SignalKind: SimulatorSignalKind.DO })
             {
-                circuit.Coil.Input = contact.Source.Trim();
+                circuit.Coil.Input = contact.Tag.Trim();
                 circuit.Elements.Clear();
                 changed++;
             }
@@ -68,7 +69,7 @@ public static class RelayPlcSignals
     /// <returns>Number of sources and outputs filled.</returns>
     public static int Link(ProcessModel model, IEnumerable<DigitalSignalConfig> outputs, IEnumerable<DigitalSignalConfig> inputs)
     {
-        var filled = MigrateInputs(model);
+        var filled = RelayDevices.Unify(model) + MigrateInputs(model);
         var doMap = Map(outputs);
         var diMap = Map(inputs);
         if (doMap.Count + diMap.Count == 0)
@@ -84,7 +85,7 @@ public static class RelayPlcSignals
 
             // Output relay: driven by the PLC output itself; its path has no contact (or only an empty one).
             if (doMap.TryGetValue(coilTag, out var output) && !circuit.Coil.HasInput && circuit.Feed.Length == 0
-                && circuit.Elements is [] or [{ IsParallel: false, Tag.Length: 0, Source.Length: 0 }])
+                && circuit.Elements is [] or [{ IsParallel: false, Tag.Length: 0 }])
             {
                 circuit.Elements.Clear();
                 circuit.Coil.Input = "DO:" + output.ToString(CultureInfo.InvariantCulture);
@@ -98,22 +99,21 @@ public static class RelayPlcSignals
                 filled++;
             }
 
-            foreach (var contact in RelayLogicRunner.AllElements(circuit.Elements).Where(element => !element.IsParallel && element.Source.Trim().Length == 0))
+            foreach (var contact in RelayLogicRunner.AllElements(circuit.Elements).Where(element => !element.IsParallel))
             {
                 var tag = Normalize(contact.Tag);
-                if (tag.Length == 0 || coils.Contains(tag))
+                if (tag.Length == 0 || coils.Contains(tag) || PortBinding.Parse(contact.Tag).Kind != BindingKind.None)
                 {
                     continue;
                 }
 
-                if (doMap.TryGetValue(tag, out var contactOutput))
+                // A relay whose coil is not drawn: a device driven by its PLC output / reading its PLC input.
+                if (doMap.TryGetValue(tag, out var contactOutput) && RelayDevices.Define(model, contact.Tag, "DO:" + contactOutput.ToString(CultureInfo.InvariantCulture)))
                 {
-                    contact.Source = "DO:" + contactOutput.ToString(CultureInfo.InvariantCulture);
                     filled++;
                 }
-                else if (diMap.TryGetValue(tag, out var contactInput))
+                else if (diMap.TryGetValue(tag, out var contactInput) && RelayDevices.Define(model, contact.Tag, "DI:" + contactInput.ToString(CultureInfo.InvariantCulture)))
                 {
-                    contact.Source = "DI:" + contactInput.ToString(CultureInfo.InvariantCulture);
                     filled++;
                 }
             }
