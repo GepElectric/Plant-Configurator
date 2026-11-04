@@ -31,10 +31,10 @@ public sealed class EplanPowerBuilderTests
         var objects = EplanPowerBuilder.Build(devices, "Power", new HashSet<string>(["-K53"], StringComparer.OrdinalIgnoreCase), new HashSet<string>());
 
         var byName = objects.ToDictionary(item => item.Name);
-        Assert.Equal("@Q1.Live", byName["Busbar_P5"].Ports["Supply1"]);                  // one busbar level per EPLAN page
-        Assert.Equal("@Busbar_P5.Feeder1", byName["F53"].Ports["Supply"]);
-        Assert.Equal("@Busbar_P5.Feeder12", byName["Busbar_P6"].Ports["Supply1"]);
-        Assert.Equal("@Busbar_P6.Feeder1", byName["F55"].Ports["Supply"]);
+        Assert.Equal("@Q1.Live", byName["Busbar"].Ports["Supply1"]);                      // one busbar for the supply
+        Assert.Equal("@Busbar.Feeder1", byName["F53"].Ports["Supply"]);
+        Assert.Equal("@Busbar.Feeder2", byName["F55"].Ports["Supply"]);
+        Assert.Equal("2", byName["Busbar"].Options["Feeders"]);
         Assert.Equal("@F53.Live", byName["K53"].Ports["Supply"]);
         Assert.Equal("@Relays.-K53", byName["K53"].Ports["Command"]);
         Assert.Equal("@K53.Live", byName["M3"].Ports["Supply"]);
@@ -81,11 +81,11 @@ public sealed class EplanPowerBuilderTests
 
         var byName = EplanPowerBuilder.Build(devices, "Power", new HashSet<string>(), new HashSet<string>()).ToDictionary(item => item.Name);
 
-        Assert.Equal("@Busbar_P6.Feeder1", byName["F55"].Ports["Supply"]);
-        Assert.Equal("=110", byName["BusbarL110VDC_P11"].Ports["Supply1"]);                // its voltage, not 1 V
-        Assert.Equal("@BusbarL110VDC_P11.Feeder1", byName["F11"].Ports["Supply"]);
+        Assert.Equal("@Busbar.Feeder1", byName["F55"].Ports["Supply"]);
+        Assert.Equal("=110", byName["BusbarL110VDC"].Ports["Supply1"]);                    // its voltage, not 1 V
+        Assert.Equal("@BusbarL110VDC.Feeder1", byName["F11"].Ports["Supply"]);
         Assert.Equal("@F11.Live", byName["F10"].Ports["Supply"]);
-        Assert.Equal("@BusbarNoSupply_P7.Feeder1", byName["F60"].Ports["Supply"]);
+        Assert.Equal("@BusbarNoSupply.Feeder1", byName["F60"].Ports["Supply"]);
         Assert.True(byName["F11"].Y > byName["F55"].Y && byName["F60"].Y > byName["F10"].Y); // levels one below the other
     }
 
@@ -130,7 +130,7 @@ public sealed class EplanPowerBuilderTests
         var byName = objects.ToDictionary(item => item.Name);
         Assert.Equal("@F10.Live", byName["U101"].Ports["Input"]);
         Assert.Equal((110.0, 24.0), (byName["U101"].Params["InputVoltage"], byName["U101"].Params["OutputVoltage"]));
-        Assert.Equal("@U101.Output", byName["Busbar24VDCL_P13"].Ports["Supply1"]);
+        Assert.Equal("@U101.Output", byName["Busbar24VDCL"].Ports["Supply1"]);
         Assert.Equal("COMMUNICATION SWITCH", byName["F34"].Description);
 
         var model = new ProcessModel { Objects = objects };

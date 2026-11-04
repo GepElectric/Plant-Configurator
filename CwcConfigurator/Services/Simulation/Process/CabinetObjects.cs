@@ -32,7 +32,7 @@ public sealed class BusbarObject : SimObject
         [],
         () => new BusbarObject());
 
-    private const int Feeders = 12;
+    private const int Feeders = 40;
 
     public override void Step(double dt)
     {

@@ -36,7 +36,7 @@ public sealed record PowerDevice(string Tag, PowerDeviceKind Kind, string Text, 
 /// </summary>
 public static class EplanPowerBuilder
 {
-    private const int FeedersPerBusbar = 12;
+    private const int FeedersPerBusbar = 40;
     private const double ColumnWidth = 130;
     private const double RowHeight = 120;
     private const double Left = 80;
@@ -100,19 +100,18 @@ public static class EplanPowerBuilder
             objects.Add(config);
         }
 
-        // Feeders of the busbars: devices fed from them. Every EPLAN page is a level of its own (a busbar row with its
-        // feeders below), the supplies one after the other — L1 first, then L+110VDC, 24 VDC…, last what has no supply.
+        // Feeders of the busbars: one busbar per supply (L1 first, then L+110VDC, 24 VDC…, last what has no supply),
+        // each a level of its own with its feeders below, in the order of the EPLAN pages.
         var incomers = devices.Where(device => device.Incomer).ToList();
         var feeders = devices.Where(device => !device.Incomer && (device.Upstream.Length == 0 || !byTag.ContainsKey(device.Upstream))).ToList();
-        // 11 feeders per busbar; its 12th feeder supplies the next bar when there are more.
+        // 39 feeders per busbar; its 40th feeder supplies the next bar when there are more.
         const int perBusbar = FeedersPerBusbar - 1;
         var busbars = new List<ObjectConfig>();
         static int SupplyOrder(string supply) => supply.Length == 0 ? 0 : supply == "?" ? 2 : 1;
-        var levels = feeders.GroupBy(device => (device.Source, device.Page))
-            .OrderBy(group => SupplyOrder(group.Key.Source)).ThenBy(group => group.Key.Source, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(group => int.TryParse(group.Key.Page, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : int.MaxValue)
-            .ThenBy(group => group.Key.Page, StringComparer.OrdinalIgnoreCase)
-            .Select(group => (Supply: group.Key.Source, Page: group.Key.Page, Members: group.ToList()))
+        static int PageNumber(string page) => int.TryParse(page, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : int.MaxValue;
+        var levels = feeders.GroupBy(device => device.Source)
+            .OrderBy(group => SupplyOrder(group.Key)).ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => (Supply: group.Key, Page: "", Members: group.OrderBy(device => PageNumber(device.Page)).ToList()))
             .ToList();
         if (levels.Count == 0)
         {
@@ -203,10 +202,12 @@ public static class EplanPowerBuilder
                     Screen = screen,
                     Y = busY
                 };
-                busbar.Options["Feeders"] = FeedersPerBusbar.ToString(CultureInfo.InvariantCulture);
+                // As many feeders as the bar has (plus the one to the next bar).
+                var onBar = Math.Min(perBusbar, members.Count - b * perBusbar) + (b + 1 < count ? 1 : 0);
+                busbar.Options["Feeders"] = Math.Clamp(onBar, 1, FeedersPerBusbar).ToString(CultureInfo.InvariantCulture);
                 if (b > 0)
                 {
-                    busbar.Ports["Supply1"] = $"@{levelBars[^1].Name}.Feeder{FeedersPerBusbar}";
+                    busbar.Ports["Supply1"] = $"@{levelBars[^1].Name}.Feeder{perBusbar + 1}";
                 }
                 else if (lastBar.TryGetValue(supply, out var previous))
                 {
