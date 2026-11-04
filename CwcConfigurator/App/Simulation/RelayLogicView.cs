@@ -1083,6 +1083,14 @@ public sealed class RelayLogicView : UserControl
                 text = selector.Text;
             }
         }
+        else if (Relays?.ButtonOf(_plc, contact.Tag) is { } button)
+        {
+            location = "push button" + (button.Pressed ? " · pressed" : "");
+            if (contact.Text.Trim().Length == 0)
+            {
+                text = button.Text;
+            }
+        }
         else if (location.Length == 0 && contact.Source.Trim().Length > 0)
         {
             location = contact.Source.Trim();
@@ -1496,100 +1504,12 @@ public sealed class RelayLogicView : UserControl
         }
     }
 
-    /// <summary>Signals, objects and constants as in the Program editor ("DO:0  —  PLC name · text").</summary>
-    private List<string> Suggestions(PortDirection direction) =>
-        _controller is null ? [] : BindingSuggestions.For(new PortDef("Contact", direction, PortType.Bool, ""), _plc, _controller);
+    private List<string> Suggestions(PortDirection direction) => SignalSearchField.Signals(_controller, _plc, direction);
 
-    /// <summary>Relays (coils) of all sheets of this PLC: "-K107  —  GATE 1 OPEN (CMD)  /37.1".</summary>
-    private List<string> RelaySuggestions()
-    {
-        var list = new List<string>();
-        var model = Model;
-        for (var sheetIndex = 0; sheetIndex < (model?.RelaySheets.Count ?? 0); sheetIndex++)
-        {
-            var sheet = model!.RelaySheets[sheetIndex];
-            for (var path = 0; path < sheet.Circuits.Count; path++)
-            {
-                var coil = sheet.Circuits[path].Coil;
-                if (coil.Tag.Trim().Length > 0)
-                {
-                    list.Add($"{coil.Tag.Trim()}{PortRow.Separator}{coil.Text.Replace("\r", "").Replace('\n', ' ').Trim()}  {RelayLogicRunner.Location(sheet, sheetIndex, path)}");
-                }
-            }
-        }
+    private List<string> RelaySuggestions() => SignalSearchField.Devices(Model);
 
-        foreach (var selector in model?.RelaySwitches ?? [])
-        {
-            if (selector.Tag.Trim().Length > 0)
-            {
-                list.Add($"{selector.Tag.Trim()}{PortRow.Separator}{selector.Text.Replace("\r", "").Replace('\n', ' ').Trim()}  switch {selector.Positions}");
-            }
-        }
-
-        return list.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(item => item, StringComparer.OrdinalIgnoreCase).ToList();
-    }
-
-    /// <summary>
-    /// Editable, searchable list (all typed words must match, like the Program editor). Shows the stored codes with
-    /// their texts; stores only the codes ("DO:0, DI:3", "-K107").
-    /// </summary>
-    private void SearchField(string label, string value, List<string> suggestions, Action<string> apply, string? hint = null)
-    {
-        _properties.Children.Add(new TextBlock { Text = label, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 4, 0, 2) });
-        string Display(string stored) => string.Join(", ", stored.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Select(part => suggestions.FirstOrDefault(item => item.StartsWith(part + PortRow.Separator, StringComparison.OrdinalIgnoreCase)) ?? part));
-        var combo = new ComboBox
-        {
-            ItemsSource = suggestions,
-            MinHeight = 24,
-            ToolTip = "Type to narrow the list (all words must match); Down opens it, Enter takes the first match."
-        };
-        ComboFilter.SetIsEnabled(combo, true);
-        combo.Text = Display(value);
-        var original = value;
-        void Commit()
-        {
-            var text = Code(combo.Text);
-            if (text != original)
-            {
-                original = text;
-                apply(text);
-            }
-        }
-
-        combo.LostKeyboardFocus += (_, e) =>
-        {
-            if (!combo.IsKeyboardFocusWithin)
-            {
-                Commit();
-            }
-        };
-        combo.DropDownClosed += (_, _) =>
-        {
-            if (combo.SelectedItem is string)
-            {
-                Commit();
-            }
-        };
-        combo.KeyDown += (_, e) =>
-        {
-            if (e.Key == Key.Enter)
-            {
-                Commit();
-                e.Handled = true;
-            }
-        };
-        _properties.Children.Add(combo);
-        if (hint is not null)
-        {
-            _properties.Children.Add(new TextBlock { Text = hint, TextWrapping = TextWrapping.Wrap, Foreground = DimBrush, FontSize = 11, Margin = new Thickness(0, 2, 0, 4) });
-        }
-    }
-
-    /// <summary>"DO:0  —  text, DI:3  —  text" → "DO:0, DI:3"; "-K107  —  text" → "-K107".</summary>
-    private static string Code(string text) => PortRow.StripDescriptions(text ?? "").Trim() is { Length: > 0 } stripped && !stripped.StartsWith('-')
-        ? stripped
-        : (text ?? "").Split(PortRow.Separator.Trim())[0].Trim();
+    private void SearchField(string label, string value, List<string> suggestions, Action<string> apply, string? hint = null) =>
+        SignalSearchField.Add(_properties, label, value, suggestions, apply, hint, DimBrush);
 
     private void Header(string text) =>
         _properties.Children.Add(new TextBlock { Text = text, FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 10) });

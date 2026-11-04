@@ -189,6 +189,43 @@ public sealed class RelayLogicTests
     }
 
     [Fact]
+    public void CubicleDevices_DriveInputsOperateContactsAndLightLamps()
+    {
+        var open = new CubicleItem { Kind = CubicleItemKind.PushButton, Tag = "-S11", Outputs = "DI:69" };
+        var stop = new CubicleItem { Kind = CubicleItemKind.PushButton, Tag = "-S10", Contact = "NC", Outputs = "DI:68" };
+        var mode = new CubicleItem { Kind = CubicleItemKind.Switch, Tag = "-S1", Outputs = "LOCAL=DI:10; AUTO=DI:11, DI:12" };
+        var lamp = new CubicleItem { Kind = CubicleItemKind.Lamp, Tag = "-H1", Source = "-K107" };
+        var plcLamp = new CubicleItem { Kind = CubicleItemKind.Lamp, Tag = "-H2", Source = "DO:5" };
+        var model = new ProcessModel
+        {
+            RelaySheets = [new RelaySheet { Name = "Gate 1", Circuits = [new RelayCircuit { Elements = [Contact("-S11")], Coil = new RelayCoil { Tag = "-K107" } }] }],
+            RelaySwitches = [new RelaySwitch { Tag = "-S1", Positions = "LOCAL/0/AUTO", Position = "AUTO" }],
+            Cubicles = [new Cubicle { Name = "+LPY01", Items = [open, stop, mode, lamp, plcLamp] }]
+        };
+        var engine = new ProcessEngine(new Dictionary<string, ProcessModel> { ["Intake"] = model });
+        var io = new FakeIo();
+        io.Values[(SimulatorSignalKind.DO, 5)] = 1;
+
+        engine.Step(0.1, _ => io);
+        Assert.Empty(engine.Problems);
+        Assert.Equal(0, io.Values[(SimulatorSignalKind.DI, 69)]);
+        Assert.Equal(1, io.Values[(SimulatorSignalKind.DI, 68)]); // NC stop button, not pressed
+        Assert.Equal(0, io.Values[(SimulatorSignalKind.DI, 10)]);
+        Assert.Equal(1, io.Values[(SimulatorSignalKind.DI, 11)]);
+        Assert.Equal(1, io.Values[(SimulatorSignalKind.DI, 12)]);
+        Assert.True(engine.Relays.IsLampOn(plcLamp));
+
+        open.Pressed = true;
+        stop.Pressed = true;
+        engine.Step(0.1, _ => io);
+        engine.Step(0.1, _ => io); // lamps show the relays of the previous step
+        Assert.Equal(1, io.Values[(SimulatorSignalKind.DI, 69)]);
+        Assert.Equal(0, io.Values[(SimulatorSignalKind.DI, 68)]);
+        Assert.True(engine.Relays.IsOn("Intake", "-K107"));
+        Assert.True(engine.Relays.IsLampOn(lamp));
+    }
+
+    [Fact]
     public void CopySheet_ReplacesTagsSignalsAndTexts()
     {
         var sheet = new RelaySheet

@@ -96,6 +96,8 @@ public static class ProcessModelStore
                 item.Text ??= "";
                 item.Color ??= "Green";
                 item.Source ??= "";
+                item.Outputs ??= "";
+                item.Contact ??= "NO";
             }
         }
         foreach (var item in model.RelaySwitches)

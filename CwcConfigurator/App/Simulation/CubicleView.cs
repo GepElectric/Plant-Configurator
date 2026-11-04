@@ -416,7 +416,7 @@ public sealed class CubicleView : UserControl
             }
             else if (item.IsLamp)
             {
-                var on = false; // lamps are connected later
+                var on = _controller?.Running == true && _controller.Engine.Relays.IsLampOn(item);
                 var color = LensColor(item.Color);
                 AddTo(group, new Ellipse
                 {
@@ -652,7 +652,7 @@ public sealed class CubicleView : UserControl
                     cubicle.Height = Math.Clamp(Number(value, cubicle.Height), 200, 2400);
                     Changed();
                 });
-                Note($"{cubicle.Items.Count} device(s). 'Edit layout' on: add and drag devices; off: press the push buttons (hold) and turn the switches (click the left or right half of the knob).");
+                Note($"{cubicle.Items.Count} device(s). 'Edit layout' on: add and drag devices; off: press the push buttons (hold) and turn the switches (click the left or right half of the knob). Signals and lamps work while the simulation runs.");
                 break;
             default:
                 Header("Cubicle");
@@ -720,17 +720,50 @@ public sealed class CubicleView : UserControl
             var uses = Model?.RelaySheets.SelectMany(sheet => sheet.Circuits).SelectMany(circuit => Contacts(circuit.Elements)).Count(contact => SameTag(contact.Tag, selector.Tag)) ?? 0;
             Note(uses == 0 ? "Not used in the relay logic yet." : $"Used by {uses} contact(s) in the relay logic.");
         }
+        if (item.IsSwitch && SwitchOf(item) is { } positions)
+        {
+            // One PLC input field per position: 1 while the switch is in that position.
+            var outputs = item.OutputsByPosition();
+            foreach (var position in positions.PositionList())
+            {
+                SignalSearchField.Add(_properties, $"Signal in {position}", outputs.GetValueOrDefault(position, ""), Signals(PortDirection.Output), value =>
+                {
+                    var current = item.OutputsByPosition();
+                    current[position] = value;
+                    item.SetOutputsByPosition(current);
+                    Changed();
+                }, null, DimBrush);
+            }
+
+            Note("Each position switches its PLC inputs to 1 (the others to 0) while the simulation runs. Contacts with this tag on the relay-logic sheets follow the switch too.");
+        }
         else if (item.IsButton)
         {
-            Note("Momentary push button. Its connection to the relay logic and to signals follows later.");
+            Choice("Contact", ["NO", "NC"], item.Contact.Equals("NC", StringComparison.OrdinalIgnoreCase) ? "NC" : "NO", value =>
+            {
+                item.Contact = value;
+                Changed();
+            });
+            SignalSearchField.Add(_properties, "Drives", item.Outputs, Signals(PortDirection.Output), value =>
+            {
+                item.Outputs = value;
+                Changed();
+            }, "PLC inputs switched by the button (type to search; several: DI:69, DI:70). NO: 1 while pressed; NC: 0 while pressed.", DimBrush);
+            Note("Contacts with this tag on the relay-logic sheets are operated while the button is held down.");
         }
         else if (item.IsLamp)
         {
-            Note("Indicator lamp. Its connection to a relay or a signal follows later.");
+            SignalSearchField.Add(_properties, "Lit by", item.Source, SignalSearchField.Devices(Model).Concat(Signals(PortDirection.Input)).ToList(), value =>
+            {
+                item.Source = value;
+                Changed();
+            }, "A relay (-K101), a push button, a PLC output (DO:12), an input (DI:3) or an object (@Gate1.Open).", DimBrush);
         }
 
         Note($"Position: X {item.X:0} mm, Y {item.Y:0} mm (drag it in 'Edit layout').");
     }
+
+    private List<string> Signals(PortDirection direction) => SignalSearchField.Signals(_controller, _plc, direction);
 
     private void Header(string text) =>
         _properties.Children.Add(new TextBlock { Text = text, FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 10) });

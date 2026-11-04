@@ -147,6 +147,10 @@ public sealed class RelayLogicRunner
     private readonly Dictionary<string, CoilState> _byTag = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<RelayElement, (bool PoweredIn, bool Closed)> _elements = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, RelaySwitch> _switches = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, CubicleItem> _buttons = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<(string Plc, CubicleItem Item, List<(string Position, List<PortBinding> Targets)> Outputs)> _cubicleOutputs = [];
+    private readonly List<(string Plc, CubicleItem Lamp)> _lamps = [];
+    private readonly Dictionary<CubicleItem, bool> _lampStates = new(ReferenceEqualityComparer.Instance);
 
     private sealed class CoilState
     {
@@ -164,6 +168,45 @@ public sealed class RelayLogicRunner
     {
         foreach (var (plc, model) in models)
         {
+            // Cubicle devices: push buttons operate their contacts, buttons and switches drive PLC inputs, lamps show a source.
+            foreach (var item in model.Cubicles.SelectMany(cubicle => cubicle.Items))
+            {
+                if (item.IsButton && item.Tag.Trim().Length > 0 && !_buttons.TryAdd(Key(plc, item.Tag), item))
+                {
+                    problems.Add($"{plc}: push button {item.Tag} is on the cubicles more than once.");
+                }
+
+                if (item.IsLamp && item.Source.Trim().Length > 0)
+                {
+                    _lamps.Add((plc, item));
+                }
+
+                if ((item.IsButton || item.IsSwitch) && item.Outputs.Trim().Length > 0)
+                {
+                    var outputs = item.IsSwitch
+                        ? item.OutputsByPosition().Select(pair => (pair.Key, Targets(pair.Value))).ToList()
+                        : [("", Targets(item.Outputs))];
+                    _cubicleOutputs.Add((plc, item, outputs));
+                }
+
+                List<PortBinding> Targets(string text)
+                {
+                    var targets = new List<PortBinding>();
+                    foreach (var target in PortBinding.ParseList(text))
+                    {
+                        if (target.Kind != BindingKind.Signal || target.SignalKind is SimulatorSignalKind.DO or SimulatorSignalKind.AO)
+                        {
+                            problems.Add($"{plc}: {item.Tag} output '{target}' must be a PLC input (DI…).");
+                            continue;
+                        }
+
+                        targets.Add(target);
+                    }
+
+                    return targets;
+                }
+            }
+
             foreach (var item in model.RelaySwitches.Where(item => item.Tag.Trim().Length > 0))
             {
                 if (!_switches.TryAdd(Key(plc, item.Tag), item))
@@ -262,6 +305,9 @@ public sealed class RelayLogicRunner
 
     public bool IsRelay(string plc, string tag) => _byTag.ContainsKey(Key(plc, tag));
 
+    /// <summary>The cubicle push button with this tag, or null.</summary>
+    public CubicleItem? ButtonOf(string plc, string tag) => _buttons.GetValueOrDefault(Key(plc, tag));
+
     /// <summary>The selector switch with this tag, or null.</summary>
     public RelaySwitch? SwitchOf(string plc, string tag) => _switches.GetValueOrDefault(Key(plc, tag));
 
@@ -291,8 +337,12 @@ public sealed class RelayLogicRunner
         return result;
     }
 
+    /// <summary>Lamp lit (its source is on), from the last step.</summary>
+    public bool IsLampOn(CubicleItem lamp) => _lampStates.TryGetValue(lamp, out var on) && on;
+
     public void Step(double dt, Func<string, ISignalIo?> io, ProcessEngine engine)
     {
+        StepCubicles(io, engine);
         if (_coils.Count == 0)
         {
             return;
@@ -340,6 +390,37 @@ public sealed class RelayLogicRunner
             {
                 plcIo?.Write(target.SignalKind, target.SignalId, coil.On ? 1 : 0);
             }
+        }
+    }
+
+    /// <summary>Push buttons and switches write their PLC inputs; lamps read their source (after the relays of the last step).</summary>
+    private void StepCubicles(Func<string, ISignalIo?> io, ProcessEngine engine)
+    {
+        foreach (var (plc, item, outputs) in _cubicleOutputs)
+        {
+            var plcIo = io(plc);
+            if (plcIo is null)
+            {
+                continue;
+            }
+
+            foreach (var (position, targets) in outputs)
+            {
+                var on = item.IsSwitch
+                    ? _switches.TryGetValue(Key(plc, item.Tag), out var selector) && selector.Current.Equals(position, StringComparison.OrdinalIgnoreCase)
+                    : item.Contact.Equals("NC", StringComparison.OrdinalIgnoreCase) ? !item.Pressed : item.Pressed;
+                foreach (var target in targets)
+                {
+                    plcIo.Write(target.SignalKind, target.SignalId, on ? 1 : 0);
+                }
+            }
+        }
+
+        foreach (var (plc, lamp) in _lamps)
+        {
+            var source = lamp.Source.Trim();
+            var probe = source.StartsWith('-') ? new RelayElement { Tag = source } : new RelayElement { Source = source };
+            _lampStates[lamp] = SourceOn(plc, probe, io(plc), engine);
         }
     }
 
@@ -412,6 +493,11 @@ public sealed class RelayLogicRunner
         if (contact.Tag.Trim().Length > 0 && _byTag.TryGetValue(Key(plc, contact.Tag), out var coil))
         {
             return coil.On;
+        }
+
+        if (contact.Tag.Trim().Length > 0 && _buttons.TryGetValue(Key(plc, contact.Tag), out var button))
+        {
+            return button.Pressed; // operated while held down on the cubicle
         }
 
         if (contact.Tag.Trim().Length > 0 && _switches.TryGetValue(Key(plc, contact.Tag), out var selector))
