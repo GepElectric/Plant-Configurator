@@ -542,7 +542,7 @@ public sealed class RelayLogicView : UserControl
 
         var coils = model.RelaySheets.SelectMany(sheet => sheet.Circuits).Select(circuit => circuit.Coil.Tag.Trim()).Where(tag => tag.Length > 0)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var objects = EplanPowerBuilder.Build(import.Devices, screen, coils, model.Objects.Select(item => item.Name).ToHashSet(StringComparer.OrdinalIgnoreCase), out var names);
+        var objects = EplanPowerBuilder.Build(import.Devices, screen, coils, model.Objects.Select(item => item.Name).ToHashSet(StringComparer.OrdinalIgnoreCase), out var names, import.Units);
         foreach (var item in objects.Where(item => item.Options.ContainsKey("Position") && removed.ContainsKey(item.Name)))
         {
             item.Options["Position"] = removed[item.Name]; // the breaker positions of the previous import stay

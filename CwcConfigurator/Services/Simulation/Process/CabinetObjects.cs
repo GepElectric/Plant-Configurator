@@ -226,6 +226,37 @@ public sealed class MotorObject : SimObject
     }
 }
 
+/// <summary>
+/// Power supply unit / rectifier / DC-DC converter: while its input is supplied it gives its rated output voltage and
+/// reports Ok (e.g. -U101: 110 VDC → 24 VDC, its contact to a DI "supply OK").
+/// </summary>
+public sealed class PowerSupplyObject : SimObject
+{
+    public static ObjectTypeInfo TypeInfo { get; } = new(
+        "PowerSupply", "Power supply / rectifier", "Electrical",
+        "Power supply unit, rectifier or DC/DC converter: Output = OutputVoltage while Input ≥ half of InputVoltage; Ok then TRUE.",
+        [],
+        [
+            Param("InputVoltage", 230, "V", "Rated input voltage."),
+            Param("OutputVoltage", 24, "V", "Rated output voltage.")
+        ],
+        [
+            PowerIn("Input", "Supply voltage (link, e.g. @F10.Live). Not connected = rated input voltage.", 230),
+            PowerOut("Output", "Output voltage (link to the busbar it supplies)."),
+            BoolOut("Ok", "Supplied and working (to a DI, e.g. ..._SUPPLY_OK).")
+        ],
+        [],
+        ["Input", "Output"],
+        () => new PowerSupplyObject());
+
+    public override void Step(double dt)
+    {
+        var ok = In("Input") >= 0.5 * Math.Max(1, P("InputVoltage"));
+        Out("Output", ok ? P("OutputVoltage") : 0);
+        Out("Ok", ok);
+    }
+}
+
 /// <summary>Transformer: the secondary voltage follows the primary by the ratio of the rated voltages.</summary>
 public sealed class TransformerObject : SimObject
 {

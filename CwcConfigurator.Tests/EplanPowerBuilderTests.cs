@@ -31,9 +31,10 @@ public sealed class EplanPowerBuilderTests
         var objects = EplanPowerBuilder.Build(devices, "Power", new HashSet<string>(["-K53"], StringComparer.OrdinalIgnoreCase), new HashSet<string>());
 
         var byName = objects.ToDictionary(item => item.Name);
-        Assert.Equal("@Q1.Live", byName["Busbar"].Ports["Supply1"]);
-        Assert.Equal("@Busbar.Feeder1", byName["F53"].Ports["Supply"]);
-        Assert.Equal("@Busbar.Feeder2", byName["F55"].Ports["Supply"]);
+        Assert.Equal("@Q1.Live", byName["Busbar_P5"].Ports["Supply1"]);                  // one busbar level per EPLAN page
+        Assert.Equal("@Busbar_P5.Feeder1", byName["F53"].Ports["Supply"]);
+        Assert.Equal("@Busbar_P5.Feeder12", byName["Busbar_P6"].Ports["Supply1"]);
+        Assert.Equal("@Busbar_P6.Feeder1", byName["F55"].Ports["Supply"]);
         Assert.Equal("@F53.Live", byName["K53"].Ports["Supply"]);
         Assert.Equal("@Relays.-K53", byName["K53"].Ports["Command"]);
         Assert.Equal("@K53.Live", byName["M3"].Ports["Supply"]);
@@ -80,12 +81,12 @@ public sealed class EplanPowerBuilderTests
 
         var byName = EplanPowerBuilder.Build(devices, "Power", new HashSet<string>(), new HashSet<string>()).ToDictionary(item => item.Name);
 
-        Assert.Equal("@Busbar.Feeder1", byName["F55"].Ports["Supply"]);
-        Assert.Equal("=1", byName["BusbarL110VDC"].Ports["Supply1"]);
-        Assert.Equal("@BusbarL110VDC.Feeder1", byName["F11"].Ports["Supply"]);
+        Assert.Equal("@Busbar_P6.Feeder1", byName["F55"].Ports["Supply"]);
+        Assert.Equal("=110", byName["BusbarL110VDC_P11"].Ports["Supply1"]);                // its voltage, not 1 V
+        Assert.Equal("@BusbarL110VDC_P11.Feeder1", byName["F11"].Ports["Supply"]);
         Assert.Equal("@F11.Live", byName["F10"].Ports["Supply"]);
-        Assert.Equal("@BusbarNoSupply.Feeder1", byName["F60"].Ports["Supply"]);
-        Assert.True(byName["F11"].X > byName["F55"].X && byName["F60"].X > byName["F10"].X);
+        Assert.Equal("@BusbarNoSupply_P7.Feeder1", byName["F60"].Ports["Supply"]);
+        Assert.True(byName["F11"].Y > byName["F55"].Y && byName["F60"].Y > byName["F10"].Y); // levels one below the other
     }
 
     [Fact]
@@ -113,5 +114,41 @@ public sealed class EplanPowerBuilderTests
         Assert.Empty(model.SldScreens);
         Assert.Equal(["CONTROL"], model.RelaySheets.Select(sheet => sheet.Name));
         Assert.Equal(["-K112"], model.RelayDevices.Select(device => device.Tag));
+    }
+
+    [Fact]
+    public void PowerSupplyUnit_FedByItsBreaker_SuppliesItsBusbar_AndReportsOk()
+    {
+        var devices = new[]
+        {
+            new PowerDevice("-F10", PowerDeviceKind.Breaker, "RECTIFIER 16A/C", "", "11", Key: "F10", Source: "11-L+110VDC"),
+            new PowerDevice("-F34", PowerDeviceKind.Breaker, "COMMUNICATION SWITCH", "", "13", Key: "F34", Source: "24-VDC L+")
+        };
+        var units = new[] { new PowerUnit("-U101", "RECTIFIER", "F10", "24-VDC L+", "11") };
+
+        var objects = EplanPowerBuilder.Build(devices, "Power", new HashSet<string>(), new HashSet<string>(), out _, units);
+        var byName = objects.ToDictionary(item => item.Name);
+        Assert.Equal("@F10.Live", byName["U101"].Ports["Input"]);
+        Assert.Equal((110.0, 24.0), (byName["U101"].Params["InputVoltage"], byName["U101"].Params["OutputVoltage"]));
+        Assert.Equal("@U101.Output", byName["Busbar24VDCL_P13"].Ports["Supply1"]);
+        Assert.Equal("COMMUNICATION SWITCH", byName["F34"].Description);
+
+        var model = new ProcessModel { Objects = objects };
+        var engine = new ProcessEngine(new Dictionary<string, ProcessModel> { ["P"] = model });
+        for (var i = 0; i < 5; i++)
+        {
+            engine.Step(0.1, _ => null);
+        }
+
+        Assert.Equal(1, engine.Find("P", "U101")!.Value("Ok"));
+        Assert.Equal(24, engine.Find("P", "F34")!.Value("Live"));
+        byName["F10"].Options["Position"] = "Off";
+        for (var i = 0; i < 5; i++)
+        {
+            engine.Step(0.1, _ => null);
+        }
+
+        Assert.Equal(0, engine.Find("P", "U101")!.Value("Ok"));
+        Assert.Equal(0, engine.Find("P", "F34")!.Value("Live"));
     }
 }

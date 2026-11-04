@@ -512,6 +512,7 @@ public static class ObjectCatalog
         DisconnectorObject.TypeInfo,
         EarthSwitchObject.TypeInfo,
         TransformerObject.TypeInfo,
+        PowerSupplyObject.TypeInfo,
         McbObject.TypeInfo,
         ContactorObject.TypeInfo,
         MotorObject.TypeInfo,

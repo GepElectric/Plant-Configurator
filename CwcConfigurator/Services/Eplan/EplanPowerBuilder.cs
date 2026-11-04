@@ -48,7 +48,7 @@ public static class EplanPowerBuilder
 
     /// <param name="objectNames">Device id (<see cref="PowerDevice.Id"/>) → name of its simulator object.</param>
     public static List<ObjectConfig> Build(IReadOnlyList<PowerDevice> devices, string screen, ISet<string> relayCoils, IReadOnlySet<string> existingNames,
-        out Dictionary<string, string> objectNames)
+        out Dictionary<string, string> objectNames, IReadOnlyList<PowerUnit>? units = null)
     {
         var objects = new List<ObjectConfig>();
         var names = new HashSet<string>(existingNames, StringComparer.OrdinalIgnoreCase);
@@ -75,7 +75,7 @@ public static class EplanPowerBuilder
                     PowerDeviceKind.Motor => "Motor",
                     _ => "Mcb"
                 },
-                Description = $"{device.Tag} {device.Text}".Trim() + (device.Page.Length > 0 ? $" (EPLAN page {device.Page})" : ""),
+                Description = device.Text.Trim(),
                 Screen = screen
             };
             if (device.Kind is PowerDeviceKind.Breaker or PowerDeviceKind.MotorProtection)
@@ -100,23 +100,67 @@ public static class EplanPowerBuilder
             objects.Add(config);
         }
 
-        // Feeders of the busbars: devices fed from them, left to right in the drawing order; one busbar (or a row of
-        // busbars) per supply — the main L1 busbar first, then L2230VAC, L+110VDC…
+        // Feeders of the busbars: devices fed from them. Every EPLAN page is a level of its own (a busbar row with its
+        // feeders below), the supplies one after the other — L1 first, then L+110VDC, 24 VDC…, last what has no supply.
         var incomers = devices.Where(device => device.Incomer).ToList();
         var feeders = devices.Where(device => !device.Incomer && (device.Upstream.Length == 0 || !byTag.ContainsKey(device.Upstream))).ToList();
         // 11 feeders per busbar; its 12th feeder supplies the next bar when there are more.
         const int perBusbar = FeedersPerBusbar - 1;
         var busbars = new List<ObjectConfig>();
-        var groups = feeders.GroupBy(device => device.Source).OrderBy(group => group.Key == "" ? 0 : group.Key == "?" ? 2 : 1)
-            .Select(group => (Key: group.Key, Members: group.ToList())).ToList();
-        if (groups.Count == 0)
+        static int SupplyOrder(string supply) => supply.Length == 0 ? 0 : supply == "?" ? 2 : 1;
+        var levels = feeders.GroupBy(device => (device.Source, device.Page))
+            .OrderBy(group => SupplyOrder(group.Key.Source)).ThenBy(group => group.Key.Source, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(group => int.TryParse(group.Key.Page, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : int.MaxValue)
+            .ThenBy(group => group.Key.Page, StringComparer.OrdinalIgnoreCase)
+            .Select(group => (Supply: group.Key.Source, Page: group.Key.Page, Members: group.ToList()))
+            .ToList();
+        if (levels.Count == 0)
         {
-            groups.Add(("", []));
+            levels.Add(("", "", []));
+        }
+
+        // Power supply units (rectifiers, DC/DC converters): fed by their breaker, supplying the busbar of their output.
+        var unitByOutput = new Dictionary<string, ObjectConfig>(StringComparer.OrdinalIgnoreCase);
+        foreach (var unit in units ?? [])
+        {
+            var config = new ObjectConfig { Name = Unique(ObjectName(unit.Tag)), Type = "PowerSupply", Description = unit.Text.Trim(), Screen = screen };
+            var input = devices.FirstOrDefault(device => device.Id.Equals(unit.InputKey, StringComparison.OrdinalIgnoreCase));
+            if (input is not null)
+            {
+                config.Ports["Input"] = $"@{byTag[input.Id].Name}.Live";
+                config.Params["InputVoltage"] = Volts(RootSource(input)) ?? 230;
+            }
+
+            config.Params["OutputVoltage"] = Volts(unit.Output) ?? 24;
+            if (unit.Output.Length > 0)
+            {
+                unitByOutput.TryAdd(unit.Output, config);
+            }
+
+            objects.Add(config);
+            byTag.TryAdd(unit.Tag.Trim(), config);
+        }
+
+        string RootSource(PowerDevice device)
+        {
+            for (var guard = 0; device.Upstream.Length > 0 && guard < 50; guard++)
+            {
+                var upstream = devices.FirstOrDefault(item => item.Id.Equals(device.Upstream, StringComparison.OrdinalIgnoreCase));
+                if (upstream is null)
+                {
+                    break;
+                }
+
+                device = upstream;
+            }
+
+            return device.Source;
         }
 
         var nextColumn = Left;
+        var deepest = 0;
         var placed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        void Place(PowerDevice device, int row)
+        void Place(PowerDevice device, int row, double busY)
         {
             if (!placed.Add(device.Id))
             {
@@ -124,7 +168,8 @@ public static class EplanPowerBuilder
             }
 
             var config = byTag[device.Id];
-            config.Y = BusbarY + 70 + row * RowHeight;
+            config.Y = busY + 70 + row * RowHeight;
+            deepest = Math.Max(deepest, row);
             var children = devices.Where(child => child.Upstream.Equals(device.Id, StringComparison.OrdinalIgnoreCase) && !placed.Contains(child.Id)).ToList();
             config.X = nextColumn;
             if (children.Count == 0)
@@ -135,69 +180,89 @@ public static class EplanPowerBuilder
 
             foreach (var child in children)
             {
-                Place(child, row + 1);
+                Place(child, row + 1, busY);
             }
         }
 
-        foreach (var (supply, members) in groups)
+        var lastBar = new Dictionary<string, ObjectConfig>(StringComparer.OrdinalIgnoreCase);
+        var top = 0.0;
+        foreach (var (supply, page, members) in levels)
         {
-            var groupBars = new List<ObjectConfig>();
+            var busY = BusbarY + top;
+            var label = supply.Length == 0 ? "" : supply == "?" ? "NoSupply" : ObjectName(supply);
+            var levelBars = new List<ObjectConfig>();
             var count = Math.Max(1, (members.Count + perBusbar - 1) / perBusbar);
             for (var b = 0; b < count; b++)
             {
-                var label = supply.Length == 0 ? "" : supply == "?" ? "NoSupply" : ObjectName(supply);
                 var busbar = new ObjectConfig
                 {
-                    Name = Unique(b == 0 ? "Busbar" + label : $"Busbar{label}_{b + 1}"),
+                    Name = Unique("Busbar" + label + (page.Length > 0 ? "_P" + ObjectName(page) : "") + (b > 0 ? $"_{b + 1}" : "")),
                     Type = "Busbar",
-                    Description = supply.Length == 0 ? "Busbar L1/L2/L3 (EPLAN)" : supply == "?" ? "Devices without a readable supply (EPLAN)" : $"Busbar {supply} (EPLAN)",
+                    Description = (supply.Length == 0 ? "Busbar L1/L2/L3" : supply == "?" ? "Devices without a readable supply" : $"Busbar {supply}")
+                                  + (page.Length > 0 ? $" — EPLAN page {page}" : ""),
                     Screen = screen,
-                    Y = BusbarY
+                    Y = busY
                 };
                 busbar.Options["Feeders"] = FeedersPerBusbar.ToString(CultureInfo.InvariantCulture);
                 if (b > 0)
                 {
-                    busbar.Ports["Supply1"] = $"@{groupBars[^1].Name}.Feeder{FeedersPerBusbar}";
+                    busbar.Ports["Supply1"] = $"@{levelBars[^1].Name}.Feeder{FeedersPerBusbar}";
+                }
+                else if (lastBar.TryGetValue(supply, out var previous))
+                {
+                    // The same supply on the next page: fed from the bar of the page before.
+                    busbar.Ports["Supply1"] = $"@{previous.Name}.Feeder{FeedersPerBusbar}";
                 }
                 else if (supply.Length == 0 && incomers.Count > 0)
                 {
                     // The main switch supplies the busbar; drawn above it.
                     busbar.Ports["Supply1"] = $"@{byTag[incomers[0].Id].Name}.Live";
                     byTag[incomers[0].Id].X = Left;
-                    byTag[incomers[0].Id].Y = IncomerY;
+                    byTag[incomers[0].Id].Y = busY - (BusbarY - IncomerY);
+                }
+                else if (supply.Length > 0 && unitByOutput.TryGetValue(supply, out var unit))
+                {
+                    // Supplied by its power supply unit (e.g. -U101 → 24 VDC), drawn above the bar.
+                    busbar.Ports["Supply1"] = $"@{unit.Name}.Output";
+                    unit.X = Left;
+                    unit.Y = busY - 115;
                 }
                 else if (supply.Length > 0)
                 {
-                    busbar.Ports["Supply1"] = "=1"; // its own supply (power supply unit, transformer, battery) is not simulated
+                    // Its source (battery, power supply on a page not imported) is not simulated: always at its voltage.
+                    busbar.Ports["Supply1"] = "=" + (Volts(supply) ?? 230).ToString(CultureInfo.InvariantCulture);
                 }
 
-                groupBars.Add(busbar);
+                levelBars.Add(busbar);
             }
 
             for (var i = 0; i < members.Count; i++)
             {
-                byTag[members[i].Id].Ports["Supply"] = $"@{groupBars[i / perBusbar].Name}.Feeder{i % perBusbar + 1}";
+                byTag[members[i].Id].Ports["Supply"] = $"@{levelBars[i / perBusbar].Name}.Feeder{i % perBusbar + 1}";
             }
 
-            // Layout: each busbar spans the columns of its feeders; a gap between the supplies.
+            // Layout of the level: each busbar spans the columns of its feeders.
+            nextColumn = Left;
+            deepest = 0;
             var feederColumns = new List<double>();
             foreach (var feeder in members)
             {
                 feederColumns.Add(nextColumn);
-                Place(feeder, 0);
+                Place(feeder, 0, busY);
             }
 
-            for (var b = 0; b < groupBars.Count; b++)
+            for (var b = 0; b < levelBars.Count; b++)
             {
                 var columns = feederColumns.Skip(b * perBusbar).Take(perBusbar).ToList();
                 var first = columns.Count > 0 ? columns[0] : nextColumn;
-                var end = b + 1 < groupBars.Count ? feederColumns[(b + 1) * perBusbar] : nextColumn;
-                groupBars[b].X = first - 40;
-                groupBars[b].Params["Length"] = Math.Max(300, end - first + 20);
+                var end = b + 1 < levelBars.Count ? feederColumns[(b + 1) * perBusbar] : nextColumn;
+                levelBars[b].X = first - 40;
+                levelBars[b].Params["Length"] = Math.Max(300, end - first + 20);
             }
 
-            busbars.AddRange(groupBars);
-            nextColumn += ColumnWidth / 2;
+            busbars.AddRange(levelBars);
+            lastBar[supply] = levelBars[^1];
+            top += 70 + (deepest + 1) * RowHeight + 190;
         }
 
         foreach (var device in devices.Where(device => device.Upstream.Length > 0 && byTag.ContainsKey(device.Upstream)))
@@ -235,6 +300,13 @@ public static class EplanPowerBuilder
         model.RelayDevices.RemoveAll(device => device.Input.Trim().StartsWith('@')
                                               && names.Contains(device.Input.Trim()[1..].Split('.')[0]));
         return positions;
+    }
+
+    /// <summary>Voltage in a potential name: "24-VDC L+" → 24, "11-L+110VDC" → 110, "L2230VAC" → 230; null when none.</summary>
+    public static double? Volts(string name)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(name ?? "", @"(\d{2,3})\s*-?\s*V");
+        return match.Success ? double.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture) : null;
     }
 
     /// <summary>Object name of a device tag: "-K53" → "K53", "2-F3" → "2F3".</summary>

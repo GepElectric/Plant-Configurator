@@ -59,7 +59,7 @@ public static class RelayPlcSignals
         {
             var name = new string(tag.Where(char.IsLetterOrDigit).ToArray());
             var port = objects.TryGetValue(name, out var item)
-                ? item.Type switch { "Mcb" => "On", "Contactor" => "State", "Motor" => "Running", _ => "" }
+                ? item.Type switch { "Mcb" => "On", "Contactor" => "State", "Motor" => "Running", "PowerSupply" => "Ok", _ => "" }
                 : "";
             if (port.Length > 0 && RelayDevices.Define(model, tag, $"@{item!.Name}.{port}"))
             {

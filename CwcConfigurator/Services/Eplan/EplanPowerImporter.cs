@@ -12,8 +12,15 @@ public sealed class EplanPowerImport
     /// <summary>Each feeder from the L1 busbar: the devices in order (key, tag) and the load at its end ("-M3 11 kW").</summary>
     public List<(string Page, List<(string Key, string Tag)> Chain, string Load)> Feeders { get; } = [];
 
+    /// <summary>Power supply units (rectifiers, DC/DC converters): what feeds them and the supply they give.</summary>
+    public List<PowerUnit> Units { get; } = [];
+
     public List<string> Warnings { get; } = [];
 }
+
+/// <param name="InputKey">Key of the breaker feeding the unit ("" = unknown).</param>
+/// <param name="Output">Potential the unit supplies, e.g. "24-VDC L+".</param>
+public sealed record PowerUnit(string Tag, string Text, string InputKey, string Output, string Page);
 
 /// <summary>
 /// Reads the power (three-phase) circuits of an EPLAN PXF export: the same autoconnect rebuild as the control
@@ -89,6 +96,7 @@ public static class EplanPowerImporter
         public required string[] Points { get; init; }
         public required string Text { get; init; }
         public required string Page { get; init; }
+        public double X { get; init; }
         public Dictionary<int, Point> Pins { get; } = [];
     }
 
@@ -147,6 +155,8 @@ public static class EplanPowerImporter
         void Union(string a, string b) => parent[Find(a)] = Find(b);
 
         var edges = new List<Edge>();
+        var units = new List<(string Tag, string Text, double X, string Page)>();
+        var pageNames = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         var loads = new List<(Device Device, string Net)>();
         var devices = new List<Device>();
         var settings = new XmlReaderSettings { IgnoreWhitespace = true, DtdProcessing = DtdProcessing.Ignore };
@@ -162,7 +172,7 @@ public static class EplanPowerImporter
                     var page = (XElement)XNode.ReadFrom(reader);
                     if (pages.Contains(++index))
                     {
-                        ReadPage(page, edges, loads, devices, Find, Union);
+                        ReadPage(page, edges, loads, devices, Find, Union, units, pageNames);
                     }
                 }
                 else
@@ -279,8 +289,29 @@ public static class EplanPowerImporter
             }
 
             var steps = Trace(start, visited, node => node != start && (rails.Contains(node) || supplies.Any(other => Find("NAME:" + other) == node)));
-            AddReached(steps, Bare(supply));
+            AddReached(steps, supply);
             visited.UnionWith(steps.Keys);
+        }
+
+        // Power supply units: fed by the breaker straight above them, supplying the other supply potential of their page.
+        foreach (var (tag, text, x, page) in units)
+        {
+            var input = devices.Where(device => device.Page == page && PowerKind(device) is PowerDeviceKind.Breaker or PowerDeviceKind.MotorProtection && Math.Abs(device.X - x) <= 30)
+                .OrderBy(device => Math.Abs(device.X - x)).FirstOrDefault();
+            var inputSupply = input is not null && added.TryGetValue(input.Key, out var fed) ? RootSource(fed) : "";
+            var output = (pageNames.GetValueOrDefault(page) ?? []).Where(IsSupplyName).Distinct(StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault(name => !name.Equals(inputSupply, StringComparison.OrdinalIgnoreCase)) ?? "";
+            import.Units.Add(new PowerUnit(tag, text, input?.Key ?? "", output, page));
+        }
+
+        string RootSource(PowerDevice device)
+        {
+            for (var guard = 0; device.Upstream.Length > 0 && guard < 50 && added.TryGetValue(device.Upstream, out var upstream); guard++)
+            {
+                device = upstream;
+            }
+
+            return device.Source;
         }
 
         // Breakers no supply reaches (fed from a page not imported, an unknown symbol…): drawn anyway.
@@ -288,7 +319,8 @@ public static class EplanPowerImporter
         {
             if (!added.ContainsKey(device.Key))
             {
-                Add(device, null, "?");
+                // The supply potential drawn on its page (e.g. 30-L+24VDC), else unknown.
+                Add(device, null, (pageNames.GetValueOrDefault(device.Page) ?? []).FirstOrDefault(IsSupplyName) ?? "?");
             }
         }
 
@@ -357,11 +389,20 @@ public static class EplanPowerImporter
     };
 
     private static void ReadPage(XElement page, List<Edge> edges, List<(Device, string)> loads, List<Device> devices,
-        Func<string, string> find, Action<string, string> union)
+        Func<string, string> find, Action<string, string> union, List<(string Tag, string Text, double X, string Page)> units,
+        Dictionary<string, List<string>> pageNames)
     {
         var pageName = page.Element("P49")?.Attribute("P11012")?.Value ?? "";
         var points = new List<Point>();
         var pageDevices = new List<Device>();
+
+        // Path texts (the text above a current path, e.g. "INCOMING 110 VDC POWER SUPPLY"): what a device is for.
+        var pathTexts = page.Elements("O83")
+            .Select(text => (Position: (text.Attribute("A501")?.Value ?? "").Split('/'), Text: Text(text.Attribute("A511")?.Value).Replace("\r", "").Replace('\n', ' ').Trim()))
+            .Where(text => text.Position.Length == 2 && text.Text.Length > 0 && double.TryParse(text.Position[0], NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+            .Select(text => (X: double.Parse(text.Position[0], NumberStyles.Float, CultureInfo.InvariantCulture), text.Text))
+            .ToList();
+        string PathText(double x) => pathTexts.Where(text => Math.Abs(text.X - x) <= 20).OrderBy(text => Math.Abs(text.X - x)).Select(text => text.Text).FirstOrDefault() ?? "";
 
         // Positioned objects, also those inside groups (O26).
         foreach (var item in page.Descendants().Where(item => item.Name.LocalName is "O17" or "O42" or "O70"))
@@ -395,6 +436,10 @@ public static class EplanPowerImporter
                         BlackBox = tag, BoxPoint = item.Attribute("A185")?.Value ?? "", BoxVariant = variant
                     });
                     break;
+                case "O17" when category == "802":
+                    // Power supply unit / rectifier (black box): fed by the breaker above it, supplies a potential of the page.
+                    units.Add((tag, FirstNonEmpty(PathText(at.X), Text(item.Element("P11")?.Attribute("P20027")?.Value)).Replace("\r", "").Replace('\n', ' '), at.X, pageName));
+                    break;
                 case "O17":
                     if (!Symbols.TryGetValue(symbol, out var def))
                     {
@@ -410,8 +455,10 @@ public static class EplanPowerImporter
                         Symbol = symbol,
                         Kind = def.Kind,
                         Points = (item.Attribute("A185")?.Value ?? "").Split(';'),
-                        Text = FirstNonEmpty(Text(p11?.Attribute("P20011")?.Value), Text(p11?.Attribute("P20027")?.Value)).Replace("\r", "").Replace('\n', ' '),
-                        Page = pageName
+                        Text = string.Join(" ", new[] { PathText(at.X), FirstNonEmpty(Text(p11?.Attribute("P20011")?.Value), Text(p11?.Attribute("P20027")?.Value)) }
+                            .Where(part => part.Length > 0).Distinct()).Replace("\r", "").Replace('\n', ' '),
+                        Page = pageName,
+                        X = at.X
                     };
                     foreach (var pin in def.Pins)
                     {
@@ -483,6 +530,7 @@ public static class EplanPowerImporter
             if (points[i].Name.Length > 0)
             {
                 union(points[i].Net, "NAME:" + points[i].Name);
+                (pageNames.TryGetValue(pageName, out var list) ? list : pageNames[pageName] = []).Add(points[i].Name);
             }
         }
 
