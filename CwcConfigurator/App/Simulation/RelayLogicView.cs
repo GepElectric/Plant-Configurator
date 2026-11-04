@@ -416,6 +416,9 @@ public sealed class RelayLogicView : UserControl
             linked = RelayPlcSignals.Link(model, project.DigitalOutputs, project.DigitalInputs);
         }
 
+        // Relays fed from another page (external signals from -F36…): from the devices their PLC input names.
+        linked += RelayPlcSignals.SupplyFromSignalNames(model);
+
         // Contacts of breakers / contactors follow their objects of the power part (when it is imported).
         var powerContacts = RelayPlcSignals.LinkPowerObjects(model);
         if (onDoor > 0 && _controller?.Session(_plc)?.Project is { } signals)
@@ -602,7 +605,21 @@ public sealed class RelayLogicView : UserControl
             }
         }
 
-        auxiliary += RelayPlcSignals.LinkPowerObjects(model);
+        auxiliary += RelayPlcSignals.LinkPowerObjects(model) + RelayPlcSignals.SupplyFromSignalNames(model);
+
+        // Devices at the end of a feeder whose contacts are on the sheets (voltage monitoring relay -K411 behind -F411):
+        // their contact closes while their breaker passes the voltage.
+        var used = model.RelaySheets.SelectMany(sheet => sheet.Circuits).SelectMany(circuit => RelayLogicRunner.AllElements(circuit.Elements))
+            .Select(element => element.Tag.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var (_, chain, load) in import.Feeders)
+        {
+            var loadTag = load.Split(' ', 2)[0].Trim();
+            if (chain.Count > 0 && used.Contains(loadTag) && names.TryGetValue(chain[^1].Key, out var feeding)
+                && RelayDevices.Define(model, loadTag, $"@{feeding}.Live"))
+            {
+                auxiliary++;
+            }
+        }
         _sheetIndex = model.RelaySheets.Count - 1;
         _selected = Sheet;
         Changed();

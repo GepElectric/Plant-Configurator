@@ -41,6 +41,60 @@ public static class RelayPlcSignals
     }
 
     /// <summary>
+    /// A relay whose supply is not drawn on its page (only the "SUPPLY ?" contact, e.g. 1-K18 fed from -F36 on another
+    /// page) gets the devices named by the PLC input it drives: "External signals MCB ON (-F36)" → its path is -F36
+    /// (the voltage after the breaker when it is a simulator object, "@F36.Live"); "Gate 1 closed (-1GS2)" → -1GS2.
+    /// </summary>
+    /// <returns>Number of relay paths filled.</returns>
+    public static int SupplyFromSignalNames(ProcessModel model)
+    {
+        var circuits = model.RelaySheets.SelectMany(sheet => sheet.Circuits).ToList();
+        var objects = model.Objects.Select(item => item.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var filled = 0;
+        foreach (var relay in circuits.Where(circuit => circuit.Coil.Tag.Trim().Length > 0 && circuit.Feed.Length == 0 && !circuit.Coil.HasInput
+                                                          && (circuit.Elements is [{ IsParallel: false, Tag.Length: 0 }]
+                                                              // filled from the names before, upgraded once the power part is there
+                                                              || (circuit.Elements.Count > 0 && circuit.Elements.All(element => !element.IsParallel && element.Tag.StartsWith('-') && element.Text == element.Tag)))))
+        {
+            var tag = relay.Coil.Tag.Trim();
+            var input = circuits.FirstOrDefault(circuit => circuit.Coil.Tag.Trim().Length == 0 && circuit.Coil.Outputs.Trim().Length > 0
+                                                         && RelayLogicRunner.AllElements(circuit.Elements).Any(element => element.Tag.Trim().Equals(tag, StringComparison.OrdinalIgnoreCase)));
+            if (input is null)
+            {
+                continue;
+            }
+
+            var named = System.Text.RegularExpressions.Regex.Matches(input.Coil.Text, @"\(([^)]*)\)")
+                .SelectMany(match => match.Groups[1].Value.Split(','))
+                .Select(part => part.Trim())
+                .Where(part => part.StartsWith('-') && !Normalize(part).Equals(Normalize(tag), StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (named.Count == 0)
+            {
+                continue;
+            }
+
+            var contact = relay.Elements[0];
+            relay.Elements = named.Select((part, index) =>
+            {
+                var name = new string(part.Where(char.IsLetterOrDigit).ToArray());
+                return new RelayElement
+                {
+                    Id = index == 0 ? contact.Id : RelayElement.NewId(),
+                    Tag = objects.Contains(name) ? $"@{name}.Live" : part,
+                    Contact = "NO",
+                    Pins = contact.Pins,
+                    Text = part
+                };
+            }).ToList();
+            filled++;
+        }
+
+        return filled;
+    }
+
+    /// <summary>
     /// Contacts of power devices on the sheets (aux contact of -F53, -Q1, contactor -K53) follow their simulator
     /// object of the power part ("F53"): breakers by On, contactors by State, motors by Running — defined once as a
     /// device. Contacts of relays, switches, push buttons and devices already defined are left alone.

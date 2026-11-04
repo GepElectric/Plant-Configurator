@@ -44,4 +44,33 @@ public sealed class RelayPlcPointsTests
         Assert.Equal(1, RelayPlcSignals.LinkPowerObjects(model));
         Assert.Equal("@F53.On", RelayDevices.Find(model, "-F53")!.Input);                    // MCB aux contact follows the MCB
     }
+
+    [Fact]
+    public void RelayFedFromAnotherPage_GetsTheDevicesNamedByItsPlcInput()
+    {
+        var external = new RelayCircuit { Elements = [new RelayElement { Text = "SUPPLY ?" }], Coil = new RelayCoil { Tag = "1-K18" } };
+        var field = new RelayCircuit { Elements = [new RelayElement()], Coil = new RelayCoil { Tag = "1-K01" } };
+        var model = new ProcessModel
+        {
+            Objects = [new ObjectConfig { Name = "F36", Type = "Mcb" }],
+            RelaySheets =
+            [
+                new RelaySheet
+                {
+                    Circuits =
+                    [
+                        external, field,
+                        new RelayCircuit { Elements = [new RelayElement { Tag = "1-K18" }], Coil = new RelayCoil { Outputs = "DI:10", Text = "DI15
+External signals MCB ON (-F36)" } },
+                        new RelayCircuit { Elements = [new RelayElement { Tag = "1-K01" }], Coil = new RelayCoil { Outputs = "DI:65", Text = "DI0
+Gate 1 closed (-1GS2)" } }
+                    ]
+                }
+            ]
+        };
+
+        Assert.Equal(2, RelayPlcSignals.SupplyFromSignalNames(model));
+        Assert.Equal("@F36.Live", external.Elements.Single().Tag);   // the voltage after the breaker
+        Assert.Equal("-1GS2", field.Elements.Single().Tag);          // a field device, its input set by hand
+    }
 }

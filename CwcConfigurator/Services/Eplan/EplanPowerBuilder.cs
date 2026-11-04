@@ -227,6 +227,11 @@ public static class EplanPowerBuilder
                     unit.X = Left;
                     unit.Y = busY - 115;
                 }
+                else if (supply.Length > 0 && unitByOutput.Values.FirstOrDefault(other => other.Params.TryGetValue("OutputVoltage", out var volts) && volts == Volts(supply)) is { } sameVoltage)
+                {
+                    // Another potential of the same voltage (e.g. 30-L+24VDC): from the unit that makes that voltage.
+                    busbar.Ports["Supply1"] = $"@{sameVoltage.Name}.Output";
+                }
                 else if (supply.Length > 0)
                 {
                     // Its source (battery, power supply on a page not imported) is not simulated: always at its voltage.
