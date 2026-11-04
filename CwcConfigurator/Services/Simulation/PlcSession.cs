@@ -5,8 +5,9 @@ namespace CwcConfigurator.Services.Simulation;
 
 /// <summary>
 /// One PLC database in the simulator: its signals, the S7 connection to the PLC and the images of the simulator
-/// DB (DB30) and the devices DB (DB27). Implements <see cref="ISignalIo"/> for the plant model: reads come from the
-/// last DB reads, writes go to output images that <see cref="FlushAsync"/> sends in one write per DB.
+/// DB (DB30) and the devices DB (DB27). Implements <see cref="ISignalIo"/> for the plant model on the simulator
+/// variables of the signals (see <see cref="SimulatorSignal"/>), connected or not; <see cref="FlushAsync"/> sends the
+/// communication variables of the inputs in one write per DB.
 /// </summary>
 public sealed class PlcSession : ISignalIo, IDisposable
 {
@@ -160,6 +161,18 @@ public sealed class PlcSession : ISignalIo, IDisposable
         }
     }
 
+    /// <summary>Communication variables of the inputs the simulator writes or sets, into the output images.</summary>
+    private void WriteInputs()
+    {
+        foreach (var signal in Signals)
+        {
+            if (signal.NeedsWrite && signal.CommValue is { } value)
+            {
+                WriteImage(signal, value);
+            }
+        }
+    }
+
     /// <summary>Writes the values the model produced: DI/AI/COUNTER/RTD area of the simulator DB, and the devices DB.</summary>
     public async Task FlushAsync()
     {
@@ -168,6 +181,7 @@ public sealed class PlcSession : ISignalIo, IDisposable
             return;
         }
 
+        WriteInputs();
         if (_output is not null)
         {
             var bytes = _output.AsSpan(0, Math.Min(Layout.DoStart, _output.Length)).ToArray();
@@ -193,65 +207,25 @@ public sealed class PlcSession : ISignalIo, IDisposable
     public IReadOnlyList<SimulatorSignal> Find(SimulatorSignalKind kind, int id) =>
         _byId.TryGetValue((kind, id), out var list) ? list : [];
 
+    /// <summary>The simulator variable of the signal (also without a PLC connection).</summary>
     public bool TryRead(SimulatorSignalKind kind, int id, out double value)
     {
         value = 0;
-        var signal = Find(kind, id).FirstOrDefault();
-        if (signal?.ForcedValue is { } forced)
-        {
-            // A force in the signal list wins over what the PLC sends (DO/AO) and over the model (DI/AI…).
-            value = double.IsNaN(forced) ? 0 : forced;
-            return true;
-        }
-
-        var data = signal is null ? [] : signal.InDeviceDb ? _deviceOutput ?? _deviceData : _output ?? _data;
-        if (signal is null || data.Length <= signal.ByteOffset)
+        if (Find(kind, id).FirstOrDefault()?.SimValue is not { } sim)
         {
             return false;
         }
 
-        if (signal.IsDigital)
-        {
-            value = (data[signal.ByteOffset] & (1 << signal.BitOffset)) != 0 ? 1 : 0;
-            return true;
-        }
-
-        if (signal.IsReal)
-        {
-            value = BitConverter.Int32BitsToSingle((data[signal.ByteOffset] << 24) | (data[signal.ByteOffset + 1] << 16)
-                                                   | (data[signal.ByteOffset + 2] << 8) | data[signal.ByteOffset + 3]);
-            return true;
-        }
-
-        var raw = (short)((data[signal.ByteOffset] << 8) | data[signal.ByteOffset + 1]);
-        value = signal.HasScaling ? signal.Scaling!.ToEngineering(raw) : raw;
+        value = double.IsNaN(sim) ? 0 : sim;
         return true;
     }
 
+    /// <summary>Writes the simulator variable of a PLC input; its communication variable follows unless it is set.</summary>
     public void Write(SimulatorSignalKind kind, int id, double value)
     {
         foreach (var signal in Find(kind, id))
         {
-            if (!signal.IsWritable || signal.IsForced)
-            {
-                continue;
-            }
-
-            WriteImage(signal, value);
-        }
-    }
-
-    public bool HasForcedOutputs => Signals.Any(signal => signal.IsWritable && signal.IsForced);
-
-    /// <summary>Writes every forced simulator output (DI/AI/RTD/COUNTER/device) into the output images.</summary>
-    public void ApplyForces()
-    {
-        foreach (var signal in Signals)
-        {
-            if (signal.IsWritable && signal.ForcedValue is { } value)
-            {
-                WriteImage(signal, value);
-            }
+            signal.WriteSim(value);
         }
     }
 
@@ -294,9 +268,7 @@ public sealed class PlcSession : ISignalIo, IDisposable
             else
             {
                 // Wire break (NaN): 32767 = overflow, which the PLC treats as a measurement error.
-                var raw = double.IsNaN(value) ? short.MaxValue
-                    : signal.HasScaling ? signal.Scaling!.ToRaw(value)
-                    : (short)Math.Clamp(Math.Round(value), short.MinValue, short.MaxValue);
+                var raw = signal.RawValue is { } comm ? (short)comm : signal.ToRaw(value);
                 target[signal.ByteOffset] = (byte)((ushort)raw >> 8);
                 target[signal.ByteOffset + 1] = (byte)raw;
             }

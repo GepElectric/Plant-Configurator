@@ -239,11 +239,11 @@
                             <DataGridTextColumn Header="PLC NAME" Width="160" MinWidth="100" Binding="{Binding PlcName}"/>
                             <DataGridTextColumn Header="CONFIG" Width="64" MinWidth="64" Binding="{Binding ConfigText}"/>
                             <DataGridTextColumn Header="ADDRESS" Width="80" MinWidth="80" Binding="{Binding Address}"/>
-                            <DataGridTemplateColumn Header="VALUE" Width="120" MinWidth="100" SortMemberPath="ValueText">
+                            <DataGridTemplateColumn Header="COMM (PLC)" Width="110" MinWidth="90" SortMemberPath="ValueText">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Border x:Name="ValueBorder" CornerRadius="3" Padding="6,1" HorizontalAlignment="Left">
-                                            <TextBlock Text="{Binding ValueText}" FontWeight="SemiBold" ToolTip="{Binding ScalingDetails}"/>
+                                            <TextBlock Text="{Binding ValueText}" FontWeight="SemiBold" ToolTip="Communication variable: the value in the PLC DB. Inputs: SET ?? SIM; outputs: what the PLC writes."/>
                                         </Border>
                                         <DataTemplate.Triggers>
                                             <DataTrigger Binding="{Binding IsTrue}" Value="True">
@@ -261,6 +261,21 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
                             <DataGridTextColumn Header="RAW" Width="64" MinWidth="60" Binding="{Binding RawText}"/>
+                            <DataGridTemplateColumn Header="SIM" Width="110" MinWidth="90" SortMemberPath="SimText">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border x:Name="SimBorder" CornerRadius="3" Padding="6,1" HorizontalAlignment="Left">
+                                            <TextBlock Text="{Binding SimText}" FontWeight="SemiBold"
+                                                       ToolTip="Simulator variable: what the simulator (objects, relay logic, cubicle) uses. Outputs: SET ?? COMM; inputs: written by the simulator."/>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsSimTrue}" Value="True">
+                                                <Setter TargetName="SimBorder" Property="Background" Value="#B7E4C7"/>
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTemplateColumn Header="SCALING" Width="200" MinWidth="120" SortMemberPath="ScalingText">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>

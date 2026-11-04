@@ -647,7 +647,7 @@ public class ProcessModelTests
 
         feedback.ForceFalse = true;
         Assert.Equal(0d, feedback.ForcedValue);
-        Assert.True(feedback.IsForced && session.HasForcedOutputs);
+        Assert.True(feedback.IsForced && feedback.NeedsWrite);
 
         var analog = new SimulatorSignal { Kind = SimulatorSignalKind.AI, Module = 0, Channel = 0, Id = 4, ByteOffset = 32 };
         analog.ForceValue = 10;
@@ -657,6 +657,97 @@ public class ProcessModelTests
 
         command.ClearForces();
         Assert.False(command.IsForced);
+    }
+
+    [Fact]
+    public void SignalStructure_CommSimAndSet()
+    {
+        // DI: comm = SET TRUE ? 1 : SET FALSE ? 0 : sim.
+        var di = new SimulatorSignal { Kind = SimulatorSignalKind.DI, Module = 0, Channel = 0, Id = 1, ByteOffset = 0 };
+        di.WriteSim(1);
+        Assert.Equal((1d, 1d), (di.SimValue!.Value, di.CommValue!.Value));
+        di.ForceFalse = true;
+        Assert.Equal((1d, 0d), (di.SimValue!.Value, di.CommValue!.Value));
+        di.ForceFalse = false;
+        Assert.Equal(1d, di.CommValue);
+
+        // DO: sim = SET TRUE ? 1 : SET FALSE ? 0 : comm (from the PLC; unknown without a connection).
+        var output = new SimulatorSignal { Kind = SimulatorSignalKind.DO, Module = 0, Channel = 0, Id = 2, ByteOffset = 0, BitOffset = 1 };
+        Assert.Null(output.SimValue);
+        output.ForceTrue = true;
+        Assert.Equal(1d, output.SimValue);
+        Assert.Null(output.CommValue);
+        output.ForceTrue = false;
+        output.UpdateFrom([0b10]);
+        Assert.Equal((1d, 1d), (output.SimValue!.Value, output.CommValue!.Value));
+        output.ForceFalse = true;
+        Assert.Equal((0d, 1d), (output.SimValue!.Value, output.CommValue!.Value));
+        output.WriteSim(1);                            // the simulator cannot write a PLC output
+        Assert.Equal(0d, output.SimValue);
+
+        // AI: comm = WIRE BREAK ? raw 32767 : SET ? set value : sim.
+        var ai = new SimulatorSignal { Kind = SimulatorSignalKind.AI, Module = 0, Channel = 0, Id = 3, ByteOffset = 0 };
+        ai.WriteSim(1234);
+        Assert.Equal((1234, 1234d), (ai.RawValue!.Value, ai.CommValue!.Value));
+        ai.ForceValue = 500;
+        ai.ForceValueOn = true;
+        Assert.Equal((1234d, 500d, 500), (ai.SimValue!.Value, ai.CommValue!.Value, ai.RawValue!.Value));
+        ai.WireBreak = true;
+        Assert.Equal(32767, ai.RawValue);
+        Assert.True(ai.RawValue > 32000 && ai.IsErrorValue);
+        Assert.Equal(1234d, ai.SimValue);
+        ai.ClearForces();
+        Assert.Equal(1234, ai.RawValue);
+    }
+
+    [Fact]
+    public void RelayLogic_UsesSimulatorVariables_WithoutPlcConnection()
+    {
+        // DO:51 SET TRUE drives the relay 2-K13 (offline); its contact writes DI:7 through the coil output 1-K13.
+        var project = new CwcProject();
+        project.DigitalOutputs.Add(new DigitalSignalConfig { ModuleNumber = 0, Port = 0, Id = 51, Config = SignalConfigState.Enabled });
+        project.DigitalInputs.Add(new DigitalSignalConfig { ModuleNumber = 0, Port = 0, Id = 7, Config = SignalConfigState.Enabled });
+        var session = new PlcSession("Unit", project, "test|" + Guid.NewGuid());
+        Assert.False(session.IsConnected);
+        var model = new ProcessModel
+        {
+            RelaySheets =
+            [
+                new RelaySheet
+                {
+                    Circuits =
+                    [
+                        new RelayCircuit { Elements = [new RelayElement { Source = "DO:51" }], Coil = new RelayCoil { Tag = "2-K13" } },
+                        new RelayCircuit { Elements = [new RelayElement { Tag = "2-K13", Contact = "NO" }], Coil = new RelayCoil { Tag = "1-K13", Outputs = "DI:7" } }
+                    ]
+                }
+            ]
+        };
+        var engine = new ProcessEngine(new Dictionary<string, ProcessModel> { ["Unit"] = model });
+        var command = session.Find(SimulatorSignalKind.DO, 51).Single();
+        var feedback = session.Find(SimulatorSignalKind.DI, 7).Single();
+
+        command.ForceTrue = true;
+        for (var i = 0; i < 5; i++)
+        {
+            engine.Step(0.1, _ => session);
+        }
+
+        Assert.True(engine.Relays.IsOn("Unit", "2-K13"));
+        Assert.Equal((1d, 1d), (feedback.SimValue!.Value, feedback.CommValue!.Value));
+
+        feedback.ForceFalse = true;                    // SET FALSE on the DI: the PLC gets FALSE, the simulator keeps TRUE
+        engine.Step(0.1, _ => session);
+        Assert.Equal((1d, 0d), (feedback.SimValue!.Value, feedback.CommValue!.Value));
+
+        command.ForceTrue = false;
+        for (var i = 0; i < 5; i++)
+        {
+            engine.Step(0.1, _ => session);
+        }
+
+        Assert.False(engine.Relays.IsOn("Unit", "2-K13"));
+        Assert.Equal(0d, feedback.SimValue);
     }
 
     private sealed class FakeIo : ISignalIo

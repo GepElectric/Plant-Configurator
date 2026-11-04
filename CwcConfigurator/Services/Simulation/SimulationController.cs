@@ -181,17 +181,13 @@ public sealed class SimulationController
         if (Running)
         {
             SimulatedTime += dt;
-            Engine.Step(dt, plc => Session(plc) is { IsConnected: true } session ? session : null);
+            // The simulator works on the simulator variables of the signals, with or without a PLC.
+            Engine.Step(dt, plc => Session(plc));
         }
 
-        // Forces in the signal list are written every cycle and override the model.
+        // Communication variables of the inputs (Set wins over the simulator variable) to the PLC.
         foreach (var session in Sessions.Where(session => session.IsConnected))
         {
-            if (session.HasForcedOutputs)
-            {
-                session.ApplyForces();
-            }
-
             await Guard(session, session.FlushAsync, errors);
         }
 
