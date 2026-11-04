@@ -210,6 +210,33 @@ public static class EplanPowerBuilder
         return objects;
     }
 
+    /// <summary>Screens made by the power import: "Power (EPLAN)", "Power (EPLAN) 2"…</summary>
+    public static bool IsImportScreen(string screen) => screen.StartsWith("Power (EPLAN)", StringComparison.OrdinalIgnoreCase);
+
+    public const string OverviewSheet = "Power distribution (EPLAN)";
+
+    /// <summary>
+    /// Removes what an earlier power import made: its SLD screens with their objects, the overview sheet, and the
+    /// relay-logic devices that followed those objects.
+    /// </summary>
+    /// <returns>The positions (On / Off / Tripped) of the removed breakers by object name, to keep them on the new import.</returns>
+    public static Dictionary<string, string> RemovePrevious(ProcessModel model)
+    {
+        var screens = model.AllScreens().Where(IsImportScreen).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var objects = model.Objects.Where(item => item.Screen is { } screen && screens.Contains(screen)).ToList();
+        var positions = objects.Where(item => item.Options.TryGetValue("Position", out _))
+            .GroupBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().Options["Position"], StringComparer.OrdinalIgnoreCase);
+        var names = objects.Select(item => item.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        model.Objects.RemoveAll(objects.Contains);
+        model.Screens.RemoveAll(screens.Contains);
+        model.SldScreens.RemoveAll(screens.Contains);
+        model.RelaySheets.RemoveAll(sheet => sheet.Name.Equals(OverviewSheet, StringComparison.OrdinalIgnoreCase));
+        model.RelayDevices.RemoveAll(device => device.Input.Trim().StartsWith('@')
+                                              && names.Contains(device.Input.Trim()[1..].Split('.')[0]));
+        return positions;
+    }
+
     /// <summary>Object name of a device tag: "-K53" → "K53", "2-F3" → "2F3".</summary>
     public static string ObjectName(string tag) => new string((tag ?? "").Where(char.IsLetterOrDigit).ToArray()) is { Length: > 0 } name ? name : "Device";
 }

@@ -533,16 +533,21 @@ public sealed class RelayLogicView : UserControl
             return;
         }
 
+        // A new import replaces the previous one: its SLD screens with their objects, the overview sheet and the
+        // devices that followed those objects.
+        var removed = EplanPowerBuilder.RemovePrevious(model);
+
         // SLD screen with the simulator objects.
         var screen = "Power (EPLAN)";
-        for (var i = 2; model.AllScreens().Contains(screen, StringComparer.OrdinalIgnoreCase); i++)
-        {
-            screen = $"Power (EPLAN) {i}";
-        }
 
         var coils = model.RelaySheets.SelectMany(sheet => sheet.Circuits).Select(circuit => circuit.Coil.Tag.Trim()).Where(tag => tag.Length > 0)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var objects = EplanPowerBuilder.Build(import.Devices, screen, coils, model.Objects.Select(item => item.Name).ToHashSet(StringComparer.OrdinalIgnoreCase), out var names);
+        foreach (var item in objects.Where(item => item.Options.ContainsKey("Position") && removed.ContainsKey(item.Name)))
+        {
+            item.Options["Position"] = removed[item.Name]; // the breaker positions of the previous import stay
+        }
+
         model.Objects.AddRange(objects);
         model.Screens.Add(screen);
         model.SldScreens.Add(screen);
@@ -556,7 +561,7 @@ public sealed class RelayLogicView : UserControl
             : $"@{name}.On";
 
         // Overview sheet: one path per feeder (single line), the load at its end.
-        var overview = new RelaySheet { Name = "Power distribution (EPLAN)" };
+        var overview = new RelaySheet { Name = EplanPowerBuilder.OverviewSheet };
         foreach (var (_, chain, load) in import.Feeders.OrderBy(feeder => int.TryParse(feeder.Page, out var number) ? number : 0))
         {
             var elements = new List<RelayElement>();

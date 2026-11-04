@@ -87,4 +87,31 @@ public sealed class EplanPowerBuilderTests
         Assert.Equal("@BusbarNoSupply.Feeder1", byName["F60"].Ports["Supply"]);
         Assert.True(byName["F11"].X > byName["F55"].X && byName["F60"].X > byName["F10"].X);
     }
+
+    [Fact]
+    public void RemovePrevious_DropsTheOldImport_AndKeepsBreakerPositions()
+    {
+        var model = new ProcessModel
+        {
+            Screens = ["Main", "Power (EPLAN)", "Power (EPLAN) 2"],
+            SldScreens = ["Power (EPLAN)", "Power (EPLAN) 2"],
+            Objects =
+            [
+                new ObjectConfig { Name = "Gate1", Type = "Gate", Screen = "Main" },
+                new ObjectConfig { Name = "F53", Type = "Mcb", Screen = "Power (EPLAN)", Options = new() { ["Position"] = "Off" } },
+                new ObjectConfig { Name = "F53_2", Type = "Mcb", Screen = "Power (EPLAN) 2" }
+            ],
+            RelaySheets = [new RelaySheet { Name = EplanPowerBuilder.OverviewSheet }, new RelaySheet { Name = "CONTROL" }],
+            RelayDevices = [new RelayDevice { Tag = "-F53", Input = "@F53.On" }, new RelayDevice { Tag = "-K112", Input = "DI:3" }]
+        };
+
+        var positions = EplanPowerBuilder.RemovePrevious(model);
+
+        Assert.Equal("Off", positions["F53"]);
+        Assert.Equal(["Gate1"], model.Objects.Select(item => item.Name));
+        Assert.Equal(["Main"], model.Screens);
+        Assert.Empty(model.SldScreens);
+        Assert.Equal(["CONTROL"], model.RelaySheets.Select(sheet => sheet.Name));
+        Assert.Equal(["-K112"], model.RelayDevices.Select(device => device.Tag));
+    }
 }
