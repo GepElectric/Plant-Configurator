@@ -76,6 +76,7 @@ public sealed class RelayLogicView : UserControl
         toolbar.Children.Add(_sheets);
         toolbar.Children.Add(ToolButton("New sheet", "Add a relay-logic sheet.", (_, _) => NewSheet()));
         toolbar.Children.Add(ToolButton("Import EPLAN…", "Build relay-logic sheets from the schematic pages of an EPLAN export (.epj): contacts, coils, branches and selector switches.", async (_, _) => await ImportEplanAsync()));
+        toolbar.Children.Add(ToolButton("Import EPLAN power…", "Build the power part from the EPLAN distribution pages: an SLD screen (busbar, breakers, contactors following their relays, motors) and an overview sheet of the feeders.", async (_, _) => await ImportEplanPowerAsync()));
         toolbar.Children.Add(ToolButton("Copy sheet", "Copy this sheet for the same circuit with other relays and signals (find / replace rules).", (_, _) => CopySheet()));
         toolbar.Children.Add(ToolButton("Delete sheet", "Delete this sheet with all its paths.", (_, _) => DeleteSheet()));
         toolbar.Children.Add(new Separator { Width = 14, Opacity = 0 });
@@ -412,6 +413,170 @@ public sealed class RelayLogicView : UserControl
 
         message += "\n\nContacts of relays that are not on the imported sheets (e.g. PLC relays) need their source (DO / DI / object).";
         MessageBox.Show(Window.GetWindow(this)!, message, "Import EPLAN", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    /// <summary>
+    /// The power part of an EPLAN project: simulator objects on an SLD screen (busbar, breakers / motor protection,
+    /// contactors commanded by their relay coils, motors) linked by their supply, an overview sheet with one path per
+    /// feeder, and the auxiliary contacts of breakers in the relay logic connected to them.
+    /// </summary>
+    private async Task ImportEplanPowerAsync()
+    {
+        if (Model is not { } model)
+        {
+            return;
+        }
+
+        var open = new Microsoft.Win32.OpenFileDialog { Filter = "EPLAN export (*.epj)|*.epj|All files (*.*)|*.*", Title = "EPLAN project export (power part)" };
+        if (open.ShowDialog(Window.GetWindow(this)) != true)
+        {
+            return;
+        }
+
+        List<EplanSchematicPage> pages;
+        try
+        {
+            Mouse.OverrideCursor = Cursors.Wait;
+            pages = await Task.Run(() => EplanPowerImporter.ListPages(open.FileName));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(Window.GetWindow(this)!, "The EPLAN export could not be read: " + ex.Message, "Import EPLAN power", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        finally
+        {
+            Mouse.OverrideCursor = null;
+        }
+
+        if (pages.Count == 0)
+        {
+            MessageBox.Show(Window.GetWindow(this)!, "No page of this export has power devices (breakers, contactors, motors).", "Import EPLAN power", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var boxes = pages.Select(page => new CheckBox { Content = $"{page.Title}   ({page.Contacts} power device(s))", IsChecked = true, Tag = page.Index, Margin = new Thickness(0, 2, 0, 2) }).ToList();
+        if (!ChoosePages("Import power part from EPLAN",
+                "Tick the power pages (the busbars L1/L2/L3 run through them). An SLD screen and an overview sheet are created; contactors follow the relays with their tag.",
+                boxes))
+        {
+            return;
+        }
+
+        var chosen = boxes.Where(box => box.IsChecked == true).Select(box => (int)box.Tag).ToHashSet();
+        EplanPowerImport import;
+        try
+        {
+            Mouse.OverrideCursor = Cursors.Wait;
+            import = await Task.Run(() => EplanPowerImporter.Import(open.FileName, chosen));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(Window.GetWindow(this)!, "The import failed: " + ex.Message, "Import EPLAN power", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        finally
+        {
+            Mouse.OverrideCursor = null;
+        }
+
+        if (import.Devices.Count == 0)
+        {
+            MessageBox.Show(Window.GetWindow(this)!, "No power device was reached from the busbar L1 on these pages.", "Import EPLAN power", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        // SLD screen with the simulator objects.
+        var screen = "Power (EPLAN)";
+        for (var i = 2; model.AllScreens().Contains(screen, StringComparer.OrdinalIgnoreCase); i++)
+        {
+            screen = $"Power (EPLAN) {i}";
+        }
+
+        var coils = model.RelaySheets.SelectMany(sheet => sheet.Circuits).Select(circuit => circuit.Coil.Tag.Trim()).Where(tag => tag.Length > 0)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var objects = EplanPowerBuilder.Build(import.Devices, screen, coils, model.Objects.Select(item => item.Name).ToHashSet(StringComparer.OrdinalIgnoreCase), out var names);
+        model.Objects.AddRange(objects);
+        model.Screens.Add(screen);
+        model.SldScreens.Add(screen);
+
+        // State of a power device for a contact: breakers On, contactors their relay (or their state).
+        var kinds = import.Devices.ToDictionary(device => device.Id, device => device.Kind, StringComparer.OrdinalIgnoreCase);
+        string SourceOf(string key, string tag) =>
+            !names.TryGetValue(key, out var name) || !kinds.TryGetValue(key, out var kind) ? ""
+            : kind == PowerDeviceKind.Contactor ? (coils.Contains(tag.Trim()) ? "" : $"@{name}.State")
+            : kind == PowerDeviceKind.Motor ? $"@{name}.Running"
+            : $"@{name}.On";
+
+        // Overview sheet: one path per feeder (single line), the load at its end.
+        var overview = new RelaySheet { Name = "Power distribution (EPLAN)" };
+        foreach (var (_, chain, load) in import.Feeders.OrderBy(feeder => int.TryParse(feeder.Page, out var number) ? number : 0))
+        {
+            var elements = chain.Select(item => new RelayElement { Tag = item.Tag, Source = SourceOf(item.Key, item.Tag), Contact = "NO", Pins = "1//2" }).ToList();
+            overview.Circuits.Add(new RelayCircuit { Elements = elements.Count > 0 ? elements : [new RelayElement { Source = "=1" }], Coil = new RelayCoil { Text = load } });
+        }
+
+        model.RelaySheets.Add(overview);
+
+        // Auxiliary contacts of breakers / motor protection in the relay logic (tag, no source yet) follow them.
+        var byTag = import.Devices.Where(device => device.Kind != PowerDeviceKind.Contactor)
+            .GroupBy(device => device.Tag.Trim(), StringComparer.OrdinalIgnoreCase).Where(group => group.Count() == 1)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var auxiliary = 0;
+        foreach (var contact in model.RelaySheets.Where(sheet => sheet != overview).SelectMany(sheet => sheet.Circuits).SelectMany(circuit => RelayLogicRunner.AllElements(circuit.Elements))
+                     .Where(element => !element.IsParallel && element.Source.Trim().Length == 0 && !coils.Contains(element.Tag.Trim())))
+        {
+            if (byTag.TryGetValue(contact.Tag.Trim(), out var device) && SourceOf(device.Id, device.Tag) is { Length: > 0 } source)
+            {
+                contact.Source = source;
+                auxiliary++;
+            }
+        }
+
+        _sheetIndex = model.RelaySheets.Count - 1;
+        _selected = Sheet;
+        Changed();
+        ShowProperties();
+
+        var message = $"Power part imported: {objects.Count} object(s) on the SLD screen '{screen}' (SCADA tab), " +
+                      $"{import.Feeders.Count} feeder(s) on the sheet '{overview.Name}', {auxiliary} auxiliary contact(s) connected.\n\n" +
+                      $"Contactors follow the relay coils with their tag ({objects.Count(item => item.Ports.ContainsKey("Command"))} connected); turn breakers on/off on the SLD.";
+        if (import.Warnings.Count > 0)
+        {
+            message += "\n\nTo check:\n" + string.Join("\n", import.Warnings.Take(15).Select(warning => "• " + warning));
+        }
+
+        MessageBox.Show(Window.GetWindow(this)!, message, "Import EPLAN power", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    /// <summary>Page selection dialog (tick boxes); true when confirmed.</summary>
+    private bool ChoosePages(string title, string text, List<CheckBox> boxes)
+    {
+        var list = new StackPanel();
+        boxes.ForEach(box => list.Children.Add(box));
+        var ok = new Button { Content = "Import", Width = 90, IsDefault = true, Margin = new Thickness(0, 0, 8, 0) };
+        var cancel = new Button { Content = "Cancel", Width = 90, IsCancel = true };
+        var panel = new DockPanel { Margin = new Thickness(14) };
+        var header = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) };
+        DockPanel.SetDock(header, Dock.Top);
+        panel.Children.Add(header);
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+        buttons.Children.Add(ok);
+        buttons.Children.Add(cancel);
+        DockPanel.SetDock(buttons, Dock.Bottom);
+        panel.Children.Add(buttons);
+        panel.Children.Add(new ScrollViewer { Content = list, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        var dialog = new Window
+        {
+            Title = title,
+            Content = panel,
+            Width = 720,
+            Height = 520,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = Window.GetWindow(this)
+        };
+        ok.Click += (_, _) => dialog.DialogResult = true;
+        return dialog.ShowDialog() == true && boxes.Any(box => box.IsChecked == true);
     }
 
     private void CopySheet()
@@ -1331,7 +1496,7 @@ public sealed class RelayLogicView : UserControl
         AddLine(x, top + CoilHeight, x, railBottom, WireBrush, 1.4);
 
         var labelRight = x - CoilWidth / 2 - 8;
-        AddTextRight(Display(coil.Tag, "(no tag)"), labelRight, top - 4, 15, TextBrush);
+        AddTextRight(Display(coil.Tag, coil.Text.Trim().Length > 0 ? "" : "(no tag)"), labelRight, top - 4, 15, TextBrush);
         var info = coil.Text;
         if (coil.Timer.Length > 0)
         {

@@ -21,7 +21,11 @@ public enum PowerDeviceKind
 /// A device of the power circuits and what feeds it: another device's tag, or "" for the busbar. An incomer (main
 /// switch) is fed from outside and supplies the busbar.
 /// </summary>
-public sealed record PowerDevice(string Tag, PowerDeviceKind Kind, string Text, string Upstream, string Page = "", bool Incomer = false);
+public sealed record PowerDevice(string Tag, PowerDeviceKind Kind, string Text, string Upstream, string Page = "", bool Incomer = false, string Key = "")
+{
+    /// <summary>Identity of the device (its EPLAN function + location + tag when known; two -Q1 can be different devices).</summary>
+    public string Id => Key.Length > 0 ? Key : Tag.Trim();
+}
 
 /// <summary>
 /// Simulator objects for the power part of an EPLAN project: a busbar, breakers / motor protection switches (Mcb),
@@ -37,7 +41,12 @@ public static class EplanPowerBuilder
     private const double BusbarY = 170;
     private const double IncomerY = 60;
 
-    public static List<ObjectConfig> Build(IReadOnlyList<PowerDevice> devices, string screen, ISet<string> relayCoils, IReadOnlySet<string> existingNames)
+    public static List<ObjectConfig> Build(IReadOnlyList<PowerDevice> devices, string screen, ISet<string> relayCoils, IReadOnlySet<string> existingNames) =>
+        Build(devices, screen, relayCoils, existingNames, out _);
+
+    /// <param name="objectNames">Device id (<see cref="PowerDevice.Id"/>) → name of its simulator object.</param>
+    public static List<ObjectConfig> Build(IReadOnlyList<PowerDevice> devices, string screen, ISet<string> relayCoils, IReadOnlySet<string> existingNames,
+        out Dictionary<string, string> objectNames)
     {
         var objects = new List<ObjectConfig>();
         var names = new HashSet<string>(existingNames, StringComparer.OrdinalIgnoreCase);
@@ -72,12 +81,20 @@ public static class EplanPowerBuilder
                 config.Options["Position"] = "On";
             }
 
+            // Rated current from the EPLAN text, e.g. "Pn=11 kW In=22,5A".
+            if (device.Kind == PowerDeviceKind.Motor
+                && System.Text.RegularExpressions.Regex.Match(device.Text, @"In\s*=\s*([0-9]+(?:[.,][0-9]+)?)") is { Success: true } current
+                && double.TryParse(current.Groups[1].Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var amps))
+            {
+                config.Params["RatedCurrent"] = amps;
+            }
+
             if (device.Kind == PowerDeviceKind.Contactor && relayCoils.Contains(device.Tag.Trim()))
             {
                 config.Ports["Command"] = $"@{ProcessEngine.RelaysLink}.{device.Tag.Trim()}";
             }
 
-            byTag.TryAdd(device.Tag.Trim(), config);
+            byTag.TryAdd(device.Id, config);
             objects.Add(config);
         }
 
@@ -108,9 +125,9 @@ public static class EplanPowerBuilder
             else if (incomers.Count > 0)
             {
                 // The main switch supplies the busbar; drawn above it.
-                busbar.Ports["Supply1"] = $"@{byTag[incomers[0].Tag.Trim()].Name}.Live";
-                byTag[incomers[0].Tag.Trim()].X = Left;
-                byTag[incomers[0].Tag.Trim()].Y = IncomerY;
+                busbar.Ports["Supply1"] = $"@{byTag[incomers[0].Id].Name}.Live";
+                byTag[incomers[0].Id].X = Left;
+                byTag[incomers[0].Id].Y = IncomerY;
             }
 
             busbars.Add(busbar);
@@ -118,32 +135,63 @@ public static class EplanPowerBuilder
 
         for (var i = 0; i < feeders.Count; i++)
         {
-            byTag[feeders[i].Tag.Trim()].Ports["Supply"] = $"@{busbars[i / perBusbar].Name}.Feeder{i % perBusbar + 1}";
+            byTag[feeders[i].Id].Ports["Supply"] = $"@{busbars[i / perBusbar].Name}.Feeder{i % perBusbar + 1}";
         }
 
         foreach (var device in devices.Where(device => device.Upstream.Length > 0 && byTag.ContainsKey(device.Upstream)))
         {
-            byTag[device.Tag.Trim()].Ports["Supply"] = $"@{byTag[device.Upstream].Name}.Live";
+            byTag[device.Id].Ports["Supply"] = $"@{byTag[device.Upstream].Name}.Live";
         }
 
-        // Layout: one column per feeder, the chain below it.
-        for (var i = 0; i < feeders.Count; i++)
+        // Layout as a tree: every device above its first child, branches side by side, one column per leaf.
+        var nextColumn = Left;
+        var placed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void Place(PowerDevice device, int row)
         {
-            var row = 0;
-            var column = Left + i * ColumnWidth;
-            var current = feeders[i];
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            while (current is not null && seen.Add(current.Tag))
+            if (!placed.Add(device.Id))
             {
-                var config = byTag[current.Tag.Trim()];
-                config.X = column;
-                config.Y = BusbarY + 70 + row * RowHeight;
-                row++;
-                current = devices.FirstOrDefault(device => device.Upstream.Equals(current.Tag, StringComparison.OrdinalIgnoreCase));
+                return;
+            }
+
+            var config = byTag[device.Id];
+            config.Y = BusbarY + 70 + row * RowHeight;
+            var children = devices.Where(child => child.Upstream.Equals(device.Id, StringComparison.OrdinalIgnoreCase) && !placed.Contains(child.Id)).ToList();
+            config.X = nextColumn;
+            if (children.Count == 0)
+            {
+                nextColumn += ColumnWidth;
+                return;
+            }
+
+            foreach (var child in children)
+            {
+                Place(child, row + 1);
             }
         }
 
+        var feederColumns = new List<double>();
+        foreach (var feeder in feeders)
+        {
+            feederColumns.Add(nextColumn);
+            Place(feeder, 0);
+        }
+
+        // Each busbar spans the columns of its feeders.
+        for (var b = 0; b < busbars.Count; b++)
+        {
+            var columns = feederColumns.Skip(b * perBusbar).Take(perBusbar).ToList();
+            if (columns.Count == 0)
+            {
+                continue;
+            }
+
+            var end = b + 1 < busbars.Count ? feederColumns[(b + 1) * perBusbar] : nextColumn;
+            busbars[b].X = columns[0] - 40;
+            busbars[b].Params["Length"] = Math.Max(300, end - columns[0] + 20);
+        }
+
         objects.InsertRange(0, busbars);
+        objectNames = byTag.ToDictionary(pair => pair.Key, pair => pair.Value.Name, StringComparer.OrdinalIgnoreCase);
         return objects;
     }
 
