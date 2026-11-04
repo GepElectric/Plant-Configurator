@@ -47,6 +47,12 @@ public sealed class CubicleView : UserControl
 
     private readonly TextBlock _modeHint = new() { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0), Foreground = Brushes.DimGray, FontSize = 11 };
     private bool _wasRunning;
+
+    /// <summary>The momentary push button held down with the mouse (released when the mouse button goes up).</summary>
+    private CubicleItem? _held;
+
+    private static readonly Color PressedColor = Color.FromRgb(0xF9, 0x73, 0x16);
+    private static readonly Brush PressedBrush = new SolidColorBrush(Color.FromRgb(0xF9, 0x73, 0x16));
     private readonly StackPanel _properties = new() { Margin = new Thickness(10) };
 
     private SimulationController? _controller;
@@ -117,6 +123,10 @@ public sealed class CubicleView : UserControl
         _door.MouseMove += Door_MouseMove;
         _door.MouseLeftButtonUp += (_, _) => EndDrag();
 
+        // A held push button springs back when the mouse button goes up (wherever the mouse is) or the capture is lost.
+        _door.PreviewMouseUp += (_, _) => ReleaseHeld();
+        _door.LostMouseCapture += (_, _) => ReleaseHeld();
+
         var left = new DockPanel();
         var toolbarBorder = new Border { Child = toolbar, BorderBrush = new SolidColorBrush(Color.FromRgb(0xE5, 0xE7, 0xEB)), BorderThickness = new Thickness(0, 0, 0, 1), Background = Brushes.White };
         DockPanel.SetDock(toolbarBorder, Dock.Top);
@@ -169,7 +179,7 @@ public sealed class CubicleView : UserControl
         }
 
         _wasRunning = running;
-        if (IsVisible && _dragging is null && Mouse.LeftButton != MouseButtonState.Pressed)
+        if (IsVisible && _dragging is null && (_held is not null || Mouse.LeftButton != MouseButtonState.Pressed))
         {
             Redraw();
         }
@@ -584,8 +594,15 @@ public sealed class CubicleView : UserControl
                 // while its light source is on.
                 var pressed = item.Pressed;
                 var lit = item.Source.Trim().Length > 0 && _controller?.Running == true && _controller.Engine.Relays.IsLampOn(item);
-                var size = pressed ? lens * 0.78 : lens;
+                var size = pressed ? lens * 0.82 : lens;
                 var color = LensColor(item.Color);
+                if (pressed)
+                {
+                    // Pressed: a bright orange halo around the bezel, so it is seen at a glance.
+                    AddTo(group, new Ellipse { Width = bezel * 1.18, Height = bezel * 1.18, Stroke = PressedBrush, StrokeThickness = 4 * scale, Fill = new SolidColorBrush(Color.FromArgb(0x40, PressedColor.R, PressedColor.G, PressedColor.B)) },
+                        -bezel * 0.59, -bezel * 0.59);
+                }
+
                 if (lit)
                 {
                     AddTo(group, new Ellipse { Width = lens * 1.25, Height = lens * 1.25, Fill = new RadialGradientBrush(Color.FromArgb(0xA0, color.R, color.G, color.B), Color.FromArgb(0, color.R, color.G, color.B)) }, -lens * 0.625, -lens * 0.625);
@@ -597,8 +614,9 @@ public sealed class CubicleView : UserControl
                     Height = size,
                     Fill = lit
                         ? new RadialGradientBrush(System.Windows.Media.Colors.White, Brighter(color))
-                        : new RadialGradientBrush(pressed ? Darker(color) : Brighter(color), pressed ? Darker(Darker(color)) : color),
-                    Stroke = pressed ? SelectBrush : Brushes.Black,
+                        : pressed ? new RadialGradientBrush(Brighter(PressedColor), PressedColor)
+                        : new RadialGradientBrush(Brighter(color), color),
+                    Stroke = pressed ? PressedBrush : Brushes.Black,
                     StrokeThickness = pressed ? 2.5 : 0.8
                 }, -size / 2, -size / 2);
                 if (item.Source.Trim().Length > 0)
@@ -609,7 +627,7 @@ public sealed class CubicleView : UserControl
 
                 if (pressed)
                 {
-                    var label = new TextBlock { Text = "PRESSED", FontSize = Math.Max(7, 6.5 * scale), FontWeight = FontWeights.Bold, Foreground = SelectBrush };
+                    var label = new TextBlock { Text = "PRESSED", FontSize = Math.Max(8, 7.5 * scale), FontWeight = FontWeights.Bold, Foreground = PressedBrush };
                     label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                     AddTo(group, label, -label.DesiredSize.Width / 2, -bezel / 2 - label.DesiredSize.Height - 2 * scale);
                 }
@@ -624,7 +642,6 @@ public sealed class CubicleView : UserControl
         group.ToolTip = ItemTitle(item);
         Place(group, cx, cy);
         group.MouseLeftButtonDown += (_, e) => Item_MouseDown(item, e);
-        group.MouseLeftButtonUp += (_, _) => Release(item);
 
         // The right mouse button always operates (also while placing devices): hold it on a push button.
         group.MouseRightButtonDown += (_, e) =>
@@ -632,19 +649,7 @@ public sealed class CubicleView : UserControl
             e.Handled = true;
             Operate(item, e);
         };
-        group.MouseRightButtonUp += (_, e) =>
-        {
-            e.Handled = true;
-            Release(item);
-        };
-        group.MouseLeave += (_, _) =>
-        {
-            if (item.Pressed && !item.IsEmergencyStop)
-            {
-                item.Pressed = false;
-                Redraw();
-            }
-        };
+        group.MouseRightButtonUp += (_, e) => e.Handled = true;
     }
 
     /// <summary>Selector switch: a black knob with a white handle pointing to the position, position names around it.</summary>
@@ -707,14 +712,22 @@ public sealed class CubicleView : UserControl
         Operate(item, e);
     }
 
-    /// <summary>A momentary push button springs back when the mouse button is released.</summary>
-    private void Release(CubicleItem item)
+    /// <summary>The held push button springs back.</summary>
+    private void ReleaseHeld()
     {
-        if (item.Pressed && !item.IsEmergencyStop)
+        if (_held is not { } item)
         {
-            item.Pressed = false;
-            Redraw();
+            return;
         }
+
+        _held = null;
+        item.Pressed = false;
+        if (_door.IsMouseCaptured && _dragging is null)
+        {
+            _door.ReleaseMouseCapture();
+        }
+
+        Redraw();
     }
 
     /// <summary>Operating a device: push button held down, mushroom latched / released, switch turned.</summary>
@@ -727,7 +740,10 @@ public sealed class CubicleView : UserControl
         }
         else if (item.IsButton)
         {
+            // Held while the mouse button is down: the door keeps the mouse, so redrawing does not release it.
             item.Pressed = true;
+            _held = item;
+            _door.CaptureMouse();
             Redraw();
         }
         else if (item.IsSwitch && SwitchOf(item) is { } selector)
