@@ -226,6 +226,34 @@ public sealed class RelayLogicTests
     }
 
     [Fact]
+    public void EmergencyStopAndIlluminatedButton_WorkLikeButtons()
+    {
+        var stop = new CubicleItem { Kind = CubicleItemKind.EmergencyStop, Tag = "-S301", Contact = "NC", Outputs = "DI:90" };
+        var reset = new CubicleItem { Kind = CubicleItemKind.PushButton, Tag = "-S13", Source = "-K301" };
+        var model = new ProcessModel
+        {
+            RelaySheets = [new RelaySheet { Name = "ESD", Circuits = [new RelayCircuit { Elements = [Contact("-S301", "NC")], Coil = new RelayCoil { Tag = "-K301" } }] }],
+            Cubicles = [new Cubicle { Items = [stop, reset] }]
+        };
+        var engine = new ProcessEngine(new Dictionary<string, ProcessModel> { ["Intake"] = model });
+        var io = new FakeIo();
+
+        engine.Step(0.1, _ => io);
+        engine.Step(0.1, _ => io);
+        Assert.True(stop.IsButton);
+        Assert.Equal(1, io.Values[(SimulatorSignalKind.DI, 90)]);
+        Assert.True(engine.Relays.IsOn("Intake", "-K301"));
+        Assert.True(engine.Relays.IsLampOn(reset)); // lit by -K301
+
+        stop.Pressed = true; // latched
+        engine.Step(0.1, _ => io);
+        engine.Step(0.1, _ => io);
+        Assert.Equal(0, io.Values[(SimulatorSignalKind.DI, 90)]);
+        Assert.False(engine.Relays.IsOn("Intake", "-K301"));
+        Assert.False(engine.Relays.IsLampOn(reset));
+    }
+
+    [Fact]
     public void CopySheet_ReplacesTagsSignalsAndTexts()
     {
         var sheet = new RelaySheet

@@ -5,6 +5,9 @@ namespace CwcConfigurator.Services.Simulation.Process;
 public static class CubicleItemKind
 {
     public const string PushButton = "PushButton";
+
+    /// <summary>Emergency stop: a mushroom head that latches when pressed and is released by a second click (turn).</summary>
+    public const string EmergencyStop = "EmergencyStop";
     public const string Switch = "Switch";
     public const string Lamp = "Lamp";
     public const string Label = "Label";
@@ -47,7 +50,7 @@ public sealed class CubicleItem
 
     public double Y { get; set; }
 
-    /// <summary>Lamp: what lights it — a relay or push-button tag (-K101), a signal (DO:12, DI:3) or an object port (@Gate1.Open).</summary>
+    /// <summary>Lamp or illuminated push button: what lights it — a relay or push-button tag (-K101), a signal (DO:12, DI:3) or an object port (@Gate1.Open).</summary>
     public string Source { get; set; } = "";
 
     /// <summary>
@@ -89,7 +92,10 @@ public sealed class CubicleItem
     public bool IsLamp => Kind.Equals(CubicleItemKind.Lamp, StringComparison.OrdinalIgnoreCase);
 
     [YamlIgnore]
-    public bool IsButton => Kind.Equals(CubicleItemKind.PushButton, StringComparison.OrdinalIgnoreCase);
+    public bool IsButton => Kind.Equals(CubicleItemKind.PushButton, StringComparison.OrdinalIgnoreCase) || IsEmergencyStop;
+
+    [YamlIgnore]
+    public bool IsEmergencyStop => Kind.Equals(CubicleItemKind.EmergencyStop, StringComparison.OrdinalIgnoreCase);
 
     [YamlIgnore]
     public bool IsLabel => Kind.Equals(CubicleItemKind.Label, StringComparison.OrdinalIgnoreCase);

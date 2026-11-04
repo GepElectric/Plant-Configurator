@@ -65,6 +65,7 @@ public sealed class CubicleView : UserControl
         toolbar.Children.Add(new Separator { Width = 14, Opacity = 0 });
         toolbar.Children.Add(ToolButton("Push button", "Add a push button (momentary).", (_, _) => AddItem(CubicleItemKind.PushButton)));
         toolbar.Children.Add(ToolButton("Selector switch", "Add a selector switch (2 or 3 positions) — the same switch as in the relay logic.", (_, _) => AddItem(CubicleItemKind.Switch)));
+        toolbar.Children.Add(ToolButton("Emergency stop", "Add an emergency stop mushroom (latching, NC contact).", (_, _) => AddItem(CubicleItemKind.EmergencyStop)));
         toolbar.Children.Add(ToolButton("Lamp", "Add an indicator lamp.", (_, _) => AddItem(CubicleItemKind.Lamp)));
         toolbar.Children.Add(ToolButton("Label", "Add a label plate (text only).", (_, _) => AddItem(CubicleItemKind.Label)));
         toolbar.Children.Add(ToolButton("Delete", "Delete the selected device (Del).", (_, _) => DeleteItem()));
@@ -231,7 +232,8 @@ public sealed class CubicleView : UserControl
             Kind = kind,
             X = x,
             Y = y,
-            Color = kind == CubicleItemKind.Lamp ? "White" : kind == CubicleItemKind.Switch ? "Black" : "Green",
+            Color = kind == CubicleItemKind.Lamp ? "White" : kind == CubicleItemKind.Switch ? "Black" : kind == CubicleItemKind.EmergencyStop ? "Red" : "Green",
+            Contact = kind == CubicleItemKind.EmergencyStop ? "NC" : "NO",
             Tag = kind == CubicleItemKind.Label ? "" : NextTag(kind == CubicleItemKind.Lamp ? "-H" : "-S"),
             Text = kind == CubicleItemKind.Label ? "LABEL" : ""
         };
@@ -420,7 +422,36 @@ public sealed class CubicleView : UserControl
         {
             var bezel = Bezel * scale;
             var lens = Lens * scale;
-            AddTo(group, new Ellipse { Width = bezel, Height = bezel, Fill = BezelBrush, Stroke = selected ? SelectBrush : Brushes.Black, StrokeThickness = selected ? 3 : 1 }, -bezel / 2, -bezel / 2);
+            if (item.IsEmergencyStop)
+            {
+                // Yellow round plate, red mushroom head; latched: pushed in (smaller, darker) with a red ring.
+                var plate = 54 * scale;
+                var head = (item.Pressed ? 36 : 40) * scale;
+                AddTo(group, new Ellipse { Width = plate, Height = plate, Fill = new SolidColorBrush(Color.FromRgb(0xFA, 0xCC, 0x15)), Stroke = selected ? SelectBrush : Brushes.Black, StrokeThickness = selected ? 3 : 1 }, -plate / 2, -plate / 2);
+                AddTo(group, new Ellipse { Width = 30 * scale, Height = 30 * scale, Fill = BezelBrush }, -15 * scale, -15 * scale);
+                var red = LensColor("Red");
+                AddTo(group, new Ellipse
+                {
+                    Width = head,
+                    Height = head,
+                    Fill = new RadialGradientBrush(item.Pressed ? Darker(red) : Brighter(red), item.Pressed ? Darker(Darker(red)) : red) { GradientOrigin = new Point(0.35, 0.3) },
+                    Stroke = item.Pressed ? new SolidColorBrush(Color.FromRgb(0x7F, 0x1D, 0x1D)) : Brushes.Black,
+                    StrokeThickness = item.Pressed ? 3 * scale : 1
+                }, -head / 2, -head / 2);
+                if (item.Pressed)
+                {
+                    var latched = new TextBlock { Text = "LATCHED", FontSize = Math.Max(7, 7 * scale), FontWeight = FontWeights.Bold, Foreground = Brushes.White };
+                    latched.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                    AddTo(group, latched, -latched.DesiredSize.Width / 2, -latched.DesiredSize.Height / 2);
+                }
+
+                bezel = plate;
+            }
+            else
+            {
+                AddTo(group, new Ellipse { Width = bezel, Height = bezel, Fill = BezelBrush, Stroke = selected ? SelectBrush : Brushes.Black, StrokeThickness = selected ? 3 : 1 }, -bezel / 2, -bezel / 2);
+            }
+
             if (item.IsSwitch)
             {
                 DrawSwitch(group, item, lens, scale);
@@ -438,19 +469,41 @@ public sealed class CubicleView : UserControl
                     StrokeThickness = 0.8
                 }, -lens / 2, -lens / 2);
             }
-            else
+            else if (!item.IsEmergencyStop)
             {
+                // Push button: pushed in while held (smaller, darker, blue ring, "PRESSED"); an illuminated one glows
+                // while its light source is on.
                 var pressed = item.Pressed;
-                var size = pressed ? lens * 0.9 : lens;
+                var lit = item.Source.Trim().Length > 0 && _controller?.Running == true && _controller.Engine.Relays.IsLampOn(item);
+                var size = pressed ? lens * 0.78 : lens;
                 var color = LensColor(item.Color);
+                if (lit)
+                {
+                    AddTo(group, new Ellipse { Width = lens * 1.25, Height = lens * 1.25, Fill = new RadialGradientBrush(Color.FromArgb(0xA0, color.R, color.G, color.B), Color.FromArgb(0, color.R, color.G, color.B)) }, -lens * 0.625, -lens * 0.625);
+                }
+
                 AddTo(group, new Ellipse
                 {
                     Width = size,
                     Height = size,
-                    Fill = new RadialGradientBrush(pressed ? Darker(color) : Brighter(color), pressed ? Darker(Darker(color)) : color),
-                    Stroke = Brushes.Black,
-                    StrokeThickness = 0.8
+                    Fill = lit
+                        ? new RadialGradientBrush(System.Windows.Media.Colors.White, Brighter(color))
+                        : new RadialGradientBrush(pressed ? Darker(color) : Brighter(color), pressed ? Darker(Darker(color)) : color),
+                    Stroke = pressed ? SelectBrush : Brushes.Black,
+                    StrokeThickness = pressed ? 2.5 : 0.8
                 }, -size / 2, -size / 2);
+                if (item.Source.Trim().Length > 0)
+                {
+                    // Illuminated push button: a small ring marks the lens.
+                    AddTo(group, new Ellipse { Width = size * 0.55, Height = size * 0.55, Stroke = new SolidColorBrush(Color.FromArgb(0x90, 0xFF, 0xFF, 0xFF)), StrokeThickness = 1 }, -size * 0.275, -size * 0.275);
+                }
+
+                if (pressed)
+                {
+                    var label = new TextBlock { Text = "PRESSED", FontSize = Math.Max(7, 6.5 * scale), FontWeight = FontWeights.Bold, Foreground = SelectBrush };
+                    label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                    AddTo(group, label, -label.DesiredSize.Width / 2, -bezel / 2 - label.DesiredSize.Height - 2 * scale);
+                }
             }
 
             // Label plate under the device: tag and text.
@@ -464,7 +517,7 @@ public sealed class CubicleView : UserControl
         group.MouseLeftButtonDown += (_, e) => Item_MouseDown(item, e);
         group.MouseLeftButtonUp += (_, _) =>
         {
-            if (item.Pressed)
+            if (item.Pressed && !item.IsEmergencyStop)
             {
                 item.Pressed = false;
                 Redraw();
@@ -472,7 +525,7 @@ public sealed class CubicleView : UserControl
         };
         group.MouseLeave += (_, _) =>
         {
-            if (item.Pressed)
+            if (item.Pressed && !item.IsEmergencyStop)
             {
                 item.Pressed = false;
                 Redraw();
@@ -538,7 +591,12 @@ public sealed class CubicleView : UserControl
         }
 
         // Operating the devices.
-        if (item.IsButton)
+        if (item.IsEmergencyStop)
+        {
+            item.Pressed = !item.Pressed; // press latches it, a second click turns it free
+            Redraw();
+        }
+        else if (item.IsButton)
         {
             item.Pressed = true;
             Redraw();
@@ -645,6 +703,7 @@ public sealed class CubicleView : UserControl
     private static string ItemTitle(CubicleItem item) => item.Kind switch
     {
         CubicleItemKind.PushButton => $"Push button {item.Tag}",
+        CubicleItemKind.EmergencyStop => $"Emergency stop {item.Tag}" + (item.Pressed ? " (latched — click to release)" : " (click to press)"),
         CubicleItemKind.Switch => $"Selector switch {item.Tag}",
         CubicleItemKind.Lamp => $"Lamp {item.Tag}",
         _ => "Label"
@@ -691,6 +750,7 @@ public sealed class CubicleView : UserControl
         Header(item.Kind switch
         {
             CubicleItemKind.PushButton => "Push button",
+            CubicleItemKind.EmergencyStop => "Emergency stop",
             CubicleItemKind.Switch => "Selector switch",
             CubicleItemKind.Lamp => "Indicator lamp",
             _ => "Label plate"
@@ -795,7 +855,21 @@ public sealed class CubicleView : UserControl
             {
                 item.Outputs = value;
                 Changed();
-            }, "PLC inputs switched by the button (type to search; several: DI:69, DI:70). NO: 1 while pressed; NC: 0 while pressed.", DimBrush);
+            }, item.IsEmergencyStop
+                ? "PLC inputs switched by the emergency stop (type to search). NC: 0 while latched — the usual safe wiring."
+                : "PLC inputs switched by the button (type to search; several: DI:69, DI:70). NO: 1 while pressed; NC: 0 while pressed.", DimBrush);
+            if (!item.IsEmergencyStop)
+            {
+                SignalSearchField.Add(_properties, "Lit by", item.Source, SignalSearchField.Devices(Model).Concat(Signals(PortDirection.Input)).ToList(), value =>
+                {
+                    item.Source = value;
+                    Changed();
+                }, "Illuminated push button: what lights it — a relay (-K101), a PLC output (DO:12), an input or an object. Empty = no light.", DimBrush);
+            }
+            else
+            {
+                Note("Click the mushroom to press it: it stays latched until you click it again (turn to release).");
+            }
             Note("Contacts with this tag on the relay-logic sheets are operated while the button is held down.");
         }
         else if (item.IsLamp)

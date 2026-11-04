@@ -176,7 +176,7 @@ public sealed class RelayLogicRunner
                     problems.Add($"{plc}: push button {item.Tag} is on the cubicles more than once.");
                 }
 
-                if (item.IsLamp && item.Source.Trim().Length > 0)
+                if ((item.IsLamp || item.IsButton) && item.Source.Trim().Length > 0)
                 {
                     _lamps.Add((plc, item));
                 }
