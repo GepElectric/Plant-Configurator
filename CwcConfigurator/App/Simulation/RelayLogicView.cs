@@ -406,7 +406,19 @@ public sealed class RelayLogicView : UserControl
 
         // Operator devices of the project (push buttons, mushrooms, switches, lamps) on a cubicle door, to be arranged.
         var onDoor = CubicleLayout.AddDevices(model, import.CubicleDevices, "EPLAN devices");
-        var linked = _controller?.Session(_plc)?.Project is { } project ? RelayPlcSignals.Link(model, project.DigitalOutputs, project.DigitalInputs) : 0;
+        // PLC card points → DI / DO of the simulator (by the EPLAN terminal of each channel), then the relays by tag.
+        var missing = new List<string>();
+        var points = 0;
+        var linked = 0;
+        if (_controller?.Session(_plc)?.Project is { } project)
+        {
+            points = RelayPlcPoints.Resolve(model, import.PlcPoints, project.DigitalInputs, project.DigitalOutputs, missing);
+            linked = RelayPlcSignals.Link(model, project.DigitalOutputs, project.DigitalInputs);
+        }
+
+        // Contacts of breakers / contactors follow their objects of the power part (when it is imported).
+        var powerContacts = RelayPlcSignals.LinkPowerObjects(model);
+
         _sheetIndex = import.Sheets.Count > 0 ? first : _sheetIndex;
         _selected = Sheet;
         Changed();
@@ -414,10 +426,20 @@ public sealed class RelayLogicView : UserControl
 
         var paths = import.Sheets.Sum(sheet => sheet.Circuits.Count);
         var message = $"Imported {import.Sheets.Count} sheet(s) with {paths} path(s) and {import.Switches.Count} selector switch(es); " +
-                      $"{linked} contact(s) / coil(s) connected to their PLC input or output.";
+                      $"{points} PLC card input(s) / output(s) and {linked} relay(s) connected to their DI / DO.";
+        if (missing.Count > 0)
+        {
+            message += $" {missing.Count} spare (or unmapped) PLC point(s) are drawn without a signal — set them with Drives / Input (search by module and port): {string.Join(", ", missing.Take(10))}" +
+                       (missing.Count > 10 ? " …" : "") + ".";
+        }
         if (removed > 0)
         {
             message += $" {removed} older sheet(s) with the same pages were replaced.";
+        }
+
+        if (powerContacts > 0)
+        {
+            message += $" {powerContacts} breaker / contactor contact(s) follow their object of the power part.";
         }
 
         if (onDoor > 0)
@@ -569,6 +591,7 @@ public sealed class RelayLogicView : UserControl
             }
         }
 
+        auxiliary += RelayPlcSignals.LinkPowerObjects(model);
         _sheetIndex = model.RelaySheets.Count - 1;
         _selected = Sheet;
         Changed();
@@ -1585,10 +1608,11 @@ public sealed class RelayLogicView : UserControl
             AddRect(x - WireOffset + 6, top - 8, ColumnWidth - 12, CoilHeight + 16, SelectBrush);
         }
 
-        if (coil.Tag.Trim().Length == 0 && coil.Outputs.Trim().Length > 0)
+        if ((coil.Tag.Trim().Length == 0 && coil.Outputs.Trim().Length > 0) || IsPlcInputTag(coil.Tag))
         {
             DrawPlcInput(coil, x, top, on);
-            AddHitArea(coil, x - WireOffset + 6, top - 8, ColumnWidth - 12, CoilHeight + 16, $"PLC input {coil.Outputs} — {RelayLogicRunner.Location(sheet, sheetIndex, path)}");
+            AddHitArea(coil, x - WireOffset + 6, top - 8, ColumnWidth - 12, CoilHeight + 16,
+                (coil.Outputs.Trim().Length > 0 ? $"PLC input {coil.Outputs}" : $"{coil.Tag} — not connected to a PLC input yet: set Drives (DI, search by module / port)") + $" — {RelayLogicRunner.Location(sheet, sheetIndex, path)}");
             return;
         }
 
@@ -1694,23 +1718,61 @@ public sealed class RelayLogicView : UserControl
     }
 
     /// <summary>A path without a relay, wired straight to PLC inputs: a terminal box with the input addresses.</summary>
+    /// <summary>"-A611:DI6" (a PLC card input not connected to a DI yet), "-TM2:DI1" (input of a drive).</summary>
+    private static bool IsPlcInputTag(string tag) => System.Text.RegularExpressions.Regex.IsMatch(tag.Trim(), @":DI\d+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// The PLC input object at the end of a path: the box of the input with its module, port, DI and name (or the
+    /// input of a drive / a spare PLC input still to be connected with Drives).
+    /// </summary>
     private void DrawPlcInput(RelayCoil coil, double x, double top, bool on)
     {
+        if (_dry)
+        {
+            return;
+        }
+
+        var outputs = PortBinding.ParseList(coil.Outputs).Where(target => target.Kind == BindingKind.Signal).ToList();
+        var label = new TextBlock { TextAlignment = TextAlignment.Center, FontSize = 10, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4, 0, 4, 0),
+            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        var title = outputs.Count > 0 ? "PLC INPUT" : coil.Tag.Trim().Split(':')[0] + " INPUT";
+        label.Inlines.Add(new System.Windows.Documents.Run(title) { FontSize = 9, Foreground = DimBrush });
+        foreach (var target in outputs)
+        {
+            label.Inlines.Add(new System.Windows.Documents.LineBreak());
+            var signal = _controller?.Session(_plc)?.Find(target.SignalKind, target.SignalId).FirstOrDefault();
+            label.Inlines.Add(new System.Windows.Documents.Run(signal is null ? $"{target.SignalKind}:{target.SignalId}" : $"{signal.Kind}:{signal.Id} · {signal.ModuleText} port {signal.Channel}")
+                { FontWeight = FontWeights.SemiBold });
+        }
+
+        if (outputs.Count == 0)
+        {
+            label.Inlines.Add(new System.Windows.Documents.LineBreak());
+            label.Inlines.Add(new System.Windows.Documents.Run(coil.Tag.Trim().Split(':').Last()) { FontWeight = FontWeights.SemiBold });
+        }
+
+        var text = coil.Text.Replace("\r", "").Replace('\n', ' ').Trim();
+        if (text.Length > 0)
+        {
+            label.Inlines.Add(new System.Windows.Documents.LineBreak());
+            label.Inlines.Add(new System.Windows.Documents.Run(text));
+        }
+
+        var width = ColumnWidth - 24;
         var box = new Border
         {
-            Width = 64,
-            Height = CoilHeight - 10,
+            Width = width,
+            Height = CoilHeight + 16,
             BorderBrush = WireBrush,
             BorderThickness = new Thickness(1.6),
+            CornerRadius = new CornerRadius(3),
             Background = on ? CoilOnBrush : Brushes.White,
-            Child = new TextBlock { Text = "PLC", FontSize = 10, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+            Child = label,
             IsHitTestVisible = false
         };
-        Canvas.SetLeft(box, x - 32);
-        Canvas.SetTop(box, top + 5);
+        Canvas.SetLeft(box, x - width / 2);
+        Canvas.SetTop(box, top - 4);
         _sheet.Children.Add(box);
-        AddText(coil.Outputs.Trim(), x + 36, top + 12, 10.5, OperatedBrush);
-        AddTextRight(coil.Text, x - 40, top + 4, 10.5, TextBrush);
     }
 
     private void AddHitArea(object item, double x, double y, double width, double height, string tooltip)

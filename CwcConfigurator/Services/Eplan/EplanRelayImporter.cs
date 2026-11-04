@@ -11,9 +11,18 @@ public sealed record EplanSchematicPage(int Index, string Function, string Locat
     public string Title => $"={Function}+{Location}/{Name}  {Description}".Trim();
 }
 
+/// <summary>
+/// A connection point of a PLC card on the schematics (-A611 terminal 1 "DI0", address I0.0): the end of a path
+/// (input) or its start (output), until it is connected to the DI / DO of the simulator.
+/// </summary>
+public sealed record EplanPlcPoint(string Card, string Terminal, int Port, bool Output, string Address);
+
 /// <summary>Relay-logic sheets and selector switches built from EPLAN pages, with what could not be read.</summary>
 public sealed class EplanRelayImport
 {
+    /// <summary>PLC card points used on the sheets, by their tag on the sheets ("-A611:DI0", "-A631:DQ0").</summary>
+    public Dictionary<string, EplanPlcPoint> PlcPoints { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     public List<RelaySheet> Sheets { get; } = [];
     public List<RelaySwitch> Switches { get; } = [];
 
@@ -55,6 +64,10 @@ public static class EplanRelayImporter
     {
         ["1/1125/2"] = new(SymbolKind.Contact, [new(1, 0, 0, "U"), new(2, 0, -PinLength, "D"), new(0, 4, -PinLength, "D")]),
         ["5/35/0"] = new(SymbolKind.Selector, [new(0, 0, 0, "U"), new(1, -4, -PinLength, "D"), new(2, 4, -PinLength, "D")]),
+        // Mirrored changeover contact: common on the right, NO below it, NC on the left (A185 = NC;COM;NO).
+        ["1/1125/6"] = new(SymbolKind.Contact, [new(1, 4, 0, "U"), new(2, 4, -PinLength, "D"), new(0, 0, -PinLength, "D")]),
+        // Key / selector switch with the common in the middle (A185 e.g. 1;2;4).
+        ["5/32/0"] = new(SymbolKind.Selector, [new(0, 4, 0, "U"), new(1, 0, -PinLength, "D"), new(2, 8, -PinLength, "D")]),
         ["1/1110/0"] = new(SymbolKind.MeasuringRelay, [new(0, 0, 0, "U"), new(1, 0, -PinLength, "D"), new(2, 8, 0, "U"), new(3, 8, -PinLength, "D")]),
         // Push buttons / emergency stop: one contact, two terminals one above the other (A185 e.g. 13;14 or 21;22).
         ["1/35/0"] = new(SymbolKind.TwoPinContact, [new(0, 0, 0, "U"), new(1, 0, -PinLength, "D")]),
@@ -229,6 +242,16 @@ public static class EplanRelayImporter
             .Select(attribute => parts.GetValueOrDefault(attribute.Value, "")).Where(text => text.Length > 0));
     }
 
+    /// <summary>Port of a PLC output point: "DQ0" / "DO3" / "Q0.2" → 0 / 3 / 2; null for anything else.</summary>
+    private static int? PlcOutputPort(string compact)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(compact, @"^(?:DQ|DO|Q\d+\.)(\d+)$");
+        return match.Success ? int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture) : null;
+    }
+
+    /// <summary>Card name as in the hardware tables: "-A611" → "A611", "2-A611" → "A611".</summary>
+    private static string CardName(string tag) => tag.Split('-').Last().Trim();
+
     private static bool Has(string text, params string[] words) => words.Any(word => text.Contains(word, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Selector switches (function category 600 with a switch symbol or a selector / cam switch part): tag, text and position names.</summary>
@@ -317,6 +340,12 @@ public static class EplanRelayImporter
         public int Index { get; init; } = -1;
         public string Potential { get; init; } = "";
         public bool PlusTerminal { get; init; }
+
+        /// <summary>A terminal: terminals of a strip drawn side by side are not wired to each other.</summary>
+        public bool Terminal { get; init; }
+
+        /// <summary>Output point of a PLC card ("-A631:DQ0"): supplies what is wired to it.</summary>
+        public string PlcOutput { get; init; } = "";
         public int Net { get; set; }
     }
 
@@ -362,7 +391,7 @@ public static class EplanRelayImporter
             {
                 case "O17" when category == "100":
                     // Terminal: the wire passes through. A "+" strip (-X44+) supplies the page when it has no supply potential.
-                    pins.Add(new Pin { X = at.X, Y = at.Y, Directions = "LRUD", Owner = null, PlusTerminal = Tag(item).TrimEnd().EndsWith('+') });
+                    pins.Add(new Pin { X = at.X, Y = at.Y, Directions = "LRUD", Owner = null, PlusTerminal = Tag(item).TrimEnd().EndsWith('+'), Terminal = true });
                     break;
                 case "O17" when category == "300":
                 {
@@ -374,8 +403,23 @@ public static class EplanRelayImporter
                     {
                         pins.Add(new Pin { X = at.X, Y = at.Y, Directions = "UD", Owner = null, Potential = "+" });
                     }
+                    else if (PlcOutputPort(compact) is { } outputPort)
+                    {
+                        // Output of a PLC card (DQ0, DO1, Q0.2…): it supplies the coils wired to it.
+                        var marker = $"{Tag(item)}:{compact}";
+                        import.PlcPoints[marker] = new EplanPlcPoint(CardName(Tag(item)), item.Attribute("A185")?.Value?.Trim() ?? "", outputPort, true,
+                            item.Element("P11")?.Attribute("P20400")?.Value?.Trim() ?? "");
+                        pins.Add(new Pin { X = at.X, Y = at.Y, Directions = "UD", Owner = null, PlcOutput = marker });
+                    }
                     else if (compact.StartsWith("DI", StringComparison.Ordinal) && compact.Length > 2 && char.IsDigit(compact[2]))
                     {
+                        if (item.Element("P11")?.Attribute("P20400")?.Value is { Length: > 0 } address && address.TrimStart().StartsWith('I'))
+                        {
+                            // Input of a PLC card (DI0 at I0.0): a PLC input object at the end of the path.
+                            import.PlcPoints[$"{Tag(item)}:{compact}"] = new EplanPlcPoint(CardName(Tag(item)), item.Attribute("A185")?.Value?.Trim() ?? "",
+                                int.TryParse(compact[2..], NumberStyles.Integer, CultureInfo.InvariantCulture, out var inputPort) ? inputPort : 0, false, address.Trim());
+                        }
+
                         var function = Text(item.Element("P11")?.Attribute("P20011")?.Value);
                         var input = new Device
                         {
@@ -490,7 +534,8 @@ public static class EplanRelayImporter
         {
             foreach (var direction in pins[i].Directions)
             {
-                if (Nearest(pins, i, direction) is { } j && pins[j].Directions.Contains(Opposite(direction)))
+                if (Nearest(pins, i, direction) is { } j && pins[j].Directions.Contains(Opposite(direction))
+                    && !(direction is 'L' or 'R' && pins[i].Terminal && pins[j].Terminal))
                 {
                     parent[Find(i)] = Find(j);
                     connected.Add(pins[i]);
@@ -577,12 +622,21 @@ public static class EplanRelayImporter
             Page = int.TryParse(pageName, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : 0
         };
         var built = new List<(List<RelayElement> Elements, List<string> Signatures)>();
+        var plcOutputs = pins.Where(pin => pin.PlcOutput.Length > 0 && connected.Contains(pin)).Select(pin => (pin.Net, pin.PlcOutput)).Distinct().ToList();
         foreach (var (coil, a1, _) in coils.OrderBy(coil => coil.Device.X))
         {
             var expr = supply.Select(net => Reduce(edges, net, a1)).FirstOrDefault(found => found is not null);
             List<string> signatures;
             List<RelayElement> elements;
-            if (expr is null || expr is Series { Items.Count: 0 } && !supply.Contains(a1))
+            if ((expr is null || expr is Series { Items.Count: 0 } && !supply.Contains(a1))
+                && plcOutputs.Select(output => (output.PlcOutput, Expr: Reduce(edges, output.Net, a1))).FirstOrDefault(found => found.Expr is not null) is { Expr: { } fromPlc } plc)
+            {
+                // Fed by a PLC output: the output object first, then the contacts between it and the coil.
+                var series = Flatten(fromPlc);
+                signatures = [plc.PlcOutput, .. series.Select(Signature)];
+                elements = [new RelayElement { Tag = plc.PlcOutput, Contact = "NO", Text = "PLC OUTPUT" }, .. series.Select(item => ToElement(item, import))];
+            }
+            else if (expr is null || expr is Series { Items.Count: 0 } && !supply.Contains(a1))
             {
                 // Fed by something not readable from the page (PLC output, other page, unknown symbol):
                 // one contact without a source, to be connected by hand.

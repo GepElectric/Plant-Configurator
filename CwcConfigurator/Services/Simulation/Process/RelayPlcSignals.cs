@@ -22,7 +22,7 @@ public static class RelayPlcSignals
     public static Dictionary<string, int> Map(IEnumerable<DigitalSignalConfig> channels)
     {
         var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var channel in channels.Where(channel => channel.Config != SignalConfigState.Disabled))
+        foreach (var channel in channels.Where(channel => channel.Config != SignalConfigState.Disabled && !channel.SignalName.Contains("SPARE", StringComparison.OrdinalIgnoreCase)))
         {
             var device = channel.EplanConnectedTo.Split(':')[0];
             if (device.Trim().Length == 0 && TagInName.Match(channel.SignalName) is { Success: true } match)
@@ -38,6 +38,36 @@ public static class RelayPlcSignals
         }
 
         return map;
+    }
+
+    /// <summary>
+    /// Contacts of power devices on the sheets (aux contact of -F53, -Q1, contactor -K53) follow their simulator
+    /// object of the power part ("F53"): breakers by On, contactors by State, motors by Running — defined once as a
+    /// device. Contacts of relays, switches, push buttons and devices already defined are left alone.
+    /// </summary>
+    public static int LinkPowerObjects(ProcessModel model)
+    {
+        var known = model.RelaySheets.SelectMany(sheet => sheet.Circuits).Select(circuit => circuit.Coil.Tag.Trim())
+            .Concat(model.RelaySwitches.Select(item => item.Tag.Trim()))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var objects = model.Objects.GroupBy(item => item.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var linked = 0;
+        foreach (var tag in model.RelaySheets.SelectMany(sheet => sheet.Circuits).SelectMany(circuit => RelayLogicRunner.AllElements(circuit.Elements))
+                     .Where(element => !element.IsParallel).Select(element => element.Tag.Trim())
+                     .Where(tag => tag.StartsWith('-') && !known.Contains(tag) && RelayDevices.Find(model, tag) is null)
+                     .Distinct(StringComparer.OrdinalIgnoreCase).ToList())
+        {
+            var name = new string(tag.Where(char.IsLetterOrDigit).ToArray());
+            var port = objects.TryGetValue(name, out var item)
+                ? item.Type switch { "Mcb" => "On", "Contactor" => "State", "Motor" => "Running", _ => "" }
+                : "";
+            if (port.Length > 0 && RelayDevices.Define(model, tag, $"@{item!.Name}.{port}"))
+            {
+                linked++;
+            }
+        }
+
+        return linked;
     }
 
     /// <summary>
@@ -79,6 +109,10 @@ public static class RelayPlcSignals
 
         var coils = model.RelaySheets.SelectMany(sheet => sheet.Circuits).Select(circuit => Normalize(circuit.Coil.Tag))
             .Where(tag => tag.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // PLC inputs already driven by a PLC input object (a path wired to the card): the relay's contact is in that path.
+        var drivenInputs = model.RelaySheets.SelectMany(sheet => sheet.Circuits).Where(circuit => circuit.Coil.Tag.Trim().Length == 0)
+            .SelectMany(circuit => PortBinding.ParseList(circuit.Coil.Outputs)).Where(target => target.Kind == BindingKind.Signal)
+            .Select(target => target.SignalId).ToHashSet();
         foreach (var circuit in model.RelaySheets.SelectMany(sheet => sheet.Circuits))
         {
             // "-TM2:DI1" (input of a drive), "-H104:LAMP": not a relay wired to the PLC.
@@ -94,7 +128,7 @@ public static class RelayPlcSignals
             }
 
             // Input relay: its contact is wired to the PLC input.
-            if (diMap.TryGetValue(coilTag, out var input) && circuit.Coil.Outputs.Trim().Length == 0)
+            if (diMap.TryGetValue(coilTag, out var input) && circuit.Coil.Outputs.Trim().Length == 0 && !drivenInputs.Contains(input))
             {
                 circuit.Coil.Outputs = "DI:" + input.ToString(CultureInfo.InvariantCulture);
                 filled++;
@@ -113,7 +147,9 @@ public static class RelayPlcSignals
                 {
                     filled++;
                 }
-                else if (diMap.TryGetValue(tag, out var contactInput) && RelayDevices.Define(model, contact.Tag, "DI:" + contactInput.ToString(CultureInfo.InvariantCulture)))
+                // (Not a contact that is itself wired to that PLC input: the input follows the contact, not the other way.)
+                else if (diMap.TryGetValue(tag, out var contactInput) && !drivenInputs.Contains(contactInput)
+                         && RelayDevices.Define(model, contact.Tag, "DI:" + contactInput.ToString(CultureInfo.InvariantCulture)))
                 {
                     filled++;
                 }
