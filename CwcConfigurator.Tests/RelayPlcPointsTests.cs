@@ -60,10 +60,8 @@ public sealed class RelayPlcPointsTests
                     Circuits =
                     [
                         external, field,
-                        new RelayCircuit { Elements = [new RelayElement { Tag = "1-K18" }], Coil = new RelayCoil { Outputs = "DI:10", Text = "DI15
-External signals MCB ON (-F36)" } },
-                        new RelayCircuit { Elements = [new RelayElement { Tag = "1-K01" }], Coil = new RelayCoil { Outputs = "DI:65", Text = "DI0
-Gate 1 closed (-1GS2)" } }
+                        new RelayCircuit { Elements = [new RelayElement { Tag = "1-K18" }], Coil = new RelayCoil { Outputs = "DI:10", Text = "DI15\nExternal signals MCB ON (-F36)" } },
+                        new RelayCircuit { Elements = [new RelayElement { Tag = "1-K01" }], Coil = new RelayCoil { Outputs = "DI:65", Text = "DI0\nGate 1 closed (-1GS2)" } }
                     ]
                 }
             ]
