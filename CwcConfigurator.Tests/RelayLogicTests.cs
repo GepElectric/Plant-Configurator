@@ -131,6 +131,34 @@ public sealed class RelayLogicTests
     }
 
     [Fact]
+    public void SelectorSwitch_ContactsFollowThePositionsOfTheSwitchingTable()
+    {
+        var local = new RelayCircuit { Elements = [new RelayElement { Tag = "-S3", Position = "LOCAL" }], Coil = new RelayCoil { Outputs = "DI:10" } };
+        var notRemote = new RelayCircuit { Elements = [new RelayElement { Tag = "-S3", Contact = "NC", Position = "REMOTE" }], Coil = new RelayCoil { Tag = "-K2" } };
+        var model = new ProcessModel
+        {
+            RelaySheets = [new RelaySheet { Name = "Modes", Circuits = [local, notRemote] }],
+            RelaySwitches = [new RelaySwitch { Tag = "-S3", Positions = "LOCAL/0/REMOTE", Position = "0" }]
+        };
+        var engine = new ProcessEngine(new Dictionary<string, ProcessModel> { ["Intake"] = model });
+        var io = new FakeIo();
+
+        engine.Step(0.1, _ => io);
+        Assert.Equal(0, io.Values[(SimulatorSignalKind.DI, 10)]);
+        Assert.True(engine.Relays.IsOn("Intake", "-K2"));
+
+        model.RelaySwitches[0].Position = "LOCAL";
+        engine.Step(0.1, _ => io);
+        Assert.Equal(1, io.Values[(SimulatorSignalKind.DI, 10)]);
+
+        model.RelaySwitches[0].Position = "REMOTE";
+        engine.Step(0.1, _ => io);
+        Assert.Equal(0, io.Values[(SimulatorSignalKind.DI, 10)]);
+        Assert.False(engine.Relays.IsOn("Intake", "-K2"));
+        Assert.Equal("LOCAL/0/REMOTE", ProcessModelStore.FromYaml(ProcessModelStore.ToYaml(new Dictionary<string, ProcessModel> { ["Intake"] = model }))["Intake"].RelaySwitches.Single().Positions);
+    }
+
+    [Fact]
     public void CoilOutputToPlcOutput_IsReportedAsProblem()
     {
         var circuit = new RelayCircuit { Elements = [Contact("", source: "=true")], Coil = new RelayCoil { Tag = "-K1", Outputs = "DO:3" } };

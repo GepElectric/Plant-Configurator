@@ -20,6 +20,9 @@ public sealed class ProcessModel
     /// <summary>Relay-logic sheets (current paths with contacts and relay coils), see <see cref="RelayLogicRunner"/>.</summary>
     public List<RelaySheet> RelaySheets { get; set; } = [];
 
+    /// <summary>Selector switches (2 or 3 positions) whose contacts are used on the relay-logic sheets.</summary>
+    public List<RelaySwitch> RelaySwitches { get; set; } = [];
+
     public bool IsSld(string screen) => SldScreens.Contains(screen, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The object is shown on this screen (its own screen or an extra view).</summary>

@@ -52,7 +52,7 @@ public static class ProcessModelStore
             .Build();
         var file = new ModelFile
         {
-            Plcs = models.Where(pair => pair.Value.Objects.Count > 0 || pair.Value.Forces.Count > 0 || pair.Value.RelaySheets.Count > 0).ToDictionary(pair => pair.Key, pair => pair.Value)
+            Plcs = models.Where(pair => pair.Value.Objects.Count > 0 || pair.Value.Forces.Count > 0 || pair.Value.RelaySheets.Count > 0 || pair.Value.RelaySwitches.Count > 0).ToDictionary(pair => pair.Key, pair => pair.Value)
         };
         return Header + serializer.Serialize(file);
     }
@@ -67,6 +67,7 @@ public static class ProcessModelStore
             item.Source ??= "";
             item.Contact ??= "NO";
             item.Pins ??= "11/12/14";
+            item.Position ??= "";
             item.Text ??= "";
             item.Branches = (item.Branches ?? []).Select(NormalizeSeries).ToList();
         }
@@ -81,6 +82,15 @@ public static class ProcessModelStore
         model.Screens ??= [];
         model.SldScreens ??= [];
         model.RelaySheets ??= [];
+        model.RelaySwitches = (model.RelaySwitches ?? []).Where(item => item is not null).ToList();
+        foreach (var item in model.RelaySwitches)
+        {
+            item.Tag ??= "";
+            item.Text ??= "";
+            item.Positions ??= "0/1";
+            item.Position ??= "";
+        }
+
         foreach (var sheet in model.RelaySheets)
         {
             sheet.Name ??= "";

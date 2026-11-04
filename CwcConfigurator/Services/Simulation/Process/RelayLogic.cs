@@ -25,6 +25,30 @@ public sealed class RelayCircuit
     public RelayCoil Coil { get; set; } = new();
 }
 
+/// <summary>
+/// A selector switch with two or three maintained positions (e.g. "LOCAL/0/REMOTE"), operated by clicking it in the
+/// relay-logic view. Its contacts (same tag) close in the positions given on each contact, like a switching table.
+/// </summary>
+public sealed class RelaySwitch
+{
+    public string Tag { get; set; } = "";
+
+    public string Text { get; set; } = "";
+
+    /// <summary>Position names separated by '/', e.g. "MAN/0/AUTO" or "OFF/ON".</summary>
+    public string Positions { get; set; } = "0/1";
+
+    /// <summary>Current position (one of <see cref="Positions"/>); saved with the model.</summary>
+    public string Position { get; set; } = "";
+
+    public List<string> PositionList() => Positions.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+
+    /// <summary>The current position, or the first one when it is not set.</summary>
+    public string Current => PositionList() is { Count: > 0 } list
+        ? list.FirstOrDefault(item => item.Equals(Position.Trim(), StringComparison.OrdinalIgnoreCase)) ?? list[0]
+        : "";
+}
+
 public static class RelayElementKind
 {
     public const string Contact = "Contact";
@@ -53,6 +77,9 @@ public sealed class RelayElement
 
     /// <summary>Function text (lines separated by '\n'); empty = the text of the relay coil.</summary>
     public string Text { get; set; } = "";
+
+    /// <summary>Contact of a selector switch: the positions in which it is operated, e.g. "AUTO" or "MAN,AUTO".</summary>
+    public string Position { get; set; } = "";
 
     /// <summary>Parallel branches, each a series of elements (Kind = Parallel).</summary>
     public List<List<RelayElement>> Branches { get; set; } = [];
@@ -104,6 +131,7 @@ public sealed class RelayLogicRunner
     private readonly List<CoilState> _coils = [];
     private readonly Dictionary<string, CoilState> _byTag = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<RelayElement, (bool PoweredIn, bool Closed)> _elements = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<string, RelaySwitch> _switches = new(StringComparer.OrdinalIgnoreCase);
 
     private sealed class CoilState
     {
@@ -121,6 +149,14 @@ public sealed class RelayLogicRunner
     {
         foreach (var (plc, model) in models)
         {
+            foreach (var item in model.RelaySwitches.Where(item => item.Tag.Trim().Length > 0))
+            {
+                if (!_switches.TryAdd(Key(plc, item.Tag), item))
+                {
+                    problems.Add($"{plc}: switch {item.Tag} is defined more than once.");
+                }
+            }
+
             for (var sheetIndex = 0; sheetIndex < model.RelaySheets.Count; sheetIndex++)
             {
                 var sheet = model.RelaySheets[sheetIndex];
@@ -168,6 +204,9 @@ public sealed class RelayLogicRunner
     public string CoilText(string plc, string tag) => _byTag.TryGetValue(Key(plc, tag), out var coil) ? coil.Circuit.Coil.Text : "";
 
     public bool IsRelay(string plc, string tag) => _byTag.ContainsKey(Key(plc, tag));
+
+    /// <summary>The selector switch with this tag, or null.</summary>
+    public RelaySwitch? SwitchOf(string plc, string tag) => _switches.GetValueOrDefault(Key(plc, tag));
 
     /// <summary>Relay picked up (coil energised, after its time delay).</summary>
     public bool IsOn(string plc, string tag) => _byTag.TryGetValue(Key(plc, tag), out var coil) && coil.On;
@@ -291,6 +330,14 @@ public sealed class RelayLogicRunner
         if (contact.Tag.Trim().Length > 0 && _byTag.TryGetValue(Key(plc, contact.Tag), out var coil))
         {
             return coil.On;
+        }
+
+        if (contact.Tag.Trim().Length > 0 && _switches.TryGetValue(Key(plc, contact.Tag), out var selector))
+        {
+            // Operated in the positions listed on the contact (switching table).
+            var current = selector.Current;
+            return contact.Position.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Any(position => position.Equals(current, StringComparison.OrdinalIgnoreCase));
         }
 
         var binding = PortBinding.Parse(contact.Source);
