@@ -306,6 +306,9 @@
             <TabItem Header="  Relay logic  ">
                 <sim:RelayLogicView x:Name="RelayPanel"/>
             </TabItem>
+            <TabItem Header="  Cubicle  ">
+                <sim:CubicleView x:Name="CubiclePanel"/>
+            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>

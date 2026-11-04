@@ -381,3 +381,94 @@ public sealed class RelayLogicRunner
 
     private static string Display(string tag, string location) => tag.Trim().Length > 0 ? tag : "path " + location;
 }
+
+/// <summary>
+/// Copies a relay-logic sheet for the same circuit with other devices and signals. Rules "old=new", one per line:
+/// tags, sources and coil outputs are replaced as whole items ("-K107=-K207", "DI:64=DI:84") or by a prefix with a
+/// trailing '*' ("-K1*=-K2*" makes -K107 → -K207); texts and the sheet name get every occurrence replaced
+/// ("GATE 1=GATE 2").
+/// </summary>
+public static class RelaySheetCopy
+{
+    public static List<(string Old, string New)> ParseRules(string text) =>
+        (text ?? "").Split('\n')
+            .Select(line => line.Trim())
+            .Where(line => line.Contains('='))
+            .Select(line => (Old: line[..line.IndexOf('=')].Trim(), New: line[(line.IndexOf('=') + 1)..].Trim()))
+            .Where(rule => rule.Old.Length > 0)
+            .ToList();
+
+    public static RelaySheet Copy(RelaySheet source, IReadOnlyList<(string Old, string New)> rules) => new()
+    {
+        Name = ReplaceText(source.Name, rules),
+        Page = 0,
+        Circuits = source.Circuits.Select(circuit => new RelayCircuit
+        {
+            Elements = CopySeries(circuit.Elements, rules),
+            Coil = new RelayCoil
+            {
+                Tag = ReplaceItem(circuit.Coil.Tag, rules),
+                Text = ReplaceText(circuit.Coil.Text, rules),
+                Outputs = ReplaceList(circuit.Coil.Outputs, rules),
+                Timer = circuit.Coil.Timer,
+                Time = circuit.Coil.Time
+            }
+        }).ToList()
+    };
+
+    private static List<RelayElement> CopySeries(List<RelayElement> series, IReadOnlyList<(string Old, string New)> rules) =>
+        series.Select(element => new RelayElement
+        {
+            Kind = element.Kind,
+            Tag = ReplaceItem(element.Tag, rules),
+            Source = ReplaceList(element.Source, rules),
+            Contact = element.Contact,
+            Pins = element.Pins,
+            Position = element.Position,
+            Text = ReplaceText(element.Text, rules),
+            Branches = element.Branches.Select(branch => CopySeries(branch, rules)).ToList()
+        }).ToList();
+
+    /// <summary>A whole item: exact rule first, then the longest matching prefix rule ("-K1*").</summary>
+    public static string ReplaceItem(string value, IReadOnlyList<(string Old, string New)> rules)
+    {
+        var item = (value ?? "").Trim();
+        if (item.Length == 0)
+        {
+            return value ?? "";
+        }
+
+        foreach (var (old, @new) in rules.Where(rule => !rule.Old.EndsWith('*')))
+        {
+            if (item.Equals(old, StringComparison.OrdinalIgnoreCase))
+            {
+                return @new;
+            }
+        }
+
+        foreach (var (old, @new) in rules.Where(rule => rule.Old.EndsWith('*')).OrderByDescending(rule => rule.Old.Length))
+        {
+            var prefix = old[..^1];
+            if (prefix.Length > 0 && item.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return @new.TrimEnd('*') + item[prefix.Length..];
+            }
+        }
+
+        return item;
+    }
+
+    private static string ReplaceList(string value, IReadOnlyList<(string Old, string New)> rules) =>
+        string.Join(", ", (value ?? "").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Select(item => ReplaceItem(item, rules)));
+
+    private static string ReplaceText(string value, IReadOnlyList<(string Old, string New)> rules)
+    {
+        var text = value ?? "";
+        foreach (var (old, @new) in rules.Where(rule => !rule.Old.EndsWith('*')))
+        {
+            text = text.Replace(old, @new, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return text;
+    }
+}

@@ -159,6 +159,55 @@ public sealed class RelayLogicTests
     }
 
     [Fact]
+    public void CopySheet_ReplacesTagsSignalsAndTexts()
+    {
+        var sheet = new RelaySheet
+        {
+            Name = "GATE 1",
+            Page = 37,
+            Circuits =
+            [
+                new RelayCircuit
+                {
+                    Elements = [Parallel([Contact("-K107")], [Contact("-K108", "NC")]), Contact("", source: "DI:64, DI:640")],
+                    Coil = new RelayCoil { Tag = "-K105", Text = "GATE 1\nOPEN", Outputs = "DI:64" }
+                }
+            ]
+        };
+        var rules = RelaySheetCopy.ParseRules("-K1*=-K2*\nDI:64=DI:84\nGATE 1=GATE 2\n-K108=-K308");
+
+        var copy = RelaySheetCopy.Copy(sheet, rules);
+
+        var circuit = copy.Circuits.Single();
+        Assert.Equal("GATE 2", copy.Name);
+        Assert.Equal(0, copy.Page);
+        Assert.Equal("-K205", circuit.Coil.Tag);
+        Assert.Equal("GATE 2\nOPEN", circuit.Coil.Text);
+        Assert.Equal("DI:84", circuit.Coil.Outputs);
+        Assert.Equal("-K207", circuit.Elements[0].Branches[0][0].Tag);
+        Assert.Equal("-K308", circuit.Elements[0].Branches[1][0].Tag); // exact rule wins over the prefix
+        Assert.Equal("DI:84, DI:640", circuit.Elements[1].Source);     // whole items only
+        Assert.Equal("-K107", sheet.Circuits[0].Elements[0].Branches[0][0].Tag); // original untouched
+    }
+
+    [Fact]
+    public void Cubicles_SurviveYamlRoundTrip()
+    {
+        var model = new ProcessModel
+        {
+            Cubicles = [new Cubicle { Name = "+LPY01", Width = 600, Height = 800, Items = [new CubicleItem { Kind = CubicleItemKind.Switch, Tag = "-S3", Text = "LOCAL / REMOTE", X = 55, Y = 60, Pressed = true }] }]
+        };
+
+        var yaml = ProcessModelStore.ToYaml(new Dictionary<string, ProcessModel> { ["Intake"] = model });
+        var item = ProcessModelStore.FromYaml(yaml)["Intake"].Cubicles.Single().Items.Single();
+
+        Assert.True(item.IsSwitch);
+        Assert.Equal(("-S3", 55.0, 60.0), (item.Tag, item.X, item.Y));
+        Assert.False(item.Pressed);
+        Assert.DoesNotContain("pressed", yaml);
+    }
+
+    [Fact]
     public void CoilOutputToPlcOutput_IsReportedAsProblem()
     {
         var circuit = new RelayCircuit { Elements = [Contact("", source: "=true")], Coil = new RelayCoil { Tag = "-K1", Outputs = "DO:3" } };

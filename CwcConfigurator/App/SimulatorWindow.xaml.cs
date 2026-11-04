@@ -97,6 +97,7 @@ public partial class SimulatorWindow : Window
         ProgramPanel.SaveRequested += SaveModel_Click;
         ScadaPanel.Attach(_controller);
         RelayPanel.Attach(_controller);
+        CubiclePanel.Attach(_controller);
         foreach (var session in _sessions)
         {
             PlcSelector.Items.Add(session);
@@ -286,6 +287,7 @@ public partial class SimulatorWindow : Window
         ProgramPanel.ShowPlc(session.Name);
         ScadaPanel.ShowPlc(session.Name);
         RelayPanel.ShowPlc(session.Name);
+        CubiclePanel.ShowPlc(session.Name);
         if (!session.IsConnected)
         {
             StatusText.Text = string.IsNullOrWhiteSpace(session.Settings.IpAddress)
@@ -519,6 +521,7 @@ public partial class SimulatorWindow : Window
                 ProgramPanel.RefreshLive();
                 ScadaPanel.RefreshLive();
                 RelayPanel.RefreshLive();
+                CubiclePanel.RefreshLive();
             }
 
             if (_tick % 10 == 0)

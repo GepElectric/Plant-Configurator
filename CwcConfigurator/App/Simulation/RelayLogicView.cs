@@ -63,6 +63,7 @@ public sealed class RelayLogicView : UserControl
         };
         toolbar.Children.Add(_sheets);
         toolbar.Children.Add(ToolButton("New sheet", "Add a relay-logic sheet.", (_, _) => NewSheet()));
+        toolbar.Children.Add(ToolButton("Copy sheet", "Copy this sheet for the same circuit with other relays and signals (find / replace rules).", (_, _) => CopySheet()));
         toolbar.Children.Add(ToolButton("Delete sheet", "Delete this sheet with all its paths.", (_, _) => DeleteSheet()));
         toolbar.Children.Add(new Separator { Width = 14, Opacity = 0 });
         toolbar.Children.Add(ToolButton("New path", "Add a current path (one contact and a relay coil) at the right.", (_, _) => NewPath()));
@@ -190,6 +191,110 @@ public sealed class RelayLogicView : UserControl
         ShowProperties();
     }
 
+    /// <summary>
+    /// Copies the sheet with replacement rules (prefilled with every tag and signal of the sheet as "x=x", so only the
+    /// right side needs editing). Switches of renamed switch contacts are copied with their positions.
+    /// </summary>
+    private void CopySheet()
+    {
+        if (Model is not { } model || Sheet is not { } sheet)
+        {
+            return;
+        }
+
+        var items = new List<string>();
+        void Collect(IEnumerable<RelayElement> series)
+        {
+            foreach (var element in series)
+            {
+                if (element.IsParallel)
+                {
+                    element.Branches.ForEach(Collect);
+                    continue;
+                }
+
+                items.Add(element.Tag.Trim());
+                items.AddRange(element.Source.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+            }
+        }
+
+        foreach (var circuit in sheet.Circuits)
+        {
+            items.Add(circuit.Coil.Tag.Trim());
+            Collect(circuit.Elements);
+            items.AddRange(circuit.Coil.Outputs.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        var rules = string.Join(Environment.NewLine, items.Where(item => item.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => item.StartsWith('-') ? 0 : 1).ThenBy(item => item, StringComparer.OrdinalIgnoreCase)
+            .Select(item => item + "=" + item));
+
+        var nameBox = new TextBox { Text = sheet.Name + " (copy)", MinHeight = 24, Margin = new Thickness(0, 4, 0, 8) };
+        var rulesBox = new TextBox
+        {
+            Text = rules,
+            AcceptsReturn = true,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            FontFamily = new FontFamily("Consolas"),
+            Height = 320
+        };
+        var ok = new Button { Content = "Copy", Width = 90, IsDefault = true, Margin = new Thickness(0, 0, 8, 0) };
+        var cancel = new Button { Content = "Cancel", Width = 90, IsCancel = true };
+        var panel = new StackPanel { Margin = new Thickness(14) };
+        panel.Children.Add(new TextBlock { Text = "Name of the new sheet", FontWeight = FontWeights.SemiBold });
+        panel.Children.Add(nameBox);
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Replace (old=new, one per line). Edit the right side of the tags and signals you want different, e.g. -K107=-K207, DI:64=DI:84.\n" +
+                   "Prefix rule: -K1*=-K2* (every tag starting with -K1). Text rule: GATE 1=GATE 2 (replaced in all texts and the sheet name).",
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = DimBrush,
+            Margin = new Thickness(0, 0, 0, 6)
+        });
+        panel.Children.Add(rulesBox);
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
+        buttons.Children.Add(ok);
+        buttons.Children.Add(cancel);
+        panel.Children.Add(buttons);
+        var dialog = new Window
+        {
+            Title = $"Copy sheet '{sheet.Name}'",
+            Content = panel,
+            Width = 560,
+            SizeToContent = SizeToContent.Height,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = Window.GetWindow(this)
+        };
+        ok.Click += (_, _) => dialog.DialogResult = true;
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var parsed = RelaySheetCopy.ParseRules(rulesBox.Text);
+        var copy = RelaySheetCopy.Copy(sheet, parsed);
+        copy.Name = nameBox.Text.Trim().Length > 0 ? nameBox.Text.Trim() : copy.Name;
+
+        // Switch contacts that got a new tag: a copy of the switch with the same positions.
+        foreach (var selector in model.RelaySwitches.ToList())
+        {
+            var tag = RelaySheetCopy.ReplaceItem(selector.Tag, parsed);
+            if (!tag.Equals(selector.Tag.Trim(), StringComparison.OrdinalIgnoreCase)
+                && !model.RelaySwitches.Any(item => item.Tag.Trim().Equals(tag, StringComparison.OrdinalIgnoreCase))
+                && copy.Circuits.SelectMany(circuit => AllContacts(circuit.Elements)).Any(contact => contact.Tag.Trim().Equals(tag, StringComparison.OrdinalIgnoreCase)))
+            {
+                model.RelaySwitches.Add(new RelaySwitch { Tag = tag, Text = selector.Text, Positions = selector.Positions, Position = selector.Position });
+            }
+        }
+
+        model.RelaySheets.Insert(_sheetIndex + 1, copy);
+        _sheetIndex++;
+        _selected = copy;
+        Changed();
+        ShowProperties();
+    }
+
     private void DeleteSheet()
     {
         if (Model is not { } model || Sheet is not { } sheet)
@@ -282,7 +387,9 @@ public sealed class RelayLogicView : UserControl
         }
 
         var used = model.RelaySheets.SelectMany(sheet => sheet.Circuits).SelectMany(circuit => AllContacts(circuit.Elements))
-            .Select(contact => contact.Tag.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .Select(contact => contact.Tag.Trim())
+            .Concat(model.Cubicles.SelectMany(cubicle => cubicle.Items).Where(item => item.IsSwitch).Select(item => item.Tag.Trim()))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         model.RelaySwitches.RemoveAll(item => !used.Contains(item.Tag.Trim()));
     }
 

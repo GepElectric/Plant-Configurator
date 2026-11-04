@@ -23,6 +23,9 @@ public sealed class ProcessModel
     /// <summary>Selector switches (2 or 3 positions) whose contacts are used on the relay-logic sheets.</summary>
     public List<RelaySwitch> RelaySwitches { get; set; } = [];
 
+    /// <summary>Cubicle doors with push buttons, selector switches, lamps and label plates.</summary>
+    public List<Cubicle> Cubicles { get; set; } = [];
+
     public bool IsSld(string screen) => SldScreens.Contains(screen, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The object is shown on this screen (its own screen or an extra view).</summary>
