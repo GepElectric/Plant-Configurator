@@ -185,6 +185,7 @@ public sealed class ProcessEngine
         }
 
         Objects = Order(objects);
+        Relays = new RelayLogicRunner(models, previous?.Relays, Problems);
         foreach (var instance in Objects)
         {
             var inputs = new List<(PortDef, PortBinding)>();
@@ -236,6 +237,9 @@ public sealed class ProcessEngine
 
     public IReadOnlyList<SimObject> Objects { get; }
 
+    /// <summary>The relay-logic sheets of all PLCs, run after the objects in every step.</summary>
+    public RelayLogicRunner Relays { get; }
+
     public List<string> Problems { get; } = [];
 
     public SimObject? Find(string plc, string name) => _byName.TryGetValue(plc + "/" + name, out var item) ? item : null;
@@ -247,6 +251,8 @@ public sealed class ProcessEngine
             instance.Forces.Clear();
             instance.Reset();
         }
+
+        Relays.Reset();
     }
 
     /// <summary>One simulation step. <paramref name="io"/> gives the signal access of a PLC (null = not connected).</summary>
@@ -276,6 +282,8 @@ public sealed class ProcessEngine
                 }
             }
         }
+
+        Relays.Step(dt, io, this);
     }
 
     private SimObject? Source(SimObject instance, PortBinding link)

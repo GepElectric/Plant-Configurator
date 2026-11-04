@@ -52,9 +52,26 @@ public static class ProcessModelStore
             .Build();
         var file = new ModelFile
         {
-            Plcs = models.Where(pair => pair.Value.Objects.Count > 0 || pair.Value.Forces.Count > 0).ToDictionary(pair => pair.Key, pair => pair.Value)
+            Plcs = models.Where(pair => pair.Value.Objects.Count > 0 || pair.Value.Forces.Count > 0 || pair.Value.RelaySheets.Count > 0).ToDictionary(pair => pair.Key, pair => pair.Value)
         };
         return Header + serializer.Serialize(file);
+    }
+
+    private static List<RelayElement> NormalizeSeries(List<RelayElement>? series)
+    {
+        var items = (series ?? []).Where(item => item is not null).ToList();
+        foreach (var item in items)
+        {
+            item.Kind ??= RelayElementKind.Contact;
+            item.Tag ??= "";
+            item.Source ??= "";
+            item.Contact ??= "NO";
+            item.Pins ??= "11/12/14";
+            item.Text ??= "";
+            item.Branches = (item.Branches ?? []).Select(NormalizeSeries).ToList();
+        }
+
+        return items;
     }
 
     private static ProcessModel Normalize(ProcessModel model)
@@ -63,6 +80,22 @@ public static class ProcessModelStore
         model.Forces ??= [];
         model.Screens ??= [];
         model.SldScreens ??= [];
+        model.RelaySheets ??= [];
+        foreach (var sheet in model.RelaySheets)
+        {
+            sheet.Name ??= "";
+            sheet.Circuits ??= [];
+            foreach (var circuit in sheet.Circuits)
+            {
+                circuit.Coil ??= new RelayCoil();
+                circuit.Coil.Tag ??= "";
+                circuit.Coil.Text ??= "";
+                circuit.Coil.Outputs ??= "";
+                circuit.Coil.Timer ??= "";
+                circuit.Elements = NormalizeSeries(circuit.Elements);
+            }
+        }
+
         foreach (var item in model.Objects)
         {
             item.Name ??= "";

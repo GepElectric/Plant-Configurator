@@ -303,6 +303,9 @@
             <TabItem Header="  SCADA  ">
                 <sim:ScadaView x:Name="ScadaPanel"/>
             </TabItem>
+            <TabItem Header="  Relay logic  ">
+                <sim:RelayLogicView x:Name="RelayPanel"/>
+            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>
