@@ -493,20 +493,34 @@ public sealed class CubicleView : UserControl
         var handle = new Rectangle { Width = 5 * scale, Height = lens * 0.95, Fill = Brushes.White, RadiusX = 2, RadiusY = 2, RenderTransformOrigin = new Point(0.5, 0.5) };
         handle.RenderTransform = new RotateTransform(Angle(index) * 180 / Math.PI);
         AddTo(group, handle, -2.5 * scale, -lens * 0.475);
-        var radius = Bezel * scale / 2 + (positions.Count >= 3 ? 12 : 8) * scale;
+        // Position names like a switch plate: the left position left of the knob (aligned to it), the right one right
+        // of it, a middle one above it — sized to the text, so long names ("1 - SERVICE") do not overlap.
+        var half = Bezel * scale / 2;
         for (var i = 0; i < positions.Count; i++)
         {
-            var a = Angle(i);
+            var side = Math.Sin(Angle(i));
             var label = new TextBlock
             {
                 Text = positions[i],
                 FontSize = Math.Max(7, 7.5 * scale),
                 FontWeight = i == index ? FontWeights.Bold : FontWeights.Normal,
-                Foreground = i == index ? SelectBrush : TextBrush,
-                Width = 40 * scale,
-                TextAlignment = TextAlignment.Center
+                Foreground = i == index ? SelectBrush : TextBrush
             };
-            AddTo(group, label, Math.Sin(a) * radius - 20 * scale, -Math.Cos(a) * radius - 6 * scale);
+            label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            var width = label.DesiredSize.Width;
+            var height = label.DesiredSize.Height;
+            if (side < -0.1)
+            {
+                AddTo(group, label, -half - 3 * scale - width, -half - height * 0.2);
+            }
+            else if (side > 0.1)
+            {
+                AddTo(group, label, half + 3 * scale, -half - height * 0.2);
+            }
+            else
+            {
+                AddTo(group, label, -width / 2, -half - height - 3 * scale);
+            }
         }
     }
 
