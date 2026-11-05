@@ -197,7 +197,8 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
             request.PnDeviceName,
             request.Subnet,
             request.IoSystem,
-            request.IoControllerDevice
+            request.IoControllerDevice,
+            request.PnDeviceNumber
         }, LongHelperResponseTimeout);
 
     public Task<TiaTextListTypesResult> ImportTextListTypeTextsAsync(string? inputFile, IReadOnlyList<string> listNames, string comment)

@@ -61,6 +61,7 @@ public sealed class TiaHardwareBuildRequest
     public string Subnet { get; set; } = "";
     public string IoSystem { get; set; } = "";
     public string IoControllerDevice { get; set; } = "";
+    public int PnDeviceNumber { get; set; }
 }
 
 public sealed class TiaHardwareModuleRequest
@@ -236,6 +237,11 @@ public static class TiaHardwarePlanner
             missing.Add("TIA device of the IO controller (CPU)");
         }
 
+        if (!isCpu && plan.PnDeviceNumber is < 101 or > 110)
+        {
+            missing.Add("PROFINET device number of the distributed station (101–110)");
+        }
+
         if (plan.BusAdapterOrder.Trim().Length > 0 && plan.BusAdapterVersion.Trim().Length == 0)
         {
             missing.Add("firmware version of the bus adapter");
@@ -294,8 +300,16 @@ public static class TiaHardwarePlanner
         PnDeviceName = plan.PnDeviceName.Trim(),
         Subnet = plan.Subnet.Trim(),
         IoSystem = isCpu ? plan.IoSystem.Trim() : "",
-        IoControllerDevice = isCpu ? "" : plan.IoControllerDevice.Trim()
+        IoControllerDevice = isCpu ? "" : plan.IoControllerDevice.Trim(),
+        PnDeviceNumber = isCpu ? 0 : plan.PnDeviceNumber
     };
+
+    /// <summary>Distributed stations of the same IO controller that use the same PROFINET device number.</summary>
+    public static List<string> DuplicateDeviceNumbers(CwcProject project, HardwareStationSettings plan) =>
+        plan.PnDeviceNumber <= 0 ? []
+            : project.HardwareConfig.Stations.Where(other => other.Key != plan.Key && other.PnDeviceNumber == plan.PnDeviceNumber
+                                                             && other.IoControllerDevice.Equals(plan.IoControllerDevice, StringComparison.OrdinalIgnoreCase))
+                .Select(other => other.DeviceName).ToList();
 
     /// <summary>
     /// Fills empty firmware versions (and the head's) from the station already in TIA: the item in the same slot with

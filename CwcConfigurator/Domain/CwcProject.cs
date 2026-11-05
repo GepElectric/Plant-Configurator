@@ -83,6 +83,8 @@ public sealed class HardwareStationSettings
     public string IoSystem { get; set; } = "";
     /// <summary>Interface module: TIA device of the CPU whose IO system it joins.</summary>
     public string IoControllerDevice { get; set; } = "";
+    /// <summary>Interface module: PROFINET device number in the IO system (distributed stations 101–110); 0 = not set.</summary>
+    public int PnDeviceNumber { get; set; }
     public List<HardwareModuleSettings> Modules { get; set; } = [];
 }
 
@@ -94,7 +96,8 @@ public sealed class HardwareModuleSettings
     public string Order { get; set; } = "";
     public string Version { get; set; } = "";
     public int Slot { get; set; }
-    /// <summary>ET 200SP: the module opens a new potential group (light BaseUnit).</summary>
+    /// <summary>ET 200SP: the module opens a new potential group (light BaseUnit with the supply); its "no supply voltage"
+    /// diagnostics is switched on, on the other modules off.</summary>
     public bool NewPotentialGroup { get; set; }
     /// <summary>Built in TIA (untick to leave the module out).</summary>
     public bool Include { get; set; } = true;

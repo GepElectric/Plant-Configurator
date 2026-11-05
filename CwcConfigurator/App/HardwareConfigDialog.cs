@@ -81,7 +81,7 @@ public sealed class HardwareConfigDialog : Window
 
         top.Children.Add(new Separator { Margin = new Thickness(0, 8, 0, 8) });
         top.Children.Add(_fields);
-        top.Children.Add(new TextBlock { Text = "Modules (slot, order number, firmware version, ET 200SP potential group: ticked = new group / light BaseUnit)", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 8, 0, 4) });
+        top.Children.Add(new TextBlock { Text = "Modules (slot, order number, firmware version; ET 200SP: ticked = new potential group / white BaseUnit with supply — its \"no supply voltage\" diagnostics is switched on, on the others off)", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 8, 0, 4), TextWrapping = TextWrapping.Wrap });
         top.Children.Add(_modules);
         top.Children.Add(_missing);
 
@@ -225,6 +225,10 @@ public sealed class HardwareConfigDialog : Window
                 ? ("IO system", nameof(HardwareStationSettings.IoSystem), "PROFINET IO system of the CPU (created when missing)")
                 : ("IO controller (TIA device)", nameof(HardwareStationSettings.IoControllerDevice), "The CPU station whose IO system this station joins")
         };
+        if (!station.IsCpu)
+        {
+            fields.Add(("PROFINET device number", nameof(HardwareStationSettings.PnDeviceNumber), "Distributed stations: 101–110, each station its own number"));
+        }
         for (var i = 0; i < fields.Count; i++)
         {
             var (label, property, hint) = fields[i];
@@ -261,6 +265,10 @@ public sealed class HardwareConfigDialog : Window
         }
 
         var missing = TiaHardwarePlanner.Missing(_plan, _station.IsCpu);
+        if (!_station.IsCpu && TiaHardwarePlanner.DuplicateDeviceNumbers(_project, _plan) is { Count: > 0 } same)
+        {
+            missing.Add($"another PROFINET device number ({_plan.PnDeviceNumber} is used by {string.Join(", ", same)})");
+        }
         var connected = _session.CurrentSession is not null;
         _missing.Text = missing.Count == 0 ? "" : "Fill in: " + string.Join(" · ", missing);
         _read.IsEnabled = connected;

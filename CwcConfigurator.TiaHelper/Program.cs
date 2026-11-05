@@ -2399,6 +2399,7 @@ namespace CwcConfigurator.TiaHelper
 
                     result.Add(label, "Module", "OK", type);
                     SetPotentialGroup(existing, group, apply, label, result);
+                    SetNoSupplyDiagnostics(existing, group, apply, label, result);
                     continue;
                 }
 
@@ -2428,6 +2429,7 @@ namespace CwcConfigurator.TiaHelper
                     var plugged = rack.PlugNew(type, name, slot);
                     result.Add(label, "Plug module", "Done", type);
                     SetPotentialGroup(plugged, group, true, label, result);
+                    SetNoSupplyDiagnostics(plugged, group, true, label, result);
                 }
                 catch (Exception ex)
                 {
@@ -2519,6 +2521,32 @@ namespace CwcConfigurator.TiaHelper
                 {
                     // Interface module: assigned to the IO system of its CPU.
                     var connector = network.IoConnectors.First();
+                    var number = PayloadText(payload, "PnDeviceNumber");
+                    if (number.Length > 0 && number != "0")
+                    {
+                        var current = SafeAttribute(connector, "PnDeviceNumber");
+                        if (current == number)
+                        {
+                            result.Add("PROFINET device number", "PROFINET device number", "OK", number);
+                        }
+                        else if (!apply)
+                        {
+                            result.Add("PROFINET device number", "PROFINET device number", "Planned", (current.Length > 0 ? current + " → " : "") + number);
+                        }
+                        else
+                        {
+                            try
+                            {
+                                connector.SetAttribute("PnDeviceNumber", int.Parse(number, CultureInfo.InvariantCulture));
+                                result.Add("PROFINET device number", "PROFINET device number", "Done", (current.Length > 0 ? current + " → " : "") + number);
+                            }
+                            catch (Exception ex)
+                            {
+                                result.Add("PROFINET device number", "PROFINET device number", "Error", number + ": " + ex.Message);
+                            }
+                        }
+                    }
+
                     var controllerNetwork = FindDevice(controllerDevice) == null ? null : FindNetworkInDevice(FindDevice(controllerDevice));
                     var ioSystem = controllerNetwork == null ? null : controllerNetwork.IoControllers.Select(item => item.IoSystem).FirstOrDefault(item => item != null);
                     if (connector.ConnectedToIoSystem != null)
@@ -2608,6 +2636,51 @@ namespace CwcConfigurator.TiaHelper
             catch (Exception ex)
             {
                 result.Add(label, "Potential group", "Error", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// "No supply voltage" diagnostics: on for a module that opens a new potential group (light BaseUnit with the
+        /// supply), off for the others. The parameter lives on the module's sub-item.
+        /// </summary>
+        private static void SetNoSupplyDiagnostics(DeviceItem module, string group, bool apply, string label, TiaHardwareBuildResult result)
+        {
+            if (group.Length == 0)
+            {
+                return;
+            }
+
+            var wanted = group == "1";
+            foreach (var item in new[] { module }.Concat(module.DeviceItems))
+            {
+                var current = SafeAttribute(item, "DiagnosticsNoSupplyVoltage");
+                if (current.Length == 0)
+                {
+                    continue;
+                }
+
+                if (string.Equals(current, wanted.ToString(), StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                if (!apply)
+                {
+                    result.Add(label, "Diagnostics: no supply voltage", "Planned", wanted ? "on" : "off");
+                    return;
+                }
+
+                try
+                {
+                    item.SetAttribute("DiagnosticsNoSupplyVoltage", wanted);
+                    result.Add(label, "Diagnostics: no supply voltage", "Done", wanted ? "on" : "off");
+                }
+                catch (Exception ex)
+                {
+                    result.Add(label, "Diagnostics: no supply voltage", "Error", ex.Message);
+                }
+
+                return;
             }
         }
 

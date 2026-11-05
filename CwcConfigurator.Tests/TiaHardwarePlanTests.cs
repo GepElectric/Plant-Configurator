@@ -91,4 +91,25 @@ public sealed class TiaHardwarePlanTests
         Assert.Contains(missing, text => text.StartsWith("a valid IP address"));
         Assert.Contains(missing, text => text.StartsWith("one module per slot (slot 2"));
     }
+
+    [Fact]
+    public void DistributedStation_NeedsItsOwnProfinetDeviceNumber101To110()
+    {
+        var project = Project();
+        var station = Station();
+        var im = new EplanStation { Function = "0LPY02", HeadDeviceTag = "A700", HeadPartNumber = "6ES7155-6AU01-0BN0", HeadType = "IM 155-6 PN ST", IsCpu = false, Modules = station.Modules };
+        var plan = TiaHardwarePlanner.PlanFor(project, im);
+        plan.IoControllerDevice = "ET 200SP station_4";
+        plan.HeadVersion = "V4.2";
+        plan.Ip = "10.26.7.21";
+        plan.Modules.ForEach(module => module.Version = "V0.0");
+        Assert.Contains("PROFINET device number of the distributed station (101–110)", TiaHardwarePlanner.Missing(plan, isCpu: false));
+
+        plan.PnDeviceNumber = 101;
+        Assert.Empty(TiaHardwarePlanner.Missing(plan, isCpu: false));
+        Assert.Equal(101, TiaHardwarePlanner.Request(plan, isCpu: false, apply: false).PnDeviceNumber);
+
+        TiaHardwarePlanner.Save(project, new HardwareStationSettings { Key = "other", DeviceName = "Station A800", IoControllerDevice = "ET 200SP station_4", PnDeviceNumber = 101 });
+        Assert.Equal(["Station A800"], TiaHardwarePlanner.DuplicateDeviceNumbers(project, plan));
+    }
 }
