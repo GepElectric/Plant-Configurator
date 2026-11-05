@@ -314,6 +314,38 @@ public sealed class LogicObject : SimObject
 /// Signal source: constant, ramp, sine, random walk or steps, optionally added to an input. Used for disturbances
 /// such as a changing river inflow or grid frequency.
 /// </summary>
+/// <summary>
+/// One measurement on a SCADA screen: Simulate gives its value (engineering units) to the measurement (AI, RTD,
+/// counter, device value); Display only shows a measurement the plant model computes elsewhere.
+/// </summary>
+public sealed class MeasurementObject : SimObject
+{
+    public static ObjectTypeInfo TypeInfo { get; } = new(
+        "Measurement", "Measurement", "General",
+        "A measurement of the PLC: Simulate = the value set here goes to the measurement; Display = shows the measurement the model writes.",
+        [
+            Option("Mode", "Simulate: Out = Value (to the AI / RTD / counter / device value). Display: shows Measured.", "Simulate", "Display")
+        ],
+        [
+            Param("Value", 0, "", "Simulated value in engineering units.").When("Mode", "Simulate")
+        ],
+        [
+            AnalogOut("Out", "", "The measurement (link to the AI / RTD / COUNTER / DEV signal).").When("Mode", "Simulate"),
+            AnalogIn("Measured", "", "The measurement written by the model (link to the signal).").When("Mode", "Display"),
+            AnalogOut("Shown", "", "Value shown on the screen.")
+        ],
+        [],
+        ["Shown"],
+        () => new MeasurementObject());
+
+    public override void Step(double dt)
+    {
+        var value = Opt("Mode") == "Display" ? In("Measured") : P("Value");
+        Out("Out", value);
+        Out("Shown", value);
+    }
+}
+
 public sealed class SignalObject : SimObject
 {
     private double _time;
@@ -522,6 +554,7 @@ public static class ObjectCatalog
         DisconnectorObject.TypeInfo,
         EarthSwitchObject.TypeInfo,
         TransformerObject.TypeInfo,
+        MeasurementObject.TypeInfo,
         PowerSupplyObject.TypeInfo,
         McbObject.TypeInfo,
         ContactorObject.TypeInfo,

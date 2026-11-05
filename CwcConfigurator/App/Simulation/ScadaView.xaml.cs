@@ -142,6 +142,74 @@ public partial class ScadaView : UserControl
         }
     }
 
+    /// <summary>The screen "Measurement": all measurements of the project; asks which devices of the devices DB there are.</summary>
+    private void MeasurementScreen_Click(object sender, RoutedEventArgs e)
+    {
+        if (_controller is null || Model is not { } model || _controller.Session(_plc) is not { } session)
+        {
+            return;
+        }
+
+        var devices = session.Signals.Where(signal => signal.Kind == SimulatorSignalKind.DEV && signal.IsEnabled)
+            .GroupBy(signal => signal.System).Select(group => (Name: group.Key, Count: group.Count())).ToList();
+        var chosen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (devices.Count > 0)
+        {
+            var boxes = devices.Select(device => new CheckBox { Content = $"{device.Name}   ({device.Count} value(s))", Tag = device.Name, IsChecked = true, Margin = new Thickness(0, 2, 0, 2) }).ToList();
+            var list = new StackPanel();
+            boxes.ForEach(box => list.Children.Add(box));
+            var ok = new Button { Content = "Make screen", Width = 100, IsDefault = true, Margin = new Thickness(0, 0, 8, 0) };
+            var cancel = new Button { Content = "Cancel", Width = 90, IsCancel = true };
+            var all = new Button { Content = "Select all", Width = 90, Margin = new Thickness(0, 0, 8, 0) };
+            all.Click += (_, _) => boxes.ForEach(box => box.IsChecked = true);
+            var none = new Button { Content = "Select none", Width = 90, Margin = new Thickness(0, 0, 24, 0) };
+            none.Click += (_, _) => boxes.ForEach(box => box.IsChecked = false);
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+            buttons.Children.Add(all);
+            buttons.Children.Add(none);
+            buttons.Children.Add(ok);
+            buttons.Children.Add(cancel);
+            var panel = new DockPanel { Margin = new Thickness(14) };
+            var header = new TextBlock
+            {
+                Text = "Which devices does the plant have? Their measurements are added to the screen, grouped by device. " +
+                       "The AI, RTD and counter measurements of the project are always added.",
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            DockPanel.SetDock(header, System.Windows.Controls.Dock.Top);
+            DockPanel.SetDock(buttons, System.Windows.Controls.Dock.Bottom);
+            panel.Children.Add(header);
+            panel.Children.Add(buttons);
+            panel.Children.Add(new ScrollViewer { Content = list, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+            var dialog = new Window
+            {
+                Title = "Measurement screen — devices",
+                Content = panel,
+                Width = 560,
+                Height = 420,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = Window.GetWindow(this)
+            };
+            ok.Click += (_, _) => dialog.DialogResult = true;
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            chosen.UnionWith(boxes.Where(box => box.IsChecked == true).Select(box => (string)box.Tag));
+        }
+
+        var count = MeasurementScreen.Build(model, session.Signals, chosen);
+        _screen = MeasurementScreen.Screen;
+        _selected = null;
+        _controller.Rebuild();
+        MessageBox.Show(Window.GetWindow(this)!,
+            $"The screen '{MeasurementScreen.Screen}' has {count} measurement(s), grouped by system and device. Measurements the model writes are shown (Display); " +
+            "the others are simulated with the value set on the screen (double-click a measurement to change it).",
+            "Measurement screen", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
     private void Generate_Click(object sender, RoutedEventArgs e)
     {
         if (_controller is not null)
