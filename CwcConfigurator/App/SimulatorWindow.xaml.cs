@@ -314,10 +314,87 @@ public partial class SimulatorWindow : Window
     /// <summary>The SIMULATOR column: where the model uses each signal (objects, relay logic, cubicle).</summary>
     private void UpdateLinks()
     {
+        var conflicts = 0;
         foreach (var session in _sessions)
         {
-            SignalLinks.Apply(session.Signals, _controller.Models.GetValueOrDefault(session.Name));
+            conflicts += SignalLinks.Apply(session.Signals, _controller.Models.GetValueOrDefault(session.Name));
         }
+
+        if (conflicts != _linkConflicts && conflicts > 0)
+        {
+            StatusText.Text = $"⚠ {conflicts} input(s) are written by more than one place (red in the SIMULATOR column; search ⚠). Click the entry to open where it is mapped.";
+        }
+
+        _linkConflicts = conflicts;
+    }
+
+    private int _linkConflicts;
+
+    /// <summary>Click on the SIMULATOR column: opens where the signal is mapped (a menu when there are several places).</summary>
+    private void Links_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not SimulatorSignal signal || signal.LinkTargets.Count == 0)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        var targets = signal.LinkTargets.GroupBy(link => (link.Text, link.Writes)).Select(group => group.First()).ToList();
+        if (targets.Count == 1)
+        {
+            Reveal(targets[0]);
+            return;
+        }
+
+        var menu = new ContextMenu { PlacementTarget = (UIElement)sender, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        if (signal.HasLinkConflict)
+        {
+            menu.Items.Add(new MenuItem { Header = new TextBlock { Text = "⚠ " + signal.LinkWarning, TextWrapping = TextWrapping.Wrap, MaxWidth = 520, Foreground = Brushes.Firebrick }, IsEnabled = false });
+            menu.Items.Add(new Separator());
+        }
+
+        foreach (var link in targets.OrderByDescending(link => link.Writes))
+        {
+            var item = new MenuItem
+            {
+                Header = new TextBlock
+                {
+                    Text = (link.Writes ? "writes  ·  " : "reads  ·  ") + link.Text,
+                    FontWeight = link.Writes && signal.HasLinkConflict ? FontWeights.SemiBold : FontWeights.Normal
+                }
+            };
+            item.Click += (_, _) => Reveal(link);
+            menu.Items.Add(item);
+        }
+
+        menu.IsOpen = true;
+    }
+
+    /// <summary>Shows the place where a signal is mapped: the object on its SCADA screen, the path of the relay logic, the cubicle device.</summary>
+    private void Reveal(SignalLink link)
+    {
+        void Show(UIElement panel) => Tabs.SelectedItem = Tabs.Items.OfType<TabItem>().FirstOrDefault(tab => ReferenceEquals(tab.Content, panel)) ?? Tabs.SelectedItem;
+        switch (link.Area)
+        {
+            case "Object":
+                Show(ScadaPanel);
+                ScadaPanel.Reveal(link.Name);
+                break;
+            case "Relay":
+                Show(RelayPanel);
+                RelayPanel.Reveal(link.Index, link.Item);
+                break;
+            case "Device":
+                Show(RelayPanel);
+                RelayPanel.RevealTag(link.Name);
+                break;
+            case "Cubicle" when link.Item is CubicleItem device:
+                Show(CubiclePanel);
+                CubiclePanel.Reveal(link.Index, device);
+                break;
+        }
+
+        StatusText.Text = "Showing " + link.Text + ".";
     }
 
     private void ShowSignals()

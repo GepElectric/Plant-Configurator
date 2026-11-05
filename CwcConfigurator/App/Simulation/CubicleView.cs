@@ -181,6 +181,19 @@ public sealed class CubicleView : UserControl
         Select(Cubicle);
     }
 
+    /// <summary>Opens a cubicle and selects a device on it (from the signal list).</summary>
+    public void Reveal(int index, CubicleItem item)
+    {
+        if (Model is not { } model || index < 0 || index >= model.Cubicles.Count)
+        {
+            return;
+        }
+
+        _index = index;
+        LoadCubicles();
+        Select(item);
+    }
+
     /// <summary>Live state (switch positions changed elsewhere); called by the window timer.</summary>
     public void RefreshLive()
     {

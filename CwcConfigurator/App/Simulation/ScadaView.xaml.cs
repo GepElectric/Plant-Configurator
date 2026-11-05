@@ -110,6 +110,28 @@ public partial class ScadaView : UserControl
         Rebuild();
     }
 
+    /// <summary>Opens the screen of an object and selects it (from the signal list).</summary>
+    public void Reveal(string name)
+    {
+        if (Model is not { } model || model.Objects.FirstOrDefault(item => item.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is not { } config)
+        {
+            return;
+        }
+
+        _screen = model.ScreenOf(config);
+        _selection.Clear();
+        _selection.Add(config.Name);
+        _selected = config.Name;
+        Rebuild();
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_items.TryGetValue(config.Name, out var item))
+            {
+                item.Element.BringIntoView();
+            }
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
     private ProcessModel? Model => _controller is not null && _controller.Models.TryGetValue(_plc, out var model) ? model : null;
 
     /// <summary>Updates values, symbols, power line colours and the force table (called from the window timer).</summary>

@@ -240,7 +240,20 @@
                             <DataGridTemplateColumn Header="SIMULATOR" Width="200" MinWidth="100" SortMemberPath="Links">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding Links}" ToolTip="{Binding Links}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="#1F6FEB"/>
+                                        <TextBlock Text="{Binding Links}" ToolTip="{Binding LinkToolTip}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                                   Cursor="Hand" MouseLeftButtonUp="Links_MouseUp">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#1F6FEB"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasLinkConflict}" Value="True">
+                                                            <Setter Property="Foreground" Value="#DC2626"/>
+                                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>

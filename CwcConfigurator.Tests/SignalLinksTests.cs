@@ -36,4 +36,40 @@ public sealed class SignalLinksTests
         Assert.Equal(["device -K112"], links[(SimulatorSignalKind.DI, 3)]);
         Assert.Equal(["cubicle -S1 AUTO"], links[(SimulatorSignalKind.DI, 371)]);
     }
+
+    [Fact]
+    public void Conflict_WhenMoreThanOnePlaceWritesTheSameInput()
+    {
+        var model = new ProcessModel
+        {
+            Objects =
+            [
+                new ObjectConfig { Name = "Logic1", Type = "Logic", Ports = new() { ["In1"] = "DI:5", ["Out"] = "DI:67" } },
+                new ObjectConfig { Name = "Logic2", Type = "Logic", Ports = new() { ["Out"] = "DI:83" } }
+            ],
+            RelaySheets =
+            [
+                new RelaySheet
+                {
+                    Name = "DIGITAL INPUTS", Page = 21,
+                    Circuits = [new RelayCircuit { Elements = [new RelayElement()], Coil = new RelayCoil { Outputs = "DI:67" } }]
+                }
+            ]
+        };
+        var signals = new[]
+        {
+            new SimulatorSignal { Kind = SimulatorSignalKind.DI, Module = 0, Channel = 0, ByteOffset = 0, Id = 67 },
+            new SimulatorSignal { Kind = SimulatorSignalKind.DI, Module = 0, Channel = 0, ByteOffset = 0, Id = 83 },
+            new SimulatorSignal { Kind = SimulatorSignalKind.DI, Module = 0, Channel = 0, ByteOffset = 0, Id = 5 }
+        };
+
+        Assert.Equal(1, SignalLinks.Apply(signals, model));
+        Assert.True(signals[0].HasLinkConflict);
+        Assert.Contains("PLC input /21.1", signals[0].LinkWarning);
+        Assert.Contains("@Logic1.Out", signals[0].LinkWarning);
+        Assert.StartsWith("⚠", signals[0].Links);
+        Assert.False(signals[1].HasLinkConflict);                     // one writer
+        Assert.False(signals[2].HasLinkConflict);                     // only read
+        Assert.Equal(2, signals[0].LinkTargets.Count);
+    }
 }

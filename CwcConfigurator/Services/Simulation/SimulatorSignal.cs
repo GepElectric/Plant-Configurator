@@ -43,6 +43,7 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
     private int? _commRaw;
     private string _setText = "";
     private string _links = "";
+    private string _linkWarning = "";
     private bool _forceTrue;
     private bool _forceFalse;
     private bool _forceValueOn;
@@ -202,8 +203,36 @@ public sealed class SimulatorSignal : INotifyPropertyChanged
     public string Links
     {
         get => _links;
-        set => Set(ref _links, value ?? "");
+        set
+        {
+            if (Set(ref _links, value ?? ""))
+            {
+                OnPropertyChanged(nameof(LinkToolTip));
+            }
+        }
     }
+
+    /// <summary>The places where the simulator uses this signal (to open them from the signal list).</summary>
+    public IReadOnlyList<Process.SignalLink> LinkTargets { get; set; } = [];
+
+    /// <summary>Not empty when more than one place writes this input (they overwrite each other).</summary>
+    public string LinkWarning
+    {
+        get => _linkWarning;
+        set
+        {
+            if (Set(ref _linkWarning, value ?? ""))
+            {
+                OnPropertyChanged(nameof(HasLinkConflict));
+                OnPropertyChanged(nameof(LinkToolTip));
+            }
+        }
+    }
+
+    public bool HasLinkConflict => _linkWarning.Length > 0;
+
+    public string LinkToolTip => (_linkWarning.Length > 0 ? "⚠ " + _linkWarning + "\n\n" : "") +
+                                 (_links.Length > 0 ? _links.TrimStart('⚠', ' ') + "\nClick to open where it is mapped." : "Not used by the simulator.");
 
     /// <summary>Text typed in the SET box of an analog channel.</summary>
     public string SetText

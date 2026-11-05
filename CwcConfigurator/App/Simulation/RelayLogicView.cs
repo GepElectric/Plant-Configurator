@@ -59,6 +59,7 @@ public sealed class RelayLogicView : UserControl
     private Point _panOffset;
     private bool _panned;
     private readonly Dictionary<string, (double X, double Bottom)> _positions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<object, Rect> _hitRects = new(ReferenceEqualityComparer.Instance); // where each contact / coil is drawn
 
     public RelayLogicView()
     {
@@ -243,6 +244,55 @@ public sealed class RelayLogicView : UserControl
         {
             Changed();
         }
+    }
+
+    /// <summary>Opens a sheet and selects a coil or contact on it, scrolled into view (from the signal list).</summary>
+    public void Reveal(int sheetIndex, object? item)
+    {
+        if (Model is not { } model || sheetIndex < 0 || sheetIndex >= model.RelaySheets.Count)
+        {
+            return;
+        }
+
+        _sheetIndex = sheetIndex;
+        _loadingSheets = true;
+        try
+        {
+            _sheets.SelectedIndex = sheetIndex;
+        }
+        finally
+        {
+            _loadingSheets = false;
+        }
+
+        _selected = item ?? Sheet;
+        Redraw();
+        ShowProperties();
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (item is not null && _hitRects.TryGetValue(item, out var rect))
+            {
+                _scroll.ScrollToHorizontalOffset(Math.Max(0, (rect.X + rect.Width / 2) * _zoom.ScaleX - _scroll.ViewportWidth / 2));
+                _scroll.ScrollToVerticalOffset(Math.Max(0, (rect.Y + rect.Height / 2) * _zoom.ScaleY - _scroll.ViewportHeight / 2));
+            }
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    /// <summary>The first contact of a device (by its tag).</summary>
+    public void RevealTag(string tag)
+    {
+        var sheets = Model?.RelaySheets ?? [];
+        for (var i = 0; i < sheets.Count; i++)
+        {
+            if (sheets[i].Circuits.SelectMany(circuit => RelayLogicRunner.AllElements(circuit.Elements))
+                    .FirstOrDefault(element => !element.IsParallel && element.Tag.Trim().Equals(tag.Trim(), StringComparison.OrdinalIgnoreCase)) is { } contact)
+            {
+                Reveal(i, contact);
+                return;
+            }
+        }
+
+        _status.Text = $"No contact of {tag} on the sheets.";
     }
 
     /// <summary>Live colours (called by the window timer).</summary>
@@ -1337,6 +1387,7 @@ public sealed class RelayLogicView : UserControl
     private void Redraw()
     {
         _sheet.Children.Clear();
+        _hitRects.Clear();
         var sheet = Sheet;
         if (sheet is null)
         {
@@ -1935,6 +1986,7 @@ public sealed class RelayLogicView : UserControl
             return;
         }
 
+        _hitRects[item] = new Rect(x, y, Math.Max(4, width), Math.Max(4, height));
         var area = new Rectangle { Width = Math.Max(4, width), Height = Math.Max(4, height), Fill = Brushes.Transparent, ToolTip = tooltip, Cursor = Cursors.Hand };
         area.MouseLeftButtonDown += (_, e) =>
         {
