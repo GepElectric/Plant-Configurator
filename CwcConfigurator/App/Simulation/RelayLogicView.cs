@@ -50,6 +50,7 @@ public sealed class RelayLogicView : UserControl
     private string _plc = "";
     private int _sheetIndex;
     private object? _selected; // RelayElement, RelayCoil, RelaySwitch or RelaySheet
+    private RelayElement? _lineStart; // Line tool: where the line starts, waiting for the click on its end
     private bool _loadingSheets;
     private bool _dry; // layout pass: positions only, nothing drawn
     private ScrollViewer _scroll = null!;
@@ -84,6 +85,9 @@ public sealed class RelayLogicView : UserControl
         toolbar.Children.Add(ToolButton("Contact below", "Add a contact in series below the selected contact (or above the selected coil).", (_, _) => AddSeries()));
         toolbar.Children.Add(ToolButton("Path from here", "Start a new path below the selected contact: the current branches off there (e.g. after a switch, one path per position) to its own coil.", (_, _) => PathFromHere()));
         toolbar.Children.Add(ToolButton("Contact beside", "Add a contact in parallel to the selected contact or parallel group.", (_, _) => AddParallel()));
+        toolbar.Children.Add(ToolButton("Line", "Draw a connecting line: select the contact where it starts, click Line, then click where it ends. " +
+                                                "To a contact of the same path (or its coil): a line bypassing everything between them — select the line and use 'Contact below' to put a contact on it (e.g. the self-holding contact). " +
+                                                "To another path: that path takes its supply below the start contact. Esc cancels.", (_, _) => StartLine()));
         toolbar.Children.Add(ToolButton("Delete", "Delete the selected contact (or the whole path when the coil is selected). Del key.", (_, _) => DeleteSelected()));
         toolbar.Children.Add(ToolButton("Switch contact", "Make the selected contact a contact of a selector switch (2 or 3 positions), or add one below the selected element. Turn the switch by clicking its knob on the sheet.", (_, _) => SwitchContact()));
         toolbar.Children.Add(ToolButton("◀", "Move the selected path to the left.", (_, _) => MovePath(-1)));
@@ -100,6 +104,14 @@ public sealed class RelayLogicView : UserControl
         };
         canvasHost.PreviewKeyDown += (_, e) =>
         {
+            if (e.Key == Key.Escape && _lineStart is not null)
+            {
+                _lineStart = null;
+                _status.Text = "Line cancelled.";
+                e.Handled = true;
+                return;
+            }
+
             if (e.Key == Key.Delete && _selected is RelayElement or RelayCoil)
             {
                 DeleteSelected();
@@ -991,9 +1003,90 @@ public sealed class RelayLogicView : UserControl
     private static bool FeedsFrom(RelaySheet sheet, int path, int feeder) =>
         feeder >= 0 && RelayLogicRunner.AllElements(sheet.Circuits[feeder].Elements).Any(element => element.Id.Equals(sheet.Circuits[path].Feed, StringComparison.OrdinalIgnoreCase));
 
+    private void StartLine()
+    {
+        if (_selected is not RelayElement element || Sheet is null)
+        {
+            _status.Text = "Select the contact where the line starts, then click Line.";
+            return;
+        }
+
+        _lineStart = element;
+        _status.Text = $"Line from {Display(element.Tag, element.IsWire ? "the line" : "the contact")}: click the contact or coil where it ends (Esc = cancel).";
+        _scroll.Focus();
+    }
+
+    /// <summary>The click on the end of a line: a bypass in the same path, or a supply to another path.</summary>
+    private void FinishLine(object target)
+    {
+        var start = _lineStart!;
+        _lineStart = null;
+        if (Sheet is not { } sheet || RelayLines.CircuitOf(sheet, start) is not { } path)
+        {
+            return;
+        }
+
+        var error = "";
+        object? select = null;
+        switch (target)
+        {
+            case RelayElement end when RelayLines.CircuitOf(sheet, end) is { } endPath && ReferenceEquals(endPath, path):
+                select = RelayLines.Bypass(path, start, end, out error);
+                break;
+            case RelayCoil coil when ReferenceEquals(CircuitOf(coil), path):
+                select = RelayLines.Bypass(path, start, null, out error);
+                break;
+            case RelayElement end when RelayLines.CircuitOf(sheet, end) is { } other:
+                if (other.Elements.FirstOrDefault() is { } first && !ReferenceEquals(first, end) && !(first.IsParallel && first.Branches.Any(branch => branch.FirstOrDefault() == end)))
+                {
+                    error = "A line to another path ends at the top of that path (its first contact).";
+                }
+                else if (RelayLines.Feed(sheet, start, other, out error))
+                {
+                    select = start;
+                }
+
+                break;
+            case RelayCoil coil when CircuitOf(coil) is { } other:
+                if (RelayLines.Feed(sheet, start, other, out error))
+                {
+                    select = start;
+                }
+
+                break;
+            default:
+                error = "Click a contact or a coil to end the line.";
+                break;
+        }
+
+        if (select is null)
+        {
+            _status.Text = error;
+            Redraw();
+            return;
+        }
+
+        _selected = select;
+        Changed();
+        ShowProperties();
+        _status.Text = select is RelayElement { IsWire: true }
+            ? "Line drawn. To put a contact on it, keep it selected and click 'Contact below'."
+            : "Line drawn: the path now takes its supply below this contact.";
+    }
+
     private void AddSeries()
     {
         var contact = NewContact();
+        if (_selected is RelayElement { IsWire: true } wire && Locate(wire) is { } onLine)
+        {
+            // A contact put on a line replaces the plain wire.
+            onLine.Series[onLine.Index] = contact;
+            _selected = contact;
+            Changed();
+            ShowProperties();
+            return;
+        }
+
         switch (_selected)
         {
             case RelayCoil coil when CircuitOf(coil) is { } circuit:
@@ -1405,6 +1498,14 @@ public sealed class RelayLogicView : UserControl
         var y = top;
         foreach (var element in series)
         {
+            if (element.IsWire)
+            {
+                DrawWire(element, wireX, y);
+                y += RowHeight;
+                _positions[element.Id] = (wireX, y);
+                continue;
+            }
+
             if (!element.IsParallel)
             {
                 DrawContact(element, wireX, y);
@@ -1442,6 +1543,19 @@ public sealed class RelayLogicView : UserControl
         return y;
     }
 
+    /// <summary>A plain line (Line tool): conducts; selectable to put a contact on it.</summary>
+    private void DrawWire(RelayElement wire, double x, double y)
+    {
+        var (poweredIn, _) = Relays?.StateOf(wire) ?? (false, false);
+        if (ReferenceEquals(_selected, wire) || ReferenceEquals(_lineStart, wire))
+        {
+            AddRect(x - 16, y + 2, 32, RowHeight - 4, SelectBrush);
+        }
+
+        AddLine(x, y, x, y + RowHeight, IsLive(poweredIn) ? LiveBrush : WireBrush, 1.4);
+        AddHitArea(wire, x - 16, y + 2, 32, RowHeight - 4, "Line — 'Contact below' puts a contact on it; Delete removes it.");
+    }
+
     /// <summary>
     /// A changeover contact as in a circuit diagram: the common terminal at the top, the blade resting on the NC
     /// terminal (right) and the NO terminal straight below the pivot. The path continues from the terminal it uses.
@@ -1459,7 +1573,7 @@ public sealed class RelayLogicView : UserControl
         var wireIn = IsLive(poweredIn) ? LiveBrush : WireBrush;
         var wireOut = IsLive(poweredIn && closed) ? LiveBrush : WireBrush;
 
-        if (ReferenceEquals(_selected, contact))
+        if (ReferenceEquals(_selected, contact) || ReferenceEquals(_lineStart, contact))
         {
             AddRect(x - WireOffset + 6, y + 2, ColumnWidth - 12, RowHeight - 4, SelectBrush);
         }
@@ -1795,6 +1909,13 @@ public sealed class RelayLogicView : UserControl
         var area = new Rectangle { Width = Math.Max(4, width), Height = Math.Max(4, height), Fill = Brushes.Transparent, ToolTip = tooltip, Cursor = Cursors.Hand };
         area.MouseLeftButtonDown += (_, e) =>
         {
+            if (_lineStart is not null && item is RelayElement or RelayCoil)
+            {
+                FinishLine(item);
+                e.Handled = true;
+                return;
+            }
+
             Select(item);
             e.Handled = true;
         };
@@ -1867,6 +1988,10 @@ public sealed class RelayLogicView : UserControl
         _properties.Children.Clear();
         switch (_selected)
         {
+            case RelayElement { IsWire: true }:
+                Header("Line");
+                Note("A connecting line drawn with the Line tool; it always conducts. 'Contact below' puts a contact on it (e.g. the relay's own contact for self-holding), Delete removes it.");
+                break;
             case RelayElement { IsParallel: true }:
                 Header("Parallel group");
                 Note("Branches are joined at the top and at the bottom. Select a contact in a branch and use 'Contact beside' to add a branch, or 'Contact below' to extend it.");

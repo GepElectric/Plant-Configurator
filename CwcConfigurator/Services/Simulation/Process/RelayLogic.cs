@@ -61,6 +61,9 @@ public static class RelayElementKind
 {
     public const string Contact = "Contact";
     public const string Parallel = "Parallel";
+
+    /// <summary>A plain connecting line (always conducts), e.g. a bypass drawn with the Line tool.</summary>
+    public const string Wire = "Wire";
 }
 
 /// <summary>
@@ -116,6 +119,9 @@ public sealed class RelayElement
 
     [YamlIgnore]
     public bool IsParallel => Kind.Equals(RelayElementKind.Parallel, StringComparison.OrdinalIgnoreCase);
+
+    [YamlIgnore]
+    public bool IsWire => Kind.Equals(RelayElementKind.Wire, StringComparison.OrdinalIgnoreCase);
 
     [YamlIgnore]
     public bool IsNormallyClosed => Contact.Equals("NC", StringComparison.OrdinalIgnoreCase);
@@ -549,7 +555,7 @@ public sealed class RelayLogicRunner
                 continue;
             }
 
-            var closed = element.IsNormallyClosed ? !SourceOn(plc, element, io, engine) : SourceOn(plc, element, io, engine);
+            var closed = element.IsWire || (element.IsNormallyClosed ? !SourceOn(plc, element, io, engine) : SourceOn(plc, element, io, engine));
             _elements[element] = (powered, closed);
             powered &= closed;
         }
@@ -664,6 +670,94 @@ public sealed class RelayLogicRunner
     private static string Key(string plc, string tag) => plc + "/" + tag.Trim();
 
     private static string Display(string tag, string location) => tag.Trim().Length > 0 ? tag : "path " + location;
+}
+
+/// <summary>
+/// Lines drawn by hand between two points of the sheet (the Line tool): a line from one contact to another of the
+/// same path bypasses everything between them (a parallel branch that is just a wire, on which a contact can be put);
+/// a line from a contact to another path makes that path take its supply below the contact.
+/// </summary>
+public static class RelayLines
+{
+    /// <summary>
+    /// A wire parallel to the elements from <paramref name="from"/> to <paramref name="to"/> (both included; null = to
+    /// the end of the path, i.e. the coil). Returns the new wire, or null with <paramref name="error"/>.
+    /// </summary>
+    public static RelayElement? Bypass(RelayCircuit circuit, RelayElement from, RelayElement? to, out string error)
+    {
+        error = "";
+        (List<RelayElement> Series, int From, int To, int Depth)? best = null;
+        void Visit(List<RelayElement> series, int depth)
+        {
+            var i = series.FindIndex(item => Holds(item, from));
+            var j = to is null ? (depth == 0 ? series.Count - 1 : -1) : series.FindIndex(item => Holds(item, to));
+            if (i >= 0 && j >= 0 && (best is null || depth > best.Value.Depth))
+            {
+                best = (series, Math.Min(i, j), Math.Max(i, j), depth);
+            }
+
+            foreach (var branch in series.Where(item => item.IsParallel).SelectMany(item => item.Branches))
+            {
+                Visit(branch, depth + 1);
+            }
+        }
+
+        Visit(circuit.Elements, 0);
+        if (best is not { } place)
+        {
+            error = "The line must start and end in the same path.";
+            return null;
+        }
+
+        var wire = new RelayElement { Kind = RelayElementKind.Wire, Contact = "NO", Pins = "" };
+        if (place.From == place.To && place.Series[place.From].IsParallel)
+        {
+            place.Series[place.From].Branches.Add([wire]);
+            return wire;
+        }
+
+        var range = place.Series.GetRange(place.From, place.To - place.From + 1);
+        place.Series.RemoveRange(place.From, range.Count);
+        place.Series.Insert(place.From, new RelayElement { Kind = RelayElementKind.Parallel, Branches = [range, [wire]] });
+        return wire;
+    }
+
+    /// <summary>The path <paramref name="target"/> takes its supply below <paramref name="from"/> (a contact of another path).</summary>
+    public static bool Feed(RelaySheet sheet, RelayElement from, RelayCircuit target, out string error)
+    {
+        error = "";
+        var source = CircuitOf(sheet, from);
+        if (source is null || ReferenceEquals(source, target))
+        {
+            error = "The line must go to another path.";
+            return false;
+        }
+
+        if (target.Coil.HasInput)
+        {
+            error = "That relay is driven directly by its input (PLC output); it has no current path to supply.";
+            return false;
+        }
+
+        // No loop: the path of the start must not itself be supplied (directly or further up) by the target.
+        for (var path = source; path is not null && path.Feed.Length > 0;)
+        {
+            path = sheet.Circuits.FirstOrDefault(circuit => RelayLogicRunner.AllElements(circuit.Elements).Any(element => element.Id.Equals(path.Feed, StringComparison.OrdinalIgnoreCase)));
+            if (ReferenceEquals(path, target))
+            {
+                error = "That would be a loop: the start path is supplied from the target path.";
+                return false;
+            }
+        }
+
+        target.Feed = from.Id;
+        return true;
+    }
+
+    public static RelayCircuit? CircuitOf(RelaySheet sheet, RelayElement element) =>
+        sheet.Circuits.FirstOrDefault(circuit => RelayLogicRunner.AllElements(circuit.Elements).Contains(element));
+
+    private static bool Holds(RelayElement item, RelayElement element) => RelayLogicRunner.AllElements([item]).Contains(element);
 }
 
 /// <summary>

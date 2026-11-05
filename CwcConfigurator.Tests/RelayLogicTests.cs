@@ -62,6 +62,56 @@ public sealed class RelayLogicTests
     }
 
     [Fact]
+    public void Line_BypassesContactsAndBecomesTheSelfHoldingContact()
+    {
+        // Drawn: start -S1 (DO:1), stop -S2 NC (DO:2), coil -K1. Then a line from -S1 to -S1 (beside it) and a contact on it.
+        var start = Contact("DO:1");
+        var stop = Contact("DO:2", "NC");
+        var circuit = new RelayCircuit { Elements = [start, stop], Coil = new RelayCoil { Tag = "-K1" } };
+        var wire = RelayLines.Bypass(circuit, start, start, out _);
+        Assert.NotNull(wire);
+        Assert.True(circuit.Elements[0].IsParallel);
+        Assert.Same(stop, circuit.Elements[1]);
+
+        var (engine, io) = Build(circuit);
+        engine.Step(0.1, _ => io);
+        Assert.True(engine.Relays.IsOn("Intake", "-K1"));                  // a plain line conducts
+
+        wire!.Kind = RelayElementKind.Contact;                              // the contact put on the line
+        wire.Tag = "-K1";
+        (engine, io) = Build(circuit);
+        engine.Step(0.1, _ => io);
+        Assert.False(engine.Relays.IsOn("Intake", "-K1"));
+        io.Values[(SimulatorSignalKind.DO, 1)] = 1;
+        engine.Step(0.1, _ => io);
+        io.Values[(SimulatorSignalKind.DO, 1)] = 0;
+        engine.Step(0.1, _ => io);
+        Assert.True(engine.Relays.IsOn("Intake", "-K1"));                  // holds
+        io.Values[(SimulatorSignalKind.DO, 2)] = 1;
+        engine.Step(0.1, _ => io);
+        Assert.False(engine.Relays.IsOn("Intake", "-K1"));
+    }
+
+    [Fact]
+    public void Line_AcrossSeveralContactsAndToAnotherPath()
+    {
+        var a = Contact("=0");
+        var b = Contact("=0");
+        var c = Contact("=1");
+        var circuit = new RelayCircuit { Elements = [a, b, c], Coil = new RelayCoil { Tag = "-K1" } };
+        RelayLines.Bypass(circuit, b, a, out _);                           // order of the clicks does not matter
+        Assert.Equal(2, circuit.Elements.Count);
+        Assert.Equal([a, b], circuit.Elements[0].Branches[0]);
+
+        var other = new RelayCircuit { Elements = [Contact("=1")], Coil = new RelayCoil { Tag = "-K2" } };
+        var sheet = new RelaySheet { Circuits = [circuit, other] };
+        Assert.True(RelayLines.Feed(sheet, c, other, out _));
+        Assert.Equal(c.Id, other.Feed);
+        Assert.False(RelayLines.Feed(sheet, other.Elements[0], circuit, out var loop));   // no loop back
+        Assert.Contains("loop", loop);
+    }
+
+    [Fact]
     public void Interlock_NormallyClosedContactOfTheOtherRelayBlocks()
     {
         var open = new RelayCircuit { Elements = [Contact("-S1", source: "DO:1"), Contact("-K108", "NC")], Coil = new RelayCoil { Tag = "-K107" } };
