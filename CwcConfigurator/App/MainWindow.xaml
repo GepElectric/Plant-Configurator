@@ -350,6 +350,8 @@
                 <Separator/>
                 <MenuItem Header="Export _Project Summary" Click="ExportSummary_Click"/>
                 <MenuItem Header="ALM/PAR List PDF Exporter..." Click="AlmParExport_Click"/>
+                <MenuItem Header="PID _auto-tuning..." Click="PidTuning_Click"
+                          ToolTip="Connects to the PLC, records the output and the measurement of a controller (REG_INTF) during a step, fits the process model of that kind of measurement (level, servo position, power, speed…) and proposes GAIN / TI / TD; the proposal is written into the project's PID parameters on request."/>
                 <MenuItem Header="_Plant Simulator..." Click="Simulator_Click"
                           ToolTip="Simulate the PLC I/O over S7 (simulator DB30): set DI/AI/RTD, watch DO/AO."/>
                 <MenuItem Header="TIA Trace Studio..." Click="TraceStudio_Click"
