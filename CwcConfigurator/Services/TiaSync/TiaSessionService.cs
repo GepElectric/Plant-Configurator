@@ -183,7 +183,7 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
     }
 
     public Task<TiaHardwareResult> ReadHardwareAsync(string deviceName) =>
-        SendAsync<TiaHardwareResult>(RequireActiveVersion(), "ReadHardware", new { DeviceName = deviceName, Attributes = "false" }, LongHelperResponseTimeout);
+        SendAsync<TiaHardwareResult>(RequireActiveVersion(), "ReadHardware", new { DeviceName = deviceName, Attributes = "false", Channels = "true" }, LongHelperResponseTimeout);
 
     public Task<TiaHardwareBuildResult> BuildHardwareAsync(TiaHardwareBuildRequest request) =>
         SendAsync<TiaHardwareBuildResult>(RequireActiveVersion(), "BuildHardware", new

@@ -112,4 +112,49 @@ public sealed class TiaHardwarePlanTests
         TiaHardwarePlanner.Save(project, new HardwareStationSettings { Key = "other", DeviceName = "Station A800", IoControllerDevice = "ET 200SP station_4", PnDeviceNumber = 101 });
         Assert.Equal(["Station A800"], TiaHardwarePlanner.DuplicateDeviceNumbers(project, plan));
     }
+
+    [Fact]
+    public void ChannelTemplates_LearnedFromTiaAndSentPerChannel()
+    {
+        Dictionary<string, string> Channel(int number, string range) => new()
+        {
+            ["#Number"] = number.ToString(), ["#Type"] = "Analog", ["#IoType"] = "Input",
+            ["OperatingType"] = "3", ["OperatingRange"] = range, ["Smoothing"] = "1", ["ChannelAddress"] = "!ro"
+        };
+        var tia = new TiaHardwareResult
+        {
+            Found = true,
+            Items =
+            [
+                new TiaHardwareItem { Name = "AI 4xI 2-/4-wire ST_1", TypeIdentifier = "OrderNumber:6ES7 134-6GD01-0BA1/V1.0", Position = 3, Depth = 1 },
+                new TiaHardwareItem { Name = "AI 4xI 2-/4-wire ST_1", Depth = 2, Channels = [Channel(0, "8"), Channel(1, "8"), Channel(2, "9")] },
+                new TiaHardwareItem { Name = "DI 16x24VDC ST_1", Depth = 2, Channels = [new() { ["#Number"] = "0", ["#Type"] = "Digital", ["#IoType"] = "Input", ["InputDelay"] = "4" }] }
+            ]
+        };
+
+        var templates = new List<ChannelTemplate>();
+        var added = TiaHardwarePlanner.LearnTemplates(tia, templates);
+        Assert.Equal(2, added.Count);                                         // two different ranges; digital ignored
+        Assert.All(added, template => Assert.Equal("Input", template.IoType));
+        Assert.DoesNotContain("ChannelAddress", added[0].Attributes.Keys);  // identity / read-only skipped
+        Assert.Empty(TiaHardwarePlanner.LearnTemplates(tia, templates));      // known ones are not repeated
+
+        added[0].Name = "4-20 mA 2-wire";
+        var plan = new HardwareStationSettings
+        {
+            DeviceName = "S1",
+            Modules =
+            [
+                new HardwareModuleSettings
+                {
+                    Tag = "A111", Type = "AI 4xI", Order = "6ES7 134-6GD01-0BA1", Slot = 3, Include = true,
+                    Channels = [new() { Number = 0, Template = "4-20 mA 2-wire" }, new() { Number = 1 }, new() { Number = 2, Template = "unknown" }]
+                }
+            ]
+        };
+        var request = TiaHardwarePlanner.Request(plan, true, false, templates);
+        var channel = Assert.Single(request.Modules[0].Channels);
+        Assert.Equal(0, channel.Number);
+        Assert.Equal("8", channel.Attributes["OperatingRange"]);
+    }
 }

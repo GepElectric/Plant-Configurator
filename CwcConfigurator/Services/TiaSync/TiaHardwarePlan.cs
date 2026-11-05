@@ -1,4 +1,4 @@
-using CwcConfigurator.Domain;
+﻿using CwcConfigurator.Domain;
 using CwcConfigurator.Services.Eplan;
 
 namespace CwcConfigurator.Services.TiaSync;
@@ -21,6 +21,7 @@ public sealed class TiaHardwareItem
     public int Position { get; set; }
     public int Depth { get; set; }
     public Dictionary<string, string> Attributes { get; set; } = [];
+    public List<Dictionary<string, string>> Channels { get; set; } = [];
 }
 
 public sealed class TiaHardwareInterface
@@ -72,6 +73,15 @@ public sealed class TiaHardwareModuleRequest
     public int Slot { get; set; }
     /// <summary>"1" new potential group (light BaseUnit), "0" from the left module, "" not set.</summary>
     public string PotentialGroup { get; set; } = "";
+    /// <summary>Channel settings (analog modules).</summary>
+    public List<TiaChannelRequest> Channels { get; set; } = [];
+}
+
+public sealed class TiaChannelRequest
+{
+    public int Number { get; set; }
+    public string Template { get; set; } = "";
+    public Dictionary<string, string> Attributes { get; set; } = [];
 }
 
 /// <summary>
@@ -162,6 +172,14 @@ public static class TiaHardwarePlanner
                 NewPotentialGroup = index == 0 || module.PartNumber.Contains("+2D", StringComparison.OrdinalIgnoreCase)
             });
             modules[^1].Type = module.Type;
+            modules[^1].Kind = module.Kind.ToString();
+            modules[^1].ChannelCount = module.Channels.Count;
+            if (modules[^1].IsAnalog && modules[^1].Channels.Count != module.Channels.Count)
+            {
+                var kept = modules[^1].Channels.ToDictionary(channel => channel.Number);
+                modules[^1].Channels = Enumerable.Range(0, module.Channels.Count)
+                    .Select(number => kept.GetValueOrDefault(number) ?? new HardwareChannelSettings { Number = number }).ToList();
+            }
         }
 
         plan.Modules = modules;
@@ -281,7 +299,7 @@ public static class TiaHardwarePlanner
     }
 
     /// <summary>The helper request of a completed plan.</summary>
-    public static TiaHardwareBuildRequest Request(HardwareStationSettings plan, bool isCpu, bool apply) => new()
+    public static TiaHardwareBuildRequest Request(HardwareStationSettings plan, bool isCpu, bool apply, IReadOnlyList<ChannelTemplate>? templates = null) => new()
     {
         Apply = apply,
         DeviceName = plan.DeviceName.Trim(),
@@ -294,7 +312,12 @@ public static class TiaHardwarePlanner
             Order = module.Order.Trim(),
             Version = module.Version.Trim(),
             Slot = module.Slot,
-            PotentialGroup = module.NewPotentialGroup ? "1" : "0"
+            PotentialGroup = module.NewPotentialGroup ? "1" : "0",
+            Channels = module.Channels.Where(channel => channel.Template.Length > 0)
+                .Select(channel => (channel, template: templates?.FirstOrDefault(item => item.Name == channel.Template)))
+                .Where(pair => pair.template is not null)
+                .Select(pair => new TiaChannelRequest { Number = pair.channel.Number, Template = pair.template!.Name, Attributes = pair.template.Attributes })
+                .ToList()
         }).ToList(),
         Ip = plan.Ip.Trim(),
         PnDeviceName = plan.PnDeviceName.Trim(),
@@ -371,6 +394,50 @@ public static class TiaHardwarePlanner
     /// <summary>A plugged module of the station (not the rack, not a sub-item): ET 200SP lists them next to the rack.</summary>
     public static bool IsSlotItem(TiaHardwareItem item) =>
         item.Depth <= 1 && item.TypeIdentifier.StartsWith("OrderNumber:", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Attributes that identify a channel rather than set it up.</summary>
+    private static readonly HashSet<string> ChannelIdentity = new(StringComparer.OrdinalIgnoreCase) { "Number", "Type", "IoType", "ChannelAddress", "ChannelWidth" };
+
+    /// <summary>
+    /// Channel templates learned from a station in TIA: every different setting of the analog channels becomes a
+    /// template (named after the module and its values, to be renamed by the user); known ones are not repeated.
+    /// </summary>
+    public static List<ChannelTemplate> LearnTemplates(TiaHardwareResult tia, IList<ChannelTemplate> existing)
+    {
+        var added = new List<ChannelTemplate>();
+        foreach (var item in tia.Items.Where(item => item.Channels.Count > 0))
+        {
+            var module = tia.Items.LastOrDefault(candidate => IsSlotItem(candidate) && tia.Items.IndexOf(candidate) <= tia.Items.IndexOf(item));
+            foreach (var channel in item.Channels.Where(channel => channel.GetValueOrDefault("#Type") == "Analog"))
+            {
+                var settings = channel.Where(pair => !pair.Key.StartsWith('#') && !ChannelIdentity.Contains(pair.Key) && !pair.Value.StartsWith('!'))
+                    .OrderBy(pair => pair.Key).ToDictionary(pair => pair.Key, pair => pair.Value);
+                if (settings.Count == 0 || existing.Concat(added).Any(template => Same(template.Attributes, settings)))
+                {
+                    continue;
+                }
+
+                var source = module is null ? item.Name : $"{module.Name.TrimEnd('_', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9')} ({Split(module.TypeIdentifier).Order})";
+                added.Add(new ChannelTemplate
+                {
+                    Name = $"{source.Split(" (")[0]} — " + string.Join(", ", settings.Select(pair => $"{pair.Key}={pair.Value}")),
+                    Source = source,
+                    IoType = channel.GetValueOrDefault("#IoType") ?? "",
+                    Attributes = settings
+                });
+            }
+        }
+
+        foreach (var template in added)
+        {
+            existing.Add(template);
+        }
+
+        return added;
+    }
+
+    private static bool Same(IReadOnlyDictionary<string, string> a, IReadOnlyDictionary<string, string> b) =>
+        a.Count == b.Count && a.All(pair => b.TryGetValue(pair.Key, out var value) && value == pair.Value);
 
     /// <summary>"OrderNumber:6ES7 131-6BH01-0BA0/V0.0" → ("6ES7 131-6BH01-0BA0", "V0.0").</summary>
     public static (string Order, string Version) Split(string typeIdentifier)

@@ -79,6 +79,29 @@ public sealed class LevelBasin
 public sealed class HardwareConfigSettings
 {
     public List<HardwareStationSettings> Stations { get; set; } = [];
+
+    /// <summary>Channel settings learned from channels set up in TIA ("4–20 mA 2-wire", "Pt100 3-wire"…).</summary>
+    public List<ChannelTemplate> ChannelTemplates { get; set; } = [];
+}
+
+/// <summary>Settings of one analog channel as TIA keeps them (attribute → value), under a name the user gives.</summary>
+public sealed class ChannelTemplate
+{
+    public string Name { get; set; } = "";
+    /// <summary>Module type it was read from, e.g. "AI 8xI 2-/4-wire BA" (order number in brackets).</summary>
+    public string Source { get; set; } = "";
+    /// <summary>"Input" or "Output".</summary>
+    public string IoType { get; set; } = "";
+    public Dictionary<string, string> Attributes { get; set; } = [];
+
+    public override string ToString() => Name;
+}
+
+/// <summary>The template a channel of a module gets ("" = left as it is in TIA).</summary>
+public sealed class HardwareChannelSettings
+{
+    public int Number { get; set; }
+    public string Template { get; set; } = "";
 }
 
 /// <summary>One station (CPU or interface module with its modules) as it is to be built in TIA.</summary>
@@ -122,6 +145,16 @@ public sealed class HardwareModuleSettings
     public bool NewPotentialGroup { get; set; }
     /// <summary>Built in TIA (untick to leave the module out).</summary>
     public bool Include { get; set; } = true;
+    /// <summary>"AnalogInput", "RtdInput", "AnalogOutput"… (EPLAN module kind).</summary>
+    public string Kind { get; set; } = "";
+    /// <summary>Number of channels of the module (EPLAN).</summary>
+    public int ChannelCount { get; set; }
+    /// <summary>Analog modules: the template of every channel.</summary>
+    public List<HardwareChannelSettings> Channels { get; set; } = [];
+
+    /// <summary>An analog module whose channels are set up (AI, RTD, AO).</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsAnalog => Kind is "AnalogInput" or "RtdInput" or "AnalogOutput";
 }
 
 /// <summary>Remembered EPLAN import: which CPU fills which PLC database and which distributed stations belong to it.</summary>

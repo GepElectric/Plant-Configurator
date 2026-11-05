@@ -2195,6 +2195,100 @@ namespace CwcConfigurator.TiaHelper
             return null;
         }
 
+        private static bool _readChannels;
+
+        /// <summary>Channel attributes that identify a channel (not settings).</summary>
+        private static readonly HashSet<string> ChannelIdentity = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Number", "Type", "IoType", "ChannelAddress", "ChannelWidth"
+        };
+
+        /// <summary>
+        /// Settings of the analog channels of a module (measurement type, range, smoothing, diagnostics…) as captured
+        /// from a channel in TIA: each attribute is converted to the type of the channel's current value and set.
+        /// </summary>
+        private static void SetChannels(DeviceItem module, IDictionary<string, object> spec, bool apply, string label, TiaHardwareBuildResult result)
+        {
+            if (!spec.ContainsKey("Channels") || !(spec["Channels"] is IEnumerable list))
+            {
+                return;
+            }
+
+            var channels = new[] { module }.Concat(module.DeviceItems).SelectMany(item => item.Channels).ToList();
+            foreach (var wanted in list.OfType<IDictionary<string, object>>())
+            {
+                var number = ParseInt(PayloadText(wanted, "Number"), -1);
+                var channel = channels.FirstOrDefault(item => item.Number == number);
+                var where = label + " ch" + number;
+                if (channel == null)
+                {
+                    result.Add(where, "Channel", "Error", "the module has no channel " + number);
+                    continue;
+                }
+
+                if (!(wanted.ContainsKey("Attributes") && wanted["Attributes"] is IDictionary<string, object> attributes))
+                {
+                    continue;
+                }
+
+                var changes = new List<string>();
+                var failed = new List<string>();
+                foreach (var pair in attributes)
+                {
+                    if (ChannelIdentity.Contains(pair.Key))
+                    {
+                        continue;
+                    }
+
+                    var value = Convert.ToString(pair.Value, CultureInfo.InvariantCulture) ?? "";
+                    object current;
+                    try { current = channel.GetAttribute(pair.Key); } catch { failed.Add(pair.Key + " (unknown)"); continue; }
+                    if (string.Equals(Convert.ToString(current, CultureInfo.InvariantCulture), value, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    changes.Add(pair.Key + " " + Convert.ToString(current, CultureInfo.InvariantCulture) + " → " + value);
+                    if (!apply)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        object typed = value;
+                        if (current != null)
+                        {
+                            var type = current.GetType();
+                            typed = type.IsEnum ? Enum.Parse(type, value, true)
+                                : type == typeof(bool) ? (object)bool.Parse(value)
+                                : Convert.ChangeType(value, type, CultureInfo.InvariantCulture);
+                        }
+
+                        channel.SetAttribute(pair.Key, typed);
+                    }
+                    catch (Exception ex)
+                    {
+                        failed.Add(pair.Key + ": " + ex.Message);
+                    }
+                }
+
+                if (failed.Count > 0)
+                {
+                    result.Add(where, "Channel settings", "Error", string.Join("; ", failed));
+                }
+
+                if (changes.Count > 0)
+                {
+                    result.Add(where, "Channel settings", apply ? "Done" : "Planned", string.Join(", ", changes));
+                }
+                else if (failed.Count == 0)
+                {
+                    result.Add(where, "Channel settings", "OK", PayloadText(wanted, "Template"));
+                }
+            }
+        }
+
         private static string PayloadText(IDictionary<string, object> payload, string key)
         {
             return payload != null && payload.ContainsKey(key) && payload[key] != null
@@ -2220,6 +2314,7 @@ namespace CwcConfigurator.TiaHelper
         {
             var name = PayloadText(payload, "DeviceName");
             var withAttributes = string.Equals(PayloadText(payload, "Attributes"), "true", StringComparison.OrdinalIgnoreCase);
+            _readChannels = withAttributes || string.Equals(PayloadText(payload, "Channels"), "true", StringComparison.OrdinalIgnoreCase);
             var result = new TiaHardwareResult { DeviceName = name };
             var device = FindDevice(name);
             if (device == null)
@@ -2257,6 +2352,31 @@ namespace CwcConfigurator.TiaHelper
                         string value;
                         try { value = Convert.ToString(item.GetAttribute(attribute.Name), CultureInfo.InvariantCulture); } catch (Exception ex) { value = "!" + ex.GetType().Name; }
                         info.Attributes[attribute.Name] = value;
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            if (_readChannels)
+            {
+                try
+                {
+                    foreach (var channel in item.Channels)
+                    {
+                        var values = new Dictionary<string, string>();
+                        values["#Number"] = Convert.ToString(channel.Number, CultureInfo.InvariantCulture);
+                        values["#Type"] = Convert.ToString(channel.Type, CultureInfo.InvariantCulture);
+                        values["#IoType"] = Convert.ToString(channel.IoType, CultureInfo.InvariantCulture);
+                        foreach (var attribute in channel.GetAttributeInfos())
+                        {
+                            string value;
+                            try { value = Convert.ToString(channel.GetAttribute(attribute.Name), CultureInfo.InvariantCulture); } catch (Exception ex) { value = "!" + ex.GetType().Name; }
+                            values[attribute.Name] = value;
+                        }
+
+                        info.Channels.Add(values);
                     }
                 }
                 catch
@@ -2400,6 +2520,7 @@ namespace CwcConfigurator.TiaHelper
                     result.Add(label, "Module", "OK", type);
                     SetPotentialGroup(existing, group, apply, label, result);
                     SetNoSupplyDiagnostics(existing, group, apply, label, result);
+                    SetChannels(existing, module, apply, label, result);
                     continue;
                 }
 
@@ -2430,6 +2551,7 @@ namespace CwcConfigurator.TiaHelper
                     result.Add(label, "Plug module", "Done", type);
                     SetPotentialGroup(plugged, group, true, label, result);
                     SetNoSupplyDiagnostics(plugged, group, true, label, result);
+                    SetChannels(plugged, module, true, label, result);
                 }
                 catch (Exception ex)
                 {
@@ -3485,10 +3607,12 @@ namespace CwcConfigurator.TiaHelper
         public int Position { get; set; }
         public int Depth { get; set; }
         public Dictionary<string, string> Attributes { get; set; }
+        public List<Dictionary<string, string>> Channels { get; set; }
 
         public TiaHardwareItem()
         {
             Attributes = new Dictionary<string, string>();
+            Channels = new List<Dictionary<string, string>>();
         }
     }
 

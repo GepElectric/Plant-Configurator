@@ -92,6 +92,13 @@ public sealed class HardwareConfigDialog : Window
         buttons.Children.Add(_read);
         buttons.Children.Add(_check);
         buttons.Children.Add(_build);
+        var learn = new Button { Content = "Learn channel templates from TIA", Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 8, 0),
+            ToolTip = "Reads the analog channels of a station in TIA that you set up by hand (measurement type, range, smoothing…) and keeps every different setting as a template for the channels of the AI / RTD / AO modules." };
+        learn.Click += async (_, _) => await Guard(LearnTemplatesAsync);
+        buttons.Children.Add(learn);
+        var templates = new Button { Content = "Channel templates…", Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 8, 0) };
+        templates.Click += (_, _) => EditTemplates();
+        buttons.Children.Add(templates);
         var close = new Button { Content = "Close", Padding = new Thickness(14, 3, 14, 3), IsCancel = true };
         close.Click += (_, _) => Close();
         buttons.Children.Add(close);
@@ -124,6 +131,19 @@ public sealed class HardwareConfigDialog : Window
         _modules.Columns.Add(new DataGridTextColumn { Header = "Order number", Binding = new Binding(nameof(HardwareModuleSettings.Order)), Width = 180 });
         _modules.Columns.Add(new DataGridTextColumn { Header = "Firmware (e.g. V1.0)", Binding = new Binding(nameof(HardwareModuleSettings.Version)), Width = 130 });
         _modules.Columns.Add(new DataGridCheckBoxColumn { Header = "New potential group", Binding = new Binding(nameof(HardwareModuleSettings.NewPotentialGroup)) { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged } });
+        var channelsButton = new FrameworkElementFactory(typeof(Button));
+        channelsButton.SetValue(ContentControl.ContentProperty, "Channels…");
+        channelsButton.SetValue(PaddingProperty, new Thickness(8, 0, 8, 0));
+        channelsButton.SetBinding(VisibilityProperty, new Binding(nameof(HardwareModuleSettings.IsAnalog)) { Converter = new BooleanToVisibilityConverter() });
+        channelsButton.AddHandler(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, new RoutedEventHandler((sender, _) =>
+        {
+            if ((sender as FrameworkElement)?.DataContext is HardwareModuleSettings module)
+            {
+                EditChannels(module);
+            }
+        }));
+        _modules.Columns.Add(new DataGridTemplateColumn { Header = "AI / RTD / AO channels", CellTemplate = new DataTemplate { VisualTree = channelsButton } });
+        _modules.Columns.Add(new DataGridTextColumn { Header = "Channel settings", Binding = new Binding(nameof(HardwareModuleSettings.Channels)) { Converter = new ChannelSummary() }, IsReadOnly = true, Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
         _modules.CellEditEnding += (_, _) => Dispatcher.BeginInvoke(UpdateMissing);
         _modules.CurrentCellChanged += (_, _) => UpdateMissing();
 
@@ -381,7 +401,7 @@ public sealed class HardwareConfigDialog : Window
         Mouse.OverrideCursor = Cursors.Wait;
         try
         {
-            var result = await _session.BuildHardwareAsync(TiaHardwarePlanner.Request(_plan, _station.IsCpu, apply));
+            var result = await _session.BuildHardwareAsync(TiaHardwarePlanner.Request(_plan, _station.IsCpu, apply, _project.HardwareConfig.ChannelTemplates));
             _results.ItemsSource = result.Steps;
             var errors = result.Steps.Count(step => step.Status == "Error");
             var conflicts = result.Steps.Count(step => step.Status == "Conflict");
@@ -394,6 +414,122 @@ public sealed class HardwareConfigDialog : Window
         {
             Mouse.OverrideCursor = null;
         }
+    }
+
+    /// <summary>Channel templates from the analog channels of a station in TIA (set up there by hand).</summary>
+    private async Task LearnTemplatesAsync()
+    {
+        var device = _plan?.DeviceName.Trim() ?? "";
+        var hardware = await _session.ReadHardwareAsync(device);
+        if (!hardware.Found)
+        {
+            throw new InvalidOperationException($"'{device}' is not in TIA. Set up an analog channel in a station there, then enter that station as the TIA device. Devices: {string.Join(", ", hardware.Devices)}");
+        }
+
+        var added = TiaHardwarePlanner.LearnTemplates(hardware, _project.HardwareConfig.ChannelTemplates);
+        MessageBox.Show(this, added.Count == 0
+            ? "No new channel setting in this station (the ones there are known already)."
+            : $"{added.Count} new channel template(s):\n\n{string.Join("\n", added.Select(template => "• " + template.Name))}\n\nGive them clear names in 'Channel templates…' (e.g. 4–20 mA 2-wire, Pt100 3-wire).", Title);
+        _modules.Items.Refresh();
+    }
+
+    /// <summary>The templates: rename, see their values, delete.</summary>
+    private void EditTemplates()
+    {
+        var templates = _project.HardwareConfig.ChannelTemplates;
+        var grid = new DataGrid { AutoGenerateColumns = false, CanUserAddRows = false, ItemsSource = templates, Height = 360 };
+        grid.Columns.Add(new DataGridTextColumn { Header = "Name (rename freely)", Binding = new Binding(nameof(ChannelTemplate.Name)), Width = 260 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "In / out", Binding = new Binding(nameof(ChannelTemplate.IoType)), IsReadOnly = true, Width = 60 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "Read from", Binding = new Binding(nameof(ChannelTemplate.Source)), IsReadOnly = true, Width = 220 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "TIA channel values", Binding = new Binding(nameof(ChannelTemplate.Attributes)) { Converter = new AttributeSummary() }, IsReadOnly = true, Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
+        var delete = new Button { Content = "Delete selected", Padding = new Thickness(10, 2, 10, 2), Margin = new Thickness(0, 8, 8, 0) };
+        delete.Click += (_, _) =>
+        {
+            if (grid.SelectedItem is ChannelTemplate template)
+            {
+                templates.Remove(template);
+                grid.Items.Refresh();
+            }
+        };
+        var panel = new DockPanel { Margin = new Thickness(12) };
+        var note = new TextBlock
+        {
+            Text = "Templates are learned from channels set up in TIA ('Learn channel templates from TIA'). TIA gives the values as numbers (e.g. OperatingType, OperatingRange), so name each template after what it is in TIA, e.g. 4–20 mA 2-wire.",
+            TextWrapping = TextWrapping.Wrap, Foreground = Brushes.DimGray, Margin = new Thickness(0, 0, 0, 8)
+        };
+        DockPanel.SetDock(note, System.Windows.Controls.Dock.Top);
+        DockPanel.SetDock(delete, System.Windows.Controls.Dock.Bottom);
+        panel.Children.Add(note);
+        panel.Children.Add(delete);
+        panel.Children.Add(grid);
+        new Window { Title = "Channel templates", Content = panel, Width = 980, Height = 500, Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner }.ShowDialog();
+        _modules.Items.Refresh();
+    }
+
+    /// <summary>The template of every channel of an analog module.</summary>
+    private void EditChannels(HardwareModuleSettings module)
+    {
+        var names = new List<string> { "" }.Concat(_project.HardwareConfig.ChannelTemplates
+            .Where(template => template.IoType.Length == 0 || template.IoType == (module.Kind == "AnalogOutput" ? "Output" : "Input"))
+            .Select(template => template.Name)).ToList();
+        if (module.Channels.Count == 0)
+        {
+            module.Channels = Enumerable.Range(0, Math.Max(module.ChannelCount, 1)).Select(number => new HardwareChannelSettings { Number = number }).ToList();
+        }
+
+        var grid = new DataGrid { AutoGenerateColumns = false, CanUserAddRows = false, CanUserDeleteRows = false, ItemsSource = module.Channels, Height = 300 };
+        grid.Columns.Add(new DataGridTextColumn { Header = "Channel", Binding = new Binding(nameof(HardwareChannelSettings.Number)), IsReadOnly = true, Width = 70 });
+        grid.Columns.Add(new DataGridComboBoxColumn
+        {
+            Header = "Template (empty = as it is in TIA)",
+            ItemsSource = names,
+            SelectedItemBinding = new Binding(nameof(HardwareChannelSettings.Template)) { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
+            Width = new DataGridLength(1, DataGridLengthUnitType.Star)
+        });
+        var all = new ComboBox { ItemsSource = names, Width = 360, Margin = new Thickness(0, 0, 8, 0) };
+        var setAll = new Button { Content = "Set all channels", Padding = new Thickness(10, 2, 10, 2) };
+        setAll.Click += (_, _) =>
+        {
+            module.Channels.ForEach(channel => channel.Template = all.SelectedItem as string ?? "");
+            grid.Items.Refresh();
+        };
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
+        row.Children.Add(all);
+        row.Children.Add(setAll);
+        var panel = new DockPanel { Margin = new Thickness(12) };
+        var note = new TextBlock
+        {
+            Text = names.Count == 1
+                ? "No channel template yet: set up a channel of this kind in TIA, then 'Learn channel templates from TIA'."
+                : $"-{module.Tag} {module.Type}: choose the setting of every channel; unused channels can stay empty.",
+            TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8)
+        };
+        DockPanel.SetDock(note, System.Windows.Controls.Dock.Top);
+        DockPanel.SetDock(row, System.Windows.Controls.Dock.Top);
+        panel.Children.Add(note);
+        panel.Children.Add(row);
+        panel.Children.Add(grid);
+        new Window { Title = $"Channels of -{module.Tag}", Content = panel, Width = 640, Height = 460, Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner }.ShowDialog();
+        _modules.Items.Refresh();
+    }
+
+    private sealed class ChannelSummary : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+            value is List<HardwareChannelSettings> channels && channels.Any(channel => channel.Template.Length > 0)
+                ? string.Join(" · ", channels.Where(channel => channel.Template.Length > 0).GroupBy(channel => channel.Template)
+                    .Select(group => $"ch {string.Join(",", group.Select(channel => channel.Number))}: {group.Key}"))
+                : "";
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
+    }
+
+    private sealed class AttributeSummary : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+            value is Dictionary<string, string> attributes ? string.Join(", ", attributes.Select(pair => $"{pair.Key}={pair.Value}")) : "";
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
     }
 
     private async Task Guard(Func<Task> action)
