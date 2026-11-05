@@ -23,6 +23,7 @@ public sealed class SimulationController
         }
 
         Engine = new ProcessEngine(Models);
+        SimulationStateIo.Restore(Engine); // continue from the state saved last time
     }
 
     public IReadOnlyList<PlcSession> Sessions { get; }
@@ -103,6 +104,8 @@ public sealed class SimulationController
 
     private void Write(string path)
     {
+        // "Save" keeps the last state of everything: positions, levels, latches, relays, emergency stops.
+        SimulationStateIo.Capture(Engine);
         if (SimulationPackage.IsPackage(path))
         {
             (PackageWriter ?? throw new InvalidOperationException("Saving a simulation package is not available here."))(path);
@@ -133,6 +136,7 @@ public sealed class SimulationController
 
         ModelPath = path;
         Engine = new ProcessEngine(Models, Engine);
+        SimulationStateIo.Restore(Engine);
         Dirty = false;
         ModelChanged?.Invoke();
         FileStateChanged?.Invoke();
@@ -159,6 +163,7 @@ public sealed class SimulationController
         }
 
         Engine = new ProcessEngine(Models, Engine);
+        SimulationStateIo.Restore(Engine);
         Dirty = false;
         ModelChanged?.Invoke();
         FileStateChanged?.Invoke();

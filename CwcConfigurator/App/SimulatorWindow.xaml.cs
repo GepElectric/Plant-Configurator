@@ -725,6 +725,7 @@ public partial class SimulatorWindow : Window
 
         try
         {
+            CaptureForces();
             _controller.Save();
             RememberModel();
             StatusText.Text = "Model saved: " + _controller.ModelPath;
@@ -757,6 +758,7 @@ public partial class SimulatorWindow : Window
         }
         try
         {
+            CaptureForces();
             _controller.SaveAs(path);
             RememberModel();
             StatusText.Text = "Model saved as " + path;
@@ -861,7 +863,8 @@ public partial class SimulatorWindow : Window
                           (_session?.IsConnected == true || !signal.IsWritable ? "." : ". Connect to send it to the PLC.");
     }
 
-    private void SaveForces_Click(object sender, RoutedEventArgs e)
+    /// <summary>The forces (SET TRUE / FALSE / value, wire break) of all signals as they are now, into the models.</summary>
+    private void CaptureForces()
     {
         foreach (var session in _sessions)
         {
@@ -873,7 +876,11 @@ public partial class SimulatorWindow : Window
 
             model.Forces = session.Signals.Where(signal => signal.IsForced).SelectMany(DescribeForces).ToList();
         }
+    }
 
+    private void SaveForces_Click(object sender, RoutedEventArgs e)
+    {
+        CaptureForces();
         _controller.MarkDirty();
         SaveModel_Click(sender, e);
         if (!_controller.Dirty)

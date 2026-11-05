@@ -413,6 +413,38 @@ public sealed class RelayLogicRunner
     /// <summary>Lamp lit (its source is on), from the last step.</summary>
     public bool IsLampOn(CubicleItem lamp) => _lampStates.TryGetValue(lamp, out var on) && on;
 
+    /// <summary>Picked-up (or timing) relays of a PLC for the saved state: "tag|on|elapsed".</summary>
+    public List<string> CaptureState(string plc) => _coils
+        .Where(coil => coil.Plc.Equals(plc, StringComparison.OrdinalIgnoreCase) && (coil.On || coil.Elapsed > 0))
+        .Select(coil => $"{StateKey(coil)}|{(coil.On ? 1 : 0)}|{coil.Elapsed.ToString("0.###", CultureInfo.InvariantCulture)}")
+        .Distinct()
+        .ToList();
+
+    /// <summary>Continues from a saved state (see <see cref="CaptureState"/>).</summary>
+    public void RestoreState(string plc, IEnumerable<string> entries)
+    {
+        foreach (var entry in entries ?? [])
+        {
+            var parts = entry.Split('|');
+            if (parts.Length < 3)
+            {
+                continue;
+            }
+
+            var key = string.Join("|", parts[..^2]);
+            var on = parts[^2] == "1";
+            var elapsed = double.TryParse(parts[^1], NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : 0;
+            foreach (var coil in _coils.Where(coil => coil.Plc.Equals(plc, StringComparison.OrdinalIgnoreCase) && StateKey(coil).Equals(key, StringComparison.OrdinalIgnoreCase)))
+            {
+                coil.On = on;
+                coil.Powered = on;
+                coil.Elapsed = elapsed;
+            }
+        }
+    }
+
+    private static string StateKey(CoilState coil) => coil.Circuit.Coil.Tag.Trim().Length > 0 ? coil.Circuit.Coil.Tag.Trim() : "@" + coil.Location;
+
     public void Step(double dt, Func<string, ISignalIo?> io, ProcessEngine engine)
     {
         StepCubicles(io, engine);

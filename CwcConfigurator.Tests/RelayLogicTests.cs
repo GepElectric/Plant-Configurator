@@ -93,6 +93,42 @@ public sealed class RelayLogicTests
     }
 
     [Fact]
+    public void Save_KeepsTheLastStateOfObjectsAndRelays()
+    {
+        var latch = new ObjectConfig { Name = "L1", Type = "Logic" };
+        latch.Options["Function"] = "Latch";
+        latch.Ports["Set"] = "=1";
+        var circuit = new RelayCircuit
+        {
+            Elements = [Parallel([Contact("DO:1")], [Contact("-K1")])],
+            Coil = new RelayCoil { Tag = "-K1" }
+        };
+        var model = new ProcessModel { Objects = [latch], RelaySheets = [new RelaySheet { Name = "S", Circuits = [circuit] }] };
+        var models = new Dictionary<string, ProcessModel>(StringComparer.OrdinalIgnoreCase) { ["Intake"] = model };
+        var engine = new ProcessEngine(models);
+        var io = new FakeIo();
+        io.Values[(SimulatorSignalKind.DO, 1)] = 1;
+        engine.Step(0.1, _ => io);
+        io.Values[(SimulatorSignalKind.DO, 1)] = 0;
+        latch.Ports.Remove("Set");
+        engine.Step(0.1, _ => io);
+        Assert.True(engine.Relays.IsOn("Intake", "-K1"));
+        Assert.Equal(1, engine.Find("Intake", "L1")!.Value("Out"));
+
+        SimulationStateIo.Capture(engine);
+        var loaded = ProcessModelStore.FromYaml(ProcessModelStore.ToYaml(models));
+        var fresh = new ProcessEngine(loaded);
+        SimulationStateIo.Restore(fresh);
+        fresh.Step(0.1, _ => io);
+        Assert.True(fresh.Relays.IsOn("Intake", "-K1"));                   // the self-holding relay is still held
+        Assert.Equal(1, fresh.Find("Intake", "L1")!.Value("Out"));        // the latch is still set
+
+        fresh.Reset();
+        fresh.Step(0.1, _ => io);
+        Assert.Equal(0, fresh.Find("Intake", "L1")!.Value("Out"));        // Reset = the initial state
+    }
+
+    [Fact]
     public void Line_AcrossSeveralContactsAndToAnotherPath()
     {
         var a = Contact("=0");

@@ -92,8 +92,9 @@ public sealed class CubicleView : UserControl
         _zoom.SelectedItem = "100%";
         _zoom.SelectionChanged += (_, _) => Redraw();
         toolbar.Children.Add(_zoom);
-        _edit.Checked += (_, _) => Redraw();
-        _edit.Unchecked += (_, _) => Redraw();
+        // Switching between placing and operating ends a drag / a held button, so the mouse is never left captured.
+        _edit.Checked += (_, _) => ResetMouse();
+        _edit.Unchecked += (_, _) => ResetMouse();
 
         var host = new ScrollViewer
         {
@@ -123,9 +124,21 @@ public sealed class CubicleView : UserControl
         _door.MouseMove += Door_MouseMove;
         _door.MouseLeftButtonUp += (_, _) => EndDrag();
 
-        // A held push button springs back when the mouse button goes up (wherever the mouse is) or the capture is lost.
-        _door.PreviewMouseUp += (_, _) => ReleaseHeld();
-        _door.LostMouseCapture += (_, _) => ReleaseHeld();
+        // A held push button springs back when the mouse button goes up (wherever the mouse is) or the capture is lost;
+        // a drag ends the same way (also when the button goes up where the door does not see it).
+        _door.PreviewMouseUp += (_, e) =>
+        {
+            ReleaseHeld();
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                EndDrag();
+            }
+        };
+        _door.LostMouseCapture += (_, _) =>
+        {
+            ReleaseHeld();
+            EndDrag();
+        };
 
         var left = new DockPanel();
         var toolbarBorder = new Border { Child = toolbar, BorderBrush = new SolidColorBrush(Color.FromRgb(0xE5, 0xE7, 0xEB)), BorderThickness = new Thickness(0, 0, 0, 1), Background = Brushes.White };
@@ -696,9 +709,32 @@ public sealed class CubicleView : UserControl
         }
     }
 
+    /// <summary>No drag, no held button, mouse not captured (after switching the mode).</summary>
+    private void ResetMouse()
+    {
+        _dragging = null;
+        if (_held is { } held)
+        {
+            held.Pressed = false;
+            _held = null;
+        }
+
+        if (_door.IsMouseCaptured)
+        {
+            _door.ReleaseMouseCapture();
+        }
+
+        Redraw();
+    }
+
     private void Item_MouseDown(CubicleItem item, MouseButtonEventArgs e)
     {
         e.Handled = true;
+        if (_dragging is not null && _edit.IsChecked != true)
+        {
+            _dragging = null; // a drag left over from placing
+        }
+
         if (_edit.IsChecked == true)
         {
             Select(item);
@@ -722,7 +758,7 @@ public sealed class CubicleView : UserControl
 
         _held = null;
         item.Pressed = false;
-        if (_door.IsMouseCaptured && _dragging is null)
+        if (_door.IsMouseCaptured && (_dragging is null || Mouse.LeftButton != MouseButtonState.Pressed))
         {
             _door.ReleaseMouseCapture();
         }
@@ -787,7 +823,11 @@ public sealed class CubicleView : UserControl
         }
 
         _dragging = null;
-        _door.ReleaseMouseCapture();
+        if (_door.IsMouseCaptured && _held is null)
+        {
+            _door.ReleaseMouseCapture();
+        }
+
         _controller?.MarkDirty();
         ShowProperties();
     }
