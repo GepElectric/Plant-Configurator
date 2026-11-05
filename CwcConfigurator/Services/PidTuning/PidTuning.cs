@@ -364,7 +364,12 @@ public static class PidTuner
     /// </summary>
     public static PidProposal Tune(ProcessModel model, LoopProfile profile, double factor)
     {
-        var tauC = factor * Math.Max(model.DeadTime, profile.MinClosedLoopTime);
+        // A level is as fast as its basin: the closed-loop time is a share of the time the output needs to move the
+        // level over the whole range (1 / Ki) — 10 % fast, 20 % normal, 40 % robust — never below the profile minimum.
+        var basis = profile.Key == "LEVEL" && model.Kind == ProcessKind.Integrating && Math.Abs(model.Gain) > 0
+            ? Math.Max(0.1 / Math.Abs(model.Gain), profile.MinClosedLoopTime)
+            : profile.MinClosedLoopTime;
+        var tauC = factor * Math.Max(model.DeadTime, basis);
         var sum = tauC + model.DeadTime;
         if (model.Kind == ProcessKind.Integrating)
         {
@@ -382,6 +387,30 @@ public static class PidTuner
 
         return new PidProposal(kc, Math.Max(Math.Min(model.TimeConstant, 4 * sum), 0.1), 0, true, true, false, tauC);
     }
+
+    /// <summary>
+    /// The level model of a basin: dh/dt = ΔQ / A, in % of the level range per % of the output:
+    /// Ki = ±Q100 / (A · range) (negative when the output moves the outflow).
+    /// </summary>
+    public static ProcessModel LevelModel(LevelBasin basin)
+    {
+        if (basin.Area <= 0 || basin.LevelRange <= 0 || basin.FlowAt100 <= 0)
+        {
+            throw new InvalidOperationException("Enter the basin surface (m²), the level measuring range (m) and the flow at 100 % output (m³/s).");
+        }
+
+        var ki = basin.FlowAt100 / (basin.Area * basin.LevelRange) * (basin.Outflow ? -1 : 1);
+        return new ProcessModel(ProcessKind.Integrating, ki, 0, Math.Max(0, basin.DeadTime), 1, 0, 0);
+    }
+
+    /// <summary>Time the output at 100 % needs to move the level over the whole range: A · range / Q100 = 1 / |Ki| (s).</summary>
+    public static double FillTime(ProcessModel model) => model.Kind == ProcessKind.Integrating && Math.Abs(model.Gain) > 0 ? 1 / Math.Abs(model.Gain) : 0;
+
+    /// <summary>The basin surface a measured level model corresponds to: A = Q100 / (|Ki| · range).</summary>
+    public static double EffectiveArea(ProcessModel model, LevelBasin basin) =>
+        model.Kind == ProcessKind.Integrating && Math.Abs(model.Gain) > 0 && basin.LevelRange > 0 && basin.FlowAt100 > 0
+            ? basin.FlowAt100 / (Math.Abs(model.Gain) * basin.LevelRange)
+            : 0;
 
     /// <summary>
     /// Closed-loop response to a reference step of 1 % with the model and a PID of the PLC form

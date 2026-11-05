@@ -48,6 +48,13 @@ public sealed class PidTuningWindow : Window
     private readonly SimulatorS7Client _client = new();
     private readonly List<(double T, double Ref, double Out, double Meas)> _samples = [];
     private CancellationTokenSource? _stop;
+    private readonly StackPanel _basinPanel = new() { Margin = new Thickness(0, 0, 0, 8) };
+    private readonly TextBox _area = new() { Width = 90, Margin = new Thickness(0, 0, 10, 0) };
+    private readonly TextBox _range = new() { Width = 60, Margin = new Thickness(0, 0, 10, 0) };
+    private readonly TextBox _flow = new() { Width = 70, Margin = new Thickness(0, 0, 10, 0) };
+    private readonly TextBox _basinDelay = new() { Width = 50, Margin = new Thickness(0, 0, 10, 0) };
+    private readonly ComboBox _direction = new() { Width = 230, Margin = new Thickness(0, 0, 10, 0) };
+    private readonly TextBlock _basinInfo = new() { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.DimGray, Margin = new Thickness(0, 4, 0, 0) };
     private string? _logPath;
     private ProcessModel? _model;
     private PidProposal? _proposal;
@@ -100,6 +107,39 @@ public sealed class PidTuningWindow : Window
         signals.Children.Add(_outAddress);
         root.Children.Add(signals);
         root.Children.Add(_hint);
+
+        // Level: the basin decides the speed of the loop.
+        var basinRow = new WrapPanel();
+        basinRow.Children.Add(new TextBlock { Text = "Basin", Width = 90, VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeights.SemiBold });
+        foreach (var (label, box, tip) in new (string, Control, string)[]
+                 {
+                     ("surface [m²]", _area, "Water surface of the basin at the operating level"),
+                     ("level range [m]", _range, "Measuring range of the level (100 % of the measurement)"),
+                     ("flow at 100 % output [m³/s]", _flow, "Flow the controller output moves at 100 % (e.g. rated discharge of the turbines / gate)"),
+                     ("dead time [s]", _basinDelay, "Delay between the output and the level (flow travel, waves); 0 if not known"),
+                     ("output moves", _direction, "Outflow: the level falls when the output rises (turbines, gates) — negative GAIN")
+                 })
+        {
+            basinRow.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 4, 0) });
+            box.ToolTip = tip;
+            box.VerticalAlignment = VerticalAlignment.Center;
+            basinRow.Children.Add(box);
+        }
+
+        var fromBasin = new Button { Content = "Model from basin data", Padding = new Thickness(10, 2, 10, 2), ToolTip = "No step test needed: the level model from the basin (useful for big reservoirs where a step moves the level only slowly)." };
+        fromBasin.Click += (_, _) => Guard(ModelFromBasin);
+        basinRow.Children.Add(fromBasin);
+        _basinPanel.Children.Add(basinRow);
+        _basinPanel.Children.Add(_basinInfo);
+        root.Children.Add(_basinPanel);
+        _direction.ItemsSource = new[] { "outflow (turbines, gates)", "inflow" };
+        _direction.SelectedIndex = 0;
+        foreach (var box in new[] { _area, _range, _flow, _basinDelay })
+        {
+            box.TextChanged += (_, _) => ShowBasin();
+        }
+
+        _direction.SelectionChanged += (_, _) => ShowBasin();
 
         var recordRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
         recordRow.Children.Add(_record);
@@ -192,11 +232,81 @@ public sealed class PidTuningWindow : Window
     {
         if (_profile.SelectedItem is LoopProfile profile)
         {
-            _hint.Text = $"{profile.Hint}  Suggested step: {profile.StepPercent:0.#} %, record about {Duration(profile.RecordSeconds)}.";
+            _hint.Text = $"{profile.Hint}  Suggested step: {profile.StepPercent:0.#} %, record about {Duration(profile.RecordSeconds)}." +
+                         (profile.Key == "LEVEL" ? "  The level depends on the basin: fill in its data below — the model can then be taken from them (big reservoirs) and a recording is checked against them." : "");
+            _basinPanel.Visibility = profile.Key == "LEVEL" ? Visibility.Visible : Visibility.Collapsed;
+            LoadBasin();
         }
     }
 
-    private static string Duration(double seconds) => seconds >= 120 ? $"{seconds / 60:0} min" : $"{seconds:0} s";
+    private string BasinKey => $"{(_database.SelectedItem as PlcDatabase)?.Id}|{(_controller.SelectedItem as PidController)?.Structure}";
+
+    private bool _loadingBasin;
+
+    private void LoadBasin()
+    {
+        _loadingBasin = true;
+        var basin = _project.PidBasins.GetValueOrDefault(BasinKey) ?? new LevelBasin();
+        _area.Text = basin.Area > 0 ? basin.Area.ToString("0.###", CultureInfo.CurrentCulture) : "";
+        _range.Text = basin.LevelRange > 0 ? basin.LevelRange.ToString("0.###", CultureInfo.CurrentCulture) : "";
+        _flow.Text = basin.FlowAt100 > 0 ? basin.FlowAt100.ToString("0.###", CultureInfo.CurrentCulture) : "";
+        _basinDelay.Text = basin.DeadTime > 0 ? basin.DeadTime.ToString("0.#", CultureInfo.CurrentCulture) : "";
+        _direction.SelectedIndex = basin.Outflow ? 0 : 1;
+        _loadingBasin = false;
+        ShowBasin();
+    }
+
+    /// <summary>The basin as entered (also kept in the project).</summary>
+    private LevelBasin Basin()
+    {
+        static double Number(TextBox box) => double.TryParse(box.Text.Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : 0;
+        var basin = new LevelBasin { Area = Number(_area), LevelRange = Number(_range), FlowAt100 = Number(_flow), DeadTime = Number(_basinDelay), Outflow = _direction.SelectedIndex != 1 };
+        if (!_loadingBasin && _controller.SelectedItem is PidController && (basin.Area > 0 || basin.LevelRange > 0 || basin.FlowAt100 > 0))
+        {
+            _project.PidBasins[BasinKey] = basin;
+        }
+
+        return basin;
+    }
+
+    private void ShowBasin()
+    {
+        if (_loadingBasin || _basinPanel.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        var basin = Basin();
+        if (basin.Area <= 0 || basin.LevelRange <= 0 || basin.FlowAt100 <= 0)
+        {
+            _basinInfo.Text = "Level rise = flow / surface. With the basin data the tool knows how fast the level can be controlled.";
+            return;
+        }
+
+        var model = PidTuner.LevelModel(basin);
+        var fill = PidTuner.FillTime(model);
+        _basinInfo.Text = $"Basin: 1 % output moves the level by {Math.Abs(model.Gain) * 60:0.####} %/min ({Math.Abs(model.Gain) * basin.LevelRange * 3600:0.###} m/h); " +
+                          $"the whole range at 100 % output in {Duration(fill)} — the level loop is tuned to a share of this time." +
+                          (_model is { Kind: ProcessKind.Integrating } measured
+                              ? $"  Recording: {Math.Abs(measured.Gain) * 60:0.####} %/min → effective surface {PidTuner.EffectiveArea(measured, basin):0} m² (entered {basin.Area:0} m²)."
+                              : "");
+    }
+
+    private void ModelFromBasin()
+    {
+        _model = PidTuner.LevelModel(Basin());
+        if (_samples.FirstOrDefault(sample => double.IsFinite(sample.Out) && double.IsFinite(sample.Meas)) is { T: >= 0 } first && _samples.Count > 1)
+        {
+            _model = _model with { U0 = first.Out, Y0 = first.Meas }; // drawn against the recording
+        }
+
+        Propose();
+        DrawRecording();
+        ShowBasin();
+    }
+
+    private static string Duration(double seconds) =>
+        seconds >= 7200 ? $"{seconds / 3600:0.#} h" : seconds >= 120 ? $"{seconds / 60:0} min" : $"{seconds:0} s";
 
     private async Task ConnectAsync()
     {
@@ -360,6 +470,7 @@ public sealed class PidTuningWindow : Window
         var (time, output, measurement) = PidTuner.Resample(_samples.Select(sample => sample.T).ToList(), _samples.Select(sample => sample.Out).ToList(), _samples.Select(sample => sample.Meas).ToList());
         _model = PidTuner.Identify(time, output, measurement, profile.Process);
         Propose();
+        ShowBasin();
         DrawRecording();
     }
 
@@ -372,7 +483,11 @@ public sealed class PidTuningWindow : Window
 
         var factor = PidTuner.Aggressiveness[Math.Max(0, _aggressiveness.SelectedIndex)].Factor;
         _proposal = PidTuner.Tune(_model, profile, factor);
-        var quality = _model.Fit < 0.8 ? "  ⚠ The model fits poorly (R² < 0.8): record longer, with a clearer step and a steady start." : "";
+        var quality = _samples.Count > 0 && _model.Fit < 0.8 ? "  ⚠ The model fits poorly (R² < 0.8): record longer, with a clearer step and a steady start." : "";
+        if (PidTuner.FillTime(_model) is > 0 and var fill)
+        {
+            quality += $"  Basin: whole level range at 100 % output in {Duration(fill)}.";
+        }
         _result.Text =
             $"Model: {_model.Describe()}.{quality}\n" +
             $"Proposal ({_aggressiveness.SelectedItem}, closed-loop time ≈ {_proposal.ClosedLoopTime:0.#} s): GAIN = {_proposal.Gain.ToString("0.####", CultureInfo.InvariantCulture)} · " +
@@ -446,7 +561,7 @@ public sealed class PidTuningWindow : Window
         Plot(_chart, _samples.Select(sample => (sample.T - t0, sample.Ref)), t1 - t0, low, high, Brushes.Gray, 1);
         Plot(_chart, _samples.Select(sample => (sample.T - t0, sample.Out)), t1 - t0, low, high, Brushes.DarkOrange, 1.5);
         Plot(_chart, _samples.Select(sample => (sample.T - t0, sample.Meas)), t1 - t0, low, high, Brushes.RoyalBlue, 1.5);
-        if (_model is not null)
+        if (_model is not null && _samples.Count > 1)
         {
             Plot(_chart, ModelResponse(_model), t1 - t0, low, high, Brushes.SeaGreen, 1.5, dashed: true);
         }

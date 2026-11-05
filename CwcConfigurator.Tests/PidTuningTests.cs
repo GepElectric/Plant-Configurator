@@ -142,4 +142,26 @@ public sealed class PidTuningTests
         Assert.Equal((8, 20), PidTuner.ParseAddress("8.20"));
         Assert.Null(PidTuner.ParseAddress("gate"));
     }
+
+    [Fact]
+    public void Level_DependsOnTheBasin()
+    {
+        var level = PidTuner.ProfileFor("PID_WATER_LEVEL");
+        var small = new LevelBasin { Area = 5_000, LevelRange = 4, FlowAt100 = 5, Outflow = true, DeadTime = 5 };
+        var big = new LevelBasin { Area = 500_000, LevelRange = 4, FlowAt100 = 5, Outflow = true, DeadTime = 5 };
+
+        var smallModel = PidTuner.LevelModel(small);
+        Assert.Equal(-5.0 / (5_000 * 4), smallModel.Gain, 9);                 // turbines: the level falls
+        Assert.Equal(4_000, PidTuner.FillTime(smallModel), 6);                 // A·range/Q = 4000 s
+
+        var smallTune = PidTuner.Tune(smallModel, level, 2);
+        var bigTune = PidTuner.Tune(PidTuner.LevelModel(big), level, 2);
+        Assert.True(smallTune.Gain < 0 && bigTune.Gain < 0);
+        Assert.InRange(bigTune.Ti / smallTune.Ti, 90, 110);                    // 100× the basin → 100× slower
+        Assert.InRange(smallTune.Gain / bigTune.Gain, 0.9, 1.1);               // the same GAIN on % (the time scales)
+        Assert.Equal(0.2 * 4_000, smallTune.ClosedLoopTime, 6);                // normal: 20 % of the fill time
+
+        // A recording of the big basin read as the small one: the effective surface tells.
+        Assert.Equal(500_000, PidTuner.EffectiveArea(PidTuner.LevelModel(big), small), 3);
+    }
 }

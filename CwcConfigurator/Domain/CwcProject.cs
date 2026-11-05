@@ -40,6 +40,9 @@ public sealed class CwcProject
     public AlmParExportConfig AlmParExport { get; set; } = new();
     public EplanImportConfig EplanImport { get; set; } = new();
 
+    /// <summary>Data of the level controllers' basins for PID auto-tuning, by "database id|PID structure".</summary>
+    public Dictionary<string, LevelBasin> PidBasins { get; set; } = [];
+
     /// <summary>Hardware of the EPLAN stations completed for TIA (Tools → Hardware configuration in TIA).</summary>
     public HardwareConfigSettings HardwareConfig { get; set; } = new();
 
@@ -52,6 +55,24 @@ public sealed class CwcProject
         database.ApplyTo(project);
         return project;
     }
+}
+
+/// <summary>
+/// The basin of a level controller: its surface, the measuring range of the level and the flow the controller output
+/// moves. The level rises by ΔQ / A, so these decide how fast the level loop can be.
+/// </summary>
+public sealed class LevelBasin
+{
+    /// <summary>Water surface of the basin in m² (at the operating level).</summary>
+    public double Area { get; set; }
+    /// <summary>Measuring range of the level in m (100 % of the measurement).</summary>
+    public double LevelRange { get; set; }
+    /// <summary>Flow at 100 % controller output in m³/s.</summary>
+    public double FlowAt100 { get; set; }
+    /// <summary>The controller output moves the outflow (turbines, gates) — the level falls when it rises; false: inflow.</summary>
+    public bool Outflow { get; set; } = true;
+    /// <summary>Dead time between the output and the level in s (flow travel, waves).</summary>
+    public double DeadTime { get; set; }
 }
 
 /// <summary>The hardware plans of the EPLAN stations for TIA, with what the user filled in.</summary>
