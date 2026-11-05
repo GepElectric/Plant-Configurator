@@ -82,7 +82,8 @@ public sealed class RelayLogicView : UserControl
         toolbar.Children.Add(ToolButton("Delete sheet", "Delete this sheet with all its paths.", (_, _) => DeleteSheet()));
         toolbar.Children.Add(new Separator { Width = 14, Opacity = 0 });
         toolbar.Children.Add(ToolButton("New path", "Add a current path (one contact and a relay coil) at the right.", (_, _) => NewPath()));
-        toolbar.Children.Add(ToolButton("Contact below", "Add a contact in series below the selected contact (or above the selected coil).", (_, _) => AddSeries()));
+        toolbar.Children.Add(ToolButton("Contact above", "Add a contact in series above the selected contact (or at the top of the selected coil's path).", (_, _) => AddSeriesAbove()));
+        toolbar.Children.Add(ToolButton("Contact below","Add a contact in series below the selected contact (or above the selected coil).", (_, _) => AddSeries()));
         toolbar.Children.Add(ToolButton("Path from here", "Start a new path below the selected contact: the current branches off there (e.g. after a switch, one path per position) to its own coil.", (_, _) => PathFromHere()));
         toolbar.Children.Add(ToolButton("Contact beside", "Add a contact in parallel to the selected contact or parallel group.", (_, _) => AddParallel()));
         toolbar.Children.Add(ToolButton("Line", "Draw a connecting line: select the contact where it starts, click Line, then click where it ends. " +
@@ -1094,6 +1095,34 @@ public sealed class RelayLogicView : UserControl
                 break;
             case RelayElement element when Locate(element) is { } place:
                 place.Series.Insert(place.Index + 1, contact);
+                break;
+            default:
+                _status.Text = "Select a contact or a coil first.";
+                return;
+        }
+
+        _selected = contact;
+        Changed();
+        ShowProperties();
+    }
+
+    /// <summary>A contact in series above the selected contact (or at the top of the selected coil's path).</summary>
+    private void AddSeriesAbove()
+    {
+        var contact = NewContact();
+        switch (_selected)
+        {
+            case RelayCoil coil when CircuitOf(coil) is { } circuit:
+                if (circuit.Coil.HasInput)
+                {
+                    _status.Text = "That relay is driven directly by its input; it has no contacts.";
+                    return;
+                }
+
+                circuit.Elements.Insert(0, contact);
+                break;
+            case RelayElement element when Locate(element) is { } place:
+                place.Series.Insert(place.Index, contact);
                 break;
             default:
                 _status.Text = "Select a contact or a coil first.";
