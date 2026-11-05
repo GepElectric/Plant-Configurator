@@ -189,13 +189,21 @@ public sealed class LogicObject : SimObject
     private double _pulseTimer;
     private bool _lastIn;
 
+    /// <summary>Most inputs a logic block can have (option Inputs).</summary>
+    public const int MaxInputs = 16;
+
     public static ObjectTypeInfo TypeInfo { get; } = new(
         "Logic", "Logic / feedback", "General",
-        "Feedback contacts and simple logic: Echo (DI follows a DO), NOT, AND, OR, Latch, Pulse, Threshold, fixed TRUE/FALSE.",
+        "Feedback contacts and simple logic: Echo (DI follows a DO), NOT, AND, OR, Latch, Pulse, Threshold, fixed TRUE/FALSE. " +
+        "The number of inputs is set by Inputs; every input can be inverted.",
         [
-            Option("Function", "Echo: Out = In1 (with delays). Not, And, Or of In1..In4. Latch: Set/Reset. Pulse on a rising In1. " +
+            Option("Function", "Echo: Out = In1 (with delays). Not, And, Or of the inputs. Latch: Set/Reset. Pulse on a rising In1. " +
                                "Threshold: Analog ≥ Threshold. True/False: fixed state (MCB OK, no alarm).",
-                "Echo", "Not", "And", "Or", "Latch", "Pulse", "Threshold", "True", "False")
+                "Echo", "Not", "And", "Or", "Latch", "Pulse", "Threshold", "True", "False"),
+            Count("Inputs", "Number of inputs In1..In16 (And / Or use all connected ones).", 1, MaxInputs, 2),
+            .. Enumerable.Range(1, MaxInputs).Select(i =>
+                Option($"In{i}Mode", $"Input {i}: Normal, or Inverted (the logic uses NOT In{i}).", "Normal", "Inverted")
+                    .When("Inputs", AtLeast(i, MaxInputs)))
         ],
         [
             Param("OnDelay", 0, "s", "Output switches on only after the condition was true this long."),
@@ -205,10 +213,8 @@ public sealed class LogicObject : SimObject
             Param("Hysteresis", 1, "", "Threshold: switching hysteresis.")
         ],
         [
-            BoolIn("In1", "Input 1."),
-            BoolIn("In2", "Input 2."),
-            BoolIn("In3", "Input 3."),
-            BoolIn("In4", "Input 4."),
+            .. Numbered(MaxInputs, i => BoolIn($"In{i}", $"Input {i} (set Inverted under In{i}Mode to use it negated).")
+                .When("Inputs", AtLeast(i, MaxInputs))),
             BoolIn("Set", "Latch: set."),
             BoolIn("Reset", "Latch: reset (dominant)."),
             AnalogIn("Analog", "", "Threshold: analog value."),
@@ -227,8 +233,12 @@ public sealed class LogicObject : SimObject
 
     public override void Step(double dt)
     {
-        var inputs = Enumerable.Range(1, 4).Where(i => Connected($"In{i}")).Select(i => InB($"In{i}")).ToList();
-        var in1 = InB("In1");
+        // The inputs in use (connected, or inverted: an open inverted input counts as TRUE), each negated when set so.
+        // (Older models without the Inputs option get it when loaded, as many as are connected.)
+        var count = Math.Clamp(int.TryParse(Opt("Inputs"), out var number) ? number : 2, 1, MaxInputs);
+        bool Value(int i) => InB($"In{i}") ^ Opt($"In{i}Mode") == "Inverted";
+        var inputs = Enumerable.Range(1, count).Where(i => Connected($"In{i}") || Opt($"In{i}Mode") == "Inverted").Select(Value).ToList();
+        var in1 = Value(1);
         bool condition;
         switch (Opt("Function"))
         {
