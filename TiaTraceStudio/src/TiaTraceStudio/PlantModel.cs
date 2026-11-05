@@ -445,6 +445,9 @@ public static class PlantPlanner
         }
         foreach (var catalog in link.Plcs.Where(c => plant.Plcs.All(p => p.CatalogId != c.Id) && PlantConfigLink.UnitNumber(c.Name) == null))
             plant.Plcs.Add(new PlcConnection { Name = catalog.Name, CatalogId = catalog.Id });
+        // The PLC's IP address comes from Plant Configurator (TIA hardware) unless one was entered here.
+        foreach (var plc in plant.Plcs.Where(p => string.IsNullOrWhiteSpace(p.Ip)))
+            if (link.Get(plc.CatalogId)?.Ip is { Length: > 0 } ip) plc.Ip = ip;
     }
     public sealed record ValveType(string Key, string Generic);
     public static readonly ValveType[] ValveTypes =

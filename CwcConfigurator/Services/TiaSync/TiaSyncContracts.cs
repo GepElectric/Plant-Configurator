@@ -6,6 +6,17 @@ public sealed class TiaDiscoveredPlc
     public string SoftwareName { get; set; } = "";
     public List<TiaPlcObjectInfo> Objects { get; set; } = [];
 
+    /// <summary>IP addresses from the TIA hardware configuration: "interface name|IPv4".</summary>
+    public List<string> IpAddresses { get; set; } = [];
+
+    /// <summary>The PLC's address: the first PROFINET (else any) interface's IPv4; "" when the hardware has none.</summary>
+    public string PrimaryIp()
+    {
+        var entries = IpAddresses.Select(entry => entry.Split('|', 2)).Where(parts => parts.Length == 2 && parts[1].Trim().Length > 0).ToList();
+        var profinet = entries.FirstOrDefault(parts => parts[0].Contains("PROFINET", StringComparison.OrdinalIgnoreCase) || parts[0].Contains("PN", StringComparison.Ordinal));
+        return (profinet ?? entries.FirstOrDefault())?[1].Trim() ?? "";
+    }
+
     public override string ToString()
     {
         var label = string.IsNullOrWhiteSpace(SoftwareName) || SoftwareName == DeviceName

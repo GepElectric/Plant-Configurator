@@ -176,9 +176,20 @@ namespace CwcConfigurator.TiaHelper
 
             foreach (var device in _project.Devices)
             {
+                var found = session.Plcs.Count;
                 foreach (var item in device.DeviceItems)
                 {
                     DiscoverSoftware(device.Name, item, session.Plcs);
+                }
+
+                // IP addresses from the hardware configuration of the PLC's device (PROFINET / Ethernet interfaces).
+                if (session.Plcs.Count > found)
+                {
+                    var addresses = ReadIpAddresses(device);
+                    for (var index = found; index < session.Plcs.Count; index++)
+                    {
+                        session.Plcs[index].IpAddresses = addresses;
+                    }
                 }
             }
 
@@ -2180,6 +2191,51 @@ namespace CwcConfigurator.TiaHelper
             return null;
         }
 
+        /// <summary>IPv4 addresses of the network interfaces of a device: "PROFINET interface_1|10.25.4.11".</summary>
+        private static List<string> ReadIpAddresses(Device device)
+        {
+            var result = new List<string>();
+            foreach (var item in device.DeviceItems)
+            {
+                CollectIpAddresses(item, result);
+            }
+
+            return result;
+        }
+
+        private static void CollectIpAddresses(DeviceItem item, List<string> result)
+        {
+            try
+            {
+                var network = item.GetService<NetworkInterface>();
+                if (network != null)
+                {
+                    foreach (Node node in network.Nodes)
+                    {
+                        string address = null;
+                        try { address = node.GetAttribute("Address") as string; } catch { }
+                        if (!string.IsNullOrWhiteSpace(address) && address != "0.0.0.0")
+                        {
+                            var entry = item.Name + "|" + address.Trim();
+                            if (!result.Contains(entry))
+                            {
+                                result.Add(entry);
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // an item without network features
+            }
+
+            foreach (var child in item.DeviceItems)
+            {
+                CollectIpAddresses(child, result);
+            }
+        }
+
         private static void DiscoverSoftware(string deviceName, DeviceItem item, IList<TiaDiscoveredPlc> plcs)
         {
             var container = item.GetService<SoftwareContainer>();
@@ -2782,9 +2838,13 @@ namespace CwcConfigurator.TiaHelper
         public string SoftwareName { get; set; }
         public List<TiaPlcObjectInfo> Objects { get; set; }
 
+        /// <summary>IP addresses of the device's interfaces: "interface name|IPv4".</summary>
+        public List<string> IpAddresses { get; set; }
+
         public TiaDiscoveredPlc()
         {
             Objects = new List<TiaPlcObjectInfo>();
+            IpAddresses = new List<string>();
         }
     }
 

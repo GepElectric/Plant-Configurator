@@ -785,6 +785,15 @@ public sealed class PlcDatabase
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "PLC";
+
+    /// <summary>
+    /// IP address of the PLC, read from the TIA hardware configuration on attach / pull; every app that talks to the PLC
+    /// (simulator, TIA Trace Studio…) takes it from here.
+    /// </summary>
+    public string IpAddress { get; set; } = "";
+
+    /// <summary>All interfaces of the PLC from TIA: "interface name|IPv4".</summary>
+    public List<string> IpAddresses { get; set; } = [];
     [JsonIgnore]
     public bool IsActive { get; set; }
     [JsonIgnore]

@@ -23,6 +23,9 @@ public sealed class SimulatorPlcOption
     /// <summary>Identifies the project (its file path) for remembering the last model file.</summary>
     public string ProjectKey { get; init; } = "";
 
+    /// <summary>IP address of the PLC from the project (TIA hardware configuration); used when none is set here.</summary>
+    public string IpAddress { get; init; } = "";
+
     /// <summary>Connection settings from a .plantsim package; null = the settings stored on this PC.</summary>
     public SimulatorConnectionSettings? Settings { get; init; }
 
@@ -75,7 +78,16 @@ public partial class SimulatorWindow : Window
         DeviceTypeColumn.ItemsSource = Enum.GetValues<DeviceType>();
         DevicePresetBox.ItemsSource = DevicePresets;
         DevicePresetBox.SelectedIndex = 0;
-        _sessions = options.Select(option => new PlcSession(option.Name, option.Project, option.SettingsKey, option.Settings)).ToList();
+        _sessions = options.Select(option =>
+        {
+            var session = new PlcSession(option.Name, option.Project, option.SettingsKey, option.Settings);
+            if (string.IsNullOrWhiteSpace(session.Settings.IpAddress) && option.IpAddress.Trim().Length > 0)
+            {
+                session.Settings.IpAddress = option.IpAddress.Trim(); // from the TIA hardware configuration
+            }
+
+            return session;
+        }).ToList();
         _projectKey = options.FirstOrDefault()?.ProjectKey ?? "";
         _projectBytes = projectBytes;
         _projectName = projectName;
@@ -124,7 +136,7 @@ public partial class SimulatorWindow : Window
         {
             var scoped = new CwcProject();
             database.ApplyTo(scoped);
-            return new SimulatorPlcOption { Name = database.Name, Project = scoped, SettingsKey = projectKey + "|" + database.Name, ProjectKey = projectKey };
+            return new SimulatorPlcOption { Name = database.Name, Project = scoped, SettingsKey = projectKey + "|" + database.Name, ProjectKey = projectKey, IpAddress = database.IpAddress };
         }).ToList();
         if (options.Count == 0)
         {
@@ -215,6 +227,7 @@ public partial class SimulatorWindow : Window
             Project = option.Project,
             SettingsKey = option.SettingsKey,
             ProjectKey = option.ProjectKey,
+            IpAddress = option.IpAddress,
             Settings = connections is not null && connections.TryGetValue(option.Name, out var settings) ? settings : null
         }).ToList();
         var active = project.PlcDatabases.FirstOrDefault(database => database.Id == project.ActivePlcDatabaseId)?.Name;

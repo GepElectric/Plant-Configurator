@@ -166,4 +166,34 @@ public sealed class TiaMappingService
             .ThenBy(plc => plc.SoftwareName.Length)
             .FirstOrDefault();
     }
+
+    /// <summary>
+    /// Stores the IP addresses of the TIA hardware configuration in the PLC databases mapped to the TIA PLCs.
+    /// </summary>
+    /// <returns>Databases whose address changed ("Unit 1: 10.25.4.11").</returns>
+    public List<string> StoreIpAddresses(CwcProject project, TiaAttachedSession session)
+    {
+        var changed = new List<string>();
+        foreach (var database in project.PlcDatabases)
+        {
+            var binding = project.TiaSync.PlcBindings.FirstOrDefault(item => item.PlcDatabaseId == database.Id);
+            var plc = binding is null ? null : session.Plcs.FirstOrDefault(item =>
+                item.DeviceName.Equals(binding.DeviceName, StringComparison.OrdinalIgnoreCase)
+                && (string.IsNullOrWhiteSpace(binding.SoftwareName) || item.SoftwareName.Equals(binding.SoftwareName, StringComparison.OrdinalIgnoreCase)));
+            if (plc is null || plc.IpAddresses.Count == 0)
+            {
+                continue;
+            }
+
+            var ip = plc.PrimaryIp();
+            database.IpAddresses = plc.IpAddresses.ToList();
+            if (ip.Length > 0 && !ip.Equals(database.IpAddress, StringComparison.Ordinal))
+            {
+                database.IpAddress = ip;
+                changed.Add($"{database.Name}: {ip}");
+            }
+        }
+
+        return changed;
+    }
 }
