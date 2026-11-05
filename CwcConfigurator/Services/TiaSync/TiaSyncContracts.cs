@@ -88,6 +88,12 @@ public interface ITiaSessionService
     Task<TiaTextListTypesResult> UpdateTextListTypesAsync(string inputFolder, IReadOnlyList<string> listNames, string comment);
     Task<TiaTextListTypesResult> ExportTextListTypeTextsAsync(string outputFile, IReadOnlyList<string> listNames, bool inWork);
     Task<TiaTextListTypesResult> ImportTextListTypeTextsAsync(string? inputFile, IReadOnlyList<string> listNames, string comment);
+
+    /// <summary>The hardware of a TIA device (items, slots, order numbers / firmware, network).</summary>
+    Task<TiaHardwareResult> ReadHardwareAsync(string deviceName);
+
+    /// <summary>Checks (Apply = false) or builds a station in TIA from a completed plan.</summary>
+    Task<TiaHardwareBuildResult> BuildHardwareAsync(TiaHardwareBuildRequest request);
 }
 
 /// <summary>New versions of text lists that are library types (project library), created from exported documents.</summary>

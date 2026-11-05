@@ -343,6 +343,8 @@
                 <Separator/>
                 <MenuItem Header="Import hardware from EP_LAN (.epj)..." Click="ImportEplan_Click"
                           ToolTip="Reads an EPLAN PXF export: assigns distributed stations to CPUs, fills MODULE NAMES and the EPLAN columns (signal, connected to, PDF page, schematic page) of the hardware tabs."/>
+                <MenuItem Header="_Hardware configuration in TIA (from EPLAN)..." Click="HardwareConfig_Click"
+                          ToolTip="Builds the PLC hardware of an EPLAN station in the open TIA project: CPU / interface module, modules in their slots, potential groups, IP address, PROFINET name, subnet and IO system. You fill in what EPLAN does not have (firmware versions, IP…); existing items that differ are reported, never changed."/>
                 <MenuItem Header="_Automap IDs (EPLAN signal ↔ DB signal)..." Click="AutomapEplanIds_Click"
                           ToolTip="Proposes hardware IDs by comparing the EPLAN signal names with the English names in DB DI / DB DO / DB MEAS / DB AO. You check the proposals before they are written; DB tables are not changed."/>
                 <Separator/>

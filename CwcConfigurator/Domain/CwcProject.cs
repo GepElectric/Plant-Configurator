@@ -40,6 +40,9 @@ public sealed class CwcProject
     public AlmParExportConfig AlmParExport { get; set; } = new();
     public EplanImportConfig EplanImport { get; set; } = new();
 
+    /// <summary>Hardware of the EPLAN stations completed for TIA (Tools → Hardware configuration in TIA).</summary>
+    public HardwareConfigSettings HardwareConfig { get; set; } = new();
+
     public static CwcProject CreateEmpty()
     {
         var project = new CwcProject();
@@ -49,6 +52,52 @@ public sealed class CwcProject
         database.ApplyTo(project);
         return project;
     }
+}
+
+/// <summary>The hardware plans of the EPLAN stations for TIA, with what the user filled in.</summary>
+public sealed class HardwareConfigSettings
+{
+    public List<HardwareStationSettings> Stations { get; set; } = [];
+}
+
+/// <summary>One station (CPU or interface module with its modules) as it is to be built in TIA.</summary>
+public sealed class HardwareStationSettings
+{
+    /// <summary>EPLAN function | head device tag.</summary>
+    public string Key { get; set; } = "";
+    /// <summary>Name of the device (station) in TIA.</summary>
+    public string DeviceName { get; set; } = "";
+    /// <summary>Name of the CPU / interface module in TIA (the CPU name is the PLC software name).</summary>
+    public string HeadName { get; set; } = "";
+    public string HeadOrder { get; set; } = "";
+    public string HeadVersion { get; set; } = "";
+    public int HeadSlot { get; set; } = 1;
+    /// <summary>Bus adapter (ET 200SP, slot 127), e.g. 6ES7 193-6AR00-0AA0 / V0.0; empty = none.</summary>
+    public string BusAdapterOrder { get; set; } = "";
+    public string BusAdapterVersion { get; set; } = "";
+    public int BusAdapterSlot { get; set; } = 127;
+    public string Ip { get; set; } = "";
+    public string PnDeviceName { get; set; } = "";
+    public string Subnet { get; set; } = "";
+    /// <summary>CPU: name of its PROFINET IO system.</summary>
+    public string IoSystem { get; set; } = "";
+    /// <summary>Interface module: TIA device of the CPU whose IO system it joins.</summary>
+    public string IoControllerDevice { get; set; } = "";
+    public List<HardwareModuleSettings> Modules { get; set; } = [];
+}
+
+public sealed class HardwareModuleSettings
+{
+    /// <summary>EPLAN device tag without '-', e.g. "A611".</summary>
+    public string Tag { get; set; } = "";
+    public string Type { get; set; } = "";
+    public string Order { get; set; } = "";
+    public string Version { get; set; } = "";
+    public int Slot { get; set; }
+    /// <summary>ET 200SP: the module opens a new potential group (light BaseUnit).</summary>
+    public bool NewPotentialGroup { get; set; }
+    /// <summary>Built in TIA (untick to leave the module out).</summary>
+    public bool Include { get; set; } = true;
 }
 
 /// <summary>Remembered EPLAN import: which CPU fills which PLC database and which distributed stations belong to it.</summary>
