@@ -112,6 +112,12 @@ public partial class SimulatorWindow : Window
         RelayPanel.Attach(_controller);
         CubiclePanel.Attach(_controller);
         _controller.ModelChanged += UpdateLinks;
+        _controller.NoticesAdded += () => Dispatcher.BeginInvoke(ShowNotices, DispatcherPriority.Loaded);
+        if (_controller.Notices.Count > 0)
+        {
+            Dispatcher.BeginInvoke(ShowNotices, DispatcherPriority.ApplicationIdle);
+        }
+
         foreach (var session in _sessions)
         {
             PlcSelector.Items.Add(session);
@@ -329,6 +335,24 @@ public partial class SimulatorWindow : Window
     }
 
     private int _linkConflicts;
+
+    /// <summary>Mappings moved to (or refused by) the PLC inputs of the relay logic: in the status line, a refusal also as a message.</summary>
+    private void ShowNotices()
+    {
+        if (_controller.Notices.Count == 0)
+        {
+            return;
+        }
+
+        var notices = _controller.Notices.ToList();
+        _controller.Notices.Clear();
+        StatusText.Text = string.Join("  ·  ", notices);
+        var refused = notices.Where(notice => notice.Contains("not connected", StringComparison.OrdinalIgnoreCase)).ToList();
+        if (refused.Count > 0)
+        {
+            MessageBox.Show(this, string.Join("\n\n", refused), "Simulator – PLC input", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 
     /// <summary>Click on the SIMULATOR column: opens where the signal is mapped (a menu when there are several places).</summary>
     private void Links_MouseUp(object sender, MouseButtonEventArgs e)

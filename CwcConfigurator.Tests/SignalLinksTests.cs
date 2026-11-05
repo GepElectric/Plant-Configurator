@@ -52,7 +52,7 @@ public sealed class SignalLinksTests
                 new RelaySheet
                 {
                     Name = "DIGITAL INPUTS", Page = 21,
-                    Circuits = [new RelayCircuit { Elements = [new RelayElement()], Coil = new RelayCoil { Outputs = "DI:67" } }]
+                    Circuits = [new RelayCircuit { Elements = [new RelayElement { Tag = "-K12" }], Coil = new RelayCoil { Outputs = "DI:67" } }]
                 }
             ]
         };

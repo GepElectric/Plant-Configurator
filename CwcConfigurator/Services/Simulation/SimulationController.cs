@@ -22,8 +22,33 @@ public sealed class SimulationController
             Models.TryAdd(session.Name, new ProcessModel());
         }
 
+        AssignPlcInputs();
         Engine = new ProcessEngine(Models);
         SimulationStateIo.Restore(Engine); // continue from the state saved last time
+    }
+
+    /// <summary>What the last model change connected or refused at the PLC inputs of the relay logic (shown by the window).</summary>
+    public List<string> Notices { get; } = [];
+
+    /// <summary>Raised when <see cref="Notices"/> got new lines.</summary>
+    public event Action? NoticesAdded;
+
+    /// <summary>
+    /// Mappings to a DI that a PLC input of the relay logic drives become the source of its open contact (or are
+    /// refused when it has one), see <see cref="PlcInputSources"/>.
+    /// </summary>
+    private void AssignPlcInputs()
+    {
+        var added = Models.Values.SelectMany(PlcInputSources.Assign).ToList();
+        if (added.Count == 0)
+        {
+            return;
+        }
+
+        Notices.AddRange(added);
+        Dirty = true;
+        FileStateChanged?.Invoke();
+        NoticesAdded?.Invoke();
     }
 
     public IReadOnlyList<PlcSession> Sessions { get; }
@@ -60,6 +85,7 @@ public sealed class SimulationController
     /// <summary>Applies structural changes (objects added/removed/renamed, ports, options); running state is kept.</summary>
     public void Rebuild()
     {
+        AssignPlcInputs();
         Engine = new ProcessEngine(Models, Engine);
         MarkDirty();
         ModelChanged?.Invoke();
@@ -135,9 +161,10 @@ public sealed class SimulationController
         }
 
         ModelPath = path;
+        Dirty = false;
+        AssignPlcInputs();
         Engine = new ProcessEngine(Models, Engine);
         SimulationStateIo.Restore(Engine);
-        Dirty = false;
         ModelChanged?.Invoke();
         FileStateChanged?.Invoke();
         return loaded.Keys.Where(plc => Session(plc) is null && loaded[plc].Objects.Count > 0).ToList();
@@ -162,9 +189,10 @@ public sealed class SimulationController
             Models.TryAdd(session.Name, new ProcessModel());
         }
 
+        Dirty = false;
+        AssignPlcInputs();
         Engine = new ProcessEngine(Models, Engine);
         SimulationStateIo.Restore(Engine);
-        Dirty = false;
         ModelChanged?.Invoke();
         FileStateChanged?.Invoke();
         return true;

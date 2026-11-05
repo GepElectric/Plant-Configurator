@@ -200,6 +200,9 @@ public sealed class RelayLogicRunner
         /// <summary>The relay's direct input (<see cref="RelayCoil.Input"/>) as a contact source, or null.</summary>
         public string? Input { get; init; }
 
+        /// <summary>A PLC input whose contacts have no source yet (imported "SUPPLY ?"): it does not write its DI.</summary>
+        public bool Unsourced { get; init; }
+
         public bool On { get; set; }
         public bool Powered { get; set; }
         public double Elapsed { get; set; }
@@ -277,7 +280,8 @@ public sealed class RelayLogicRunner
                         Sheet = sheet,
                         Circuit = circuit,
                         Location = Location(sheet, sheetIndex, path),
-                        Input = circuit.Coil.HasInput ? circuit.Coil.Input.Trim() : null
+                        Input = circuit.Coil.HasInput ? circuit.Coil.Input.Trim() : null,
+                        Unsourced = IsUnsourced(circuit)
                     };
 
                     if (state.Input is not null && circuit.Elements.Count > 0)
@@ -413,6 +417,21 @@ public sealed class RelayLogicRunner
     /// <summary>Lamp lit (its source is on), from the last step.</summary>
     public bool IsLampOn(CubicleItem lamp) => _lampStates.TryGetValue(lamp, out var on) && on;
 
+    /// <summary>
+    /// A path whose contacts all have no source (an external signal not connected yet): it does not drive its
+    /// outputs, so the DI stays free for SET TRUE / FALSE and for the simulator (until a source is given).
+    /// </summary>
+    public static bool IsUnsourced(RelayCircuit circuit)
+    {
+        if (circuit.Coil.HasInput || circuit.Feed.Length > 0)
+        {
+            return false;
+        }
+
+        var contacts = AllElements(circuit.Elements).Where(element => !element.IsParallel && !element.IsWire).ToList();
+        return contacts.Count > 0 && contacts.All(contact => contact.Tag.Trim().Length == 0);
+    }
+
     /// <summary>Picked-up (or timing) relays of a PLC for the saved state: "tag|on|elapsed".</summary>
     public List<string> CaptureState(string plc) => _coils
         .Where(coil => coil.Plc.Equals(plc, StringComparison.OrdinalIgnoreCase) && (coil.On || coil.Elapsed > 0))
@@ -491,7 +510,7 @@ public sealed class RelayLogicRunner
             }
         }
 
-        foreach (var coil in _coils)
+        foreach (var coil in _coils.Where(coil => !coil.Unsourced))
         {
             var plcIo = io(coil.Plc);
             var on = coil.Circuit.Coil.Tag.Trim().Length > 0 ? RelayOn(Key(coil.Plc, coil.Circuit.Coil.Tag)) : coil.On;

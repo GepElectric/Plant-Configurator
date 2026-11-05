@@ -59,7 +59,10 @@ public static class SignalLinks
                 var coil = circuit.Coil.Tag.Trim();
                 var where = sheet.Name.Trim().Length > 0 ? $" ({sheet.Name.Trim()})" : "";
                 Add(circuit.Coil.Input, new SignalLink($"relay {coil} {location}", false, "Relay", Index: sheetIndex, Item: circuit.Coil));
-                Add(circuit.Coil.Outputs, new SignalLink((coil.Length > 0 ? $"relay {coil} {location}" : $"PLC input {location}") + where, true, "Relay", Index: sheetIndex, Item: circuit.Coil));
+                // A PLC input without a source does not write its DI (an external signal still to be connected).
+                var unsourced = RelayLogicRunner.IsUnsourced(circuit);
+                Add(circuit.Coil.Outputs, new SignalLink((coil.Length > 0 ? $"relay {coil} {location}" : $"PLC input {location}") + where + (unsourced ? " — no source" : ""),
+                    !unsourced, "Relay", Index: sheetIndex, Item: circuit.Coil));
                 foreach (var contact in RelayLogicRunner.AllElements(circuit.Elements).Where(element => !element.IsParallel))
                 {
                     Add(contact.Tag, new SignalLink($"contact {location}", false, "Relay", Index: sheetIndex, Item: contact));
