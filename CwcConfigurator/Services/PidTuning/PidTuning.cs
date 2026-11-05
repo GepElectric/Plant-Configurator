@@ -70,18 +70,24 @@ public static class PidTuner
     [
         new("LEVEL", "Water level (integrating, PI, slow)", ProcessKind.Integrating, ControllerKind.PI, 180, 5, 900,
             "Reservoir / intake level: integrating process. Put the controller in manual, change the output by about 5 % and record until the level changes clearly (several minutes); or make a reference step in automatic."),
-        new("SERVO", "Servo position (nozzle, deflector, gate, guide vanes — P)", ProcessKind.Integrating, ControllerKind.P, 0.5, 5, 30,
+        new("SERVO", "Servo position, hydraulic (nozzle, deflector, guide vanes, runner — P)", ProcessKind.Integrating, ControllerKind.P, 0.5, 5, 30,
             "Position loop of a hydraulic actuator: the cylinder integrates the valve signal, so a P controller is used. Make a reference step of about 5 % (or an output step in manual) and record until the position is steady."),
+        new("GATE", "Intake gate / flap position (motor or VFD — P, slow)", ProcessKind.Integrating, ControllerKind.P, 5, 5, 180,
+            "Gate driven by a motor or frequency converter: the position integrates the drive speed, so a P controller is used; the dead band (DEAD_W) keeps the drive from hunting. Make a reference step of about 5 % and record until the gate stops."),
         new("POWER", "Active power (first order, PI)", ProcessKind.FirstOrder, ControllerKind.PI, 10, 5, 180,
             "Unit on the grid. Change the opening / output by about 5 % and record until the power is steady. Water hammer makes the power move the wrong way first — it is taken into the dead time."),
         new("SPEED", "Speed (first order, PI)", ProcessKind.FirstOrder, ControllerKind.PI, 2, 3, 60,
             "No-load speed. Make a small output step (2–3 %) and record until the speed is steady again."),
+        new("FREQUENCY", "Frequency (first order, PI)", ProcessKind.FirstOrder, ControllerKind.PI, 2, 3, 60,
+            "Frequency control (island / isolated grid or no load). Make a small output step (2–3 %) and record until the frequency is steady. On a stiff grid the frequency does not follow the unit — tune it in island or no-load operation."),
+        new("VOLTAGE", "Generator voltage (first order, PI, fast)", ProcessKind.FirstOrder, ControllerKind.PI, 0.5, 2, 20,
+            "Generator at no load with excitation. Make a small voltage reference step (1–2 %) and record until the voltage is steady."),
+        new("REACTIVE", "Reactive power / power factor (first order, PI)", ProcessKind.FirstOrder, ControllerKind.PI, 2, 2, 60,
+            "Unit on the grid. Make a small reference step of reactive power / power factor (or output step) and record until steady."),
         new("PRESSURE", "Water pressure (first order, PI)", ProcessKind.FirstOrder, ControllerKind.PI, 5, 5, 120,
             "Change the output by about 5 % and record until the pressure is steady."),
         new("OPENING", "Opening (first order, PI)", ProcessKind.FirstOrder, ControllerKind.PI, 2, 5, 60,
             "Change the output by about 5 % and record until the opening is steady."),
-        new("EXCITATION", "Excitation: voltage, reactive power, power factor (first order, PI)", ProcessKind.FirstOrder, ControllerKind.PI, 1, 2, 30,
-            "Generator excited (voltage: no load; reactive power / power factor: on the grid). Make a small step and record until steady."),
         new("GENERAL", "General (first order, PI)", ProcessKind.FirstOrder, ControllerKind.PI, 2, 5, 120,
             "Change the output by a few % (manual) or the reference (automatic) and record until the measurement is steady.")
     ];
@@ -92,10 +98,14 @@ public static class PidTuner
         var name = (structure ?? "").ToUpperInvariant();
         string key =
             name.Contains("LEVEL") ? "LEVEL"
-            : new[] { "NOZZLE", "DEFLECTOR", "GATE", "DISTRIBUTOR", "RUNNER", "CROSS_FLOW", "VALVE", "SERVO" }.Any(name.Contains) ? "SERVO"
-            : name.Contains("EXC") || name.Contains("VOLTAGE") || name.Contains("REACTIVE") || name.Contains("POWER_FACTOR") ? "EXCITATION"
+            : name.Contains("WICKET") ? "SERVO"
+            : name.Contains("GATE") || name.Contains("FLAP") ? "GATE"
+            : new[] { "NOZZLE", "DEFLECTOR", "DISTRIBUTOR", "RUNNER", "CROSS_FLOW", "VALVE", "SERVO" }.Any(name.Contains) ? "SERVO"
+            : name.Contains("REACTIVE") || name.Contains("POWER_FACTOR") || name.Contains("COS") ? "REACTIVE"
+            : name.Contains("VOLTAGE") || name.Contains("EXC") ? "VOLTAGE"
             : name.Contains("POWER") ? "POWER"
-            : name.Contains("SPEED") || name.Contains("FREQ") ? "SPEED"
+            : name.Contains("FREQ") ? "FREQUENCY"
+            : name.Contains("SPEED") ? "SPEED"
             : name.Contains("PRESSURE") ? "PRESSURE"
             : name.Contains("OPEN") ? "OPENING"
             : "GENERAL";
@@ -132,6 +142,23 @@ public static class PidTuner
         .. Enumerable.Range(1, 6).Select(i => ($"PELTON_NOZZLE[{i}]", 416 + (i - 1) * 26)),
         ("EXC_VOLTAGE", 572), ("EXC_REACTIVE_POWER", 598), ("EXC_POWER_FACTOR", 624)
     ];
+
+    /// <summary>MEAS (indirect DB1003): DT_MEASUREMENT_SOLO of 56 B, VAL (REAL) at +44.</summary>
+    public const int MeasDb = 1003, MeasSize = 56, MeasValue = 44;
+
+    /// <summary>"MEAS#12" / "MEAS 12" → DB1003.716; "8.20" → DB8.20; null when not readable.</summary>
+    public static (int Db, int Offset)? ParseAddress(string text)
+    {
+        var value = (text ?? "").Trim();
+        var meas = Regex.Match(value, @"^MEAS\s*#?\s*(\d+)$", RegexOptions.IgnoreCase);
+        if (meas.Success)
+        {
+            return (MeasDb, int.Parse(meas.Groups[1].Value, CultureInfo.InvariantCulture) * MeasSize + MeasValue);
+        }
+
+        var parts = value.Replace("DB", "", StringComparison.OrdinalIgnoreCase).Split('.');
+        return parts.Length == 2 && int.TryParse(parts[0], out var db) && int.TryParse(parts[1], out var offset) ? (db, offset) : null;
+    }
 
     /// <summary>The REG_INTF element of a controller: PID_WATER_LEVEL → WATER_LEVEL, PID_PELTON_NOZZLE_1 → PELTON_NOZZLE[1].</summary>
     public static string? RegElementFor(string structure)

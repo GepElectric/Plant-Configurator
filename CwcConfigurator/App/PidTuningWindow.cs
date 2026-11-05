@@ -33,8 +33,8 @@ public sealed class PidTuningWindow : Window
     private readonly ComboBox _profile = new() { Width = 360 };
     private readonly ComboBox _element = new() { Width = 220, Margin = new Thickness(0, 0, 8, 0) };
     private readonly TextBox _regDb = new() { Width = 50, Text = PidTuner.RegInterfaceDb.ToString(CultureInfo.InvariantCulture), Margin = new Thickness(0, 0, 8, 0) };
-    private readonly TextBox _measAddress = new() { Width = 110, Margin = new Thickness(0, 0, 8, 0), ToolTip = "Custom measurement: DB.offset of a REAL in %, e.g. 1003.268" };
-    private readonly TextBox _outAddress = new() { Width = 110, Margin = new Thickness(0, 0, 8, 0), ToolTip = "Custom controller output: DB.offset of a REAL in %" };
+    private readonly TextBox _measAddress = new() { Width = 110, Margin = new Thickness(0, 0, 8, 0), ToolTip = "Custom measurement: MEAS#ID of the project (e.g. MEAS#12 — gate position) or DB.offset of a REAL in %" };
+    private readonly TextBox _outAddress = new() { Width = 110, Margin = new Thickness(0, 0, 8, 0), ToolTip = "Custom controller output: MEAS#ID or DB.offset of a REAL in %" };
     private readonly TextBlock _current = new() { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 4) };
     private readonly TextBlock _hint = new() { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.DimGray, Margin = new Thickness(0, 0, 0, 6) };
     private readonly Button _record = new() { Content = "Start recording", Padding = new Thickness(12, 3, 12, 3), Margin = new Thickness(0, 0, 8, 0), FontWeight = FontWeights.SemiBold };
@@ -95,7 +95,7 @@ public sealed class PidTuningWindow : Window
         signals.Children.Add(_element);
         signals.Children.Add(new TextBlock { Text = "DB", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 4, 0) });
         signals.Children.Add(_regDb);
-        signals.Children.Add(new TextBlock { Text = "or measurement / output DB.offset", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 4, 0) });
+        signals.Children.Add(new TextBlock { Text = "or measurement / output (MEAS#ID or DB.offset)", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 4, 0) });
         signals.Children.Add(_measAddress);
         signals.Children.Add(_outAddress);
         root.Children.Add(signals);
@@ -232,13 +232,8 @@ public sealed class PidTuningWindow : Window
             return ((db, start), (db, start + 4), (db, start + 8));
         }
 
-        static (int, int) Parse(string text, string what)
-        {
-            var parts = text.Trim().Split('.');
-            return parts.Length == 2 && int.TryParse(parts[0], out var db) && int.TryParse(parts[1], out var offset)
-                ? (db, offset)
-                : throw new InvalidOperationException($"Give the {what} as DB.offset of a REAL, e.g. 1003.268.");
-        }
+        static (int, int) Parse(string text, string what) =>
+            PidTuner.ParseAddress(text) ?? throw new InvalidOperationException($"Give the {what} as MEAS#ID (a measurement of the project) or DB.offset of a REAL in %, e.g. MEAS#12 or 1003.716.");
 
         return (null, Parse(_outAddress.Text, "controller output"), Parse(_measAddress.Text, "measurement"));
     }

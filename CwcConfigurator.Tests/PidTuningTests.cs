@@ -123,4 +123,23 @@ public sealed class PidTuningTests
         Assert.Equal(3, output[2], 6);
         Assert.Equal(4, output[3], 6);
     }
+
+    [Theory]
+    [InlineData("PID_FREQUENCY", "FREQUENCY")]
+    [InlineData("PID_EXC_VOLTAGE", "VOLTAGE")]
+    [InlineData("PID_EXC_REACTIVE_POWER", "REACTIVE")]
+    [InlineData("PID_EXC_POWER_FACTOR", "REACTIVE")]
+    [InlineData("PID_GATE_1", "GATE")]
+    [InlineData("PID_FRANCIS_DISTRIBUTOR", "SERVO")]
+    [InlineData("PID_ACTIVE_POWER", "POWER")]
+    [InlineData("PID_SPEED", "SPEED")]
+    public void Profile_DependsOnTheMeasurement(string structure, string profile) => Assert.Equal(profile, PidTuner.ProfileFor(structure).Key);
+
+    [Fact]
+    public void Address_ByMeasurementIdOrDbOffset()
+    {
+        Assert.Equal((1003, 12 * 56 + 44), PidTuner.ParseAddress("MEAS#12"));
+        Assert.Equal((8, 20), PidTuner.ParseAddress("8.20"));
+        Assert.Null(PidTuner.ParseAddress("gate"));
+    }
 }
