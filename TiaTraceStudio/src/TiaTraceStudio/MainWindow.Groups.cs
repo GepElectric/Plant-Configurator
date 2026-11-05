@@ -175,7 +175,7 @@ public partial class MainWindow
             string phase = rest[..slash], path = rest[(slash + 1)..];
             MoveFolder(definition.Folders, phase + "/", slots.Where(s => s.Unit == unit && s.Phase == phase), path, name);
         }
-        else if (name == original) plant.TreeNames.Remove(key);
+        else if (name == original || Bilingual.Of(name) == original) plant.TreeNames.Remove(key); // also the Croatian-only default name
         else plant.TreeNames[key] = name;
     }
 

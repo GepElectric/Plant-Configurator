@@ -10,6 +10,54 @@ public static class Turbines
     public static readonly string[] All = [Pelton, Francis, Kaplan, CrossFlow];
 }
 
+/// <summary>
+/// English / Croatian names of the default tree (phases, groups, valves, units), so a report needs no translation.
+/// The stored keys stay Croatian (projects and their sub-groups keep working); only the shown name is bilingual.
+/// </summary>
+public static class Bilingual
+{
+    static readonly Dictionary<string, string> Names = new(StringComparer.Ordinal)
+    {
+        ["1 · Dry test"] = "1 · Dry test / Suhi test",
+        ["2 · Wet test"] = "2 · Wet test / Mokri test",
+        ["3 · Testovi na mreži"] = "3 · Grid tests / Testovi na mreži",
+        ["Dry test"] = "Dry test / Suhi test",
+        ["Wet test"] = "Wet test / Mokri test",
+        ["Testovi na mreži"] = "Grid tests / Testovi na mreži",
+        ["Zajednički testovi"] = "Common tests / Zajednički testovi",
+        ["Korisnička snimanja"] = "User recordings / Korisnička snimanja",
+        ["Turbinski ventili"] = "Turbine valves / Turbinski ventili",
+        ["Glavni ventili"] = "Main valves / Glavni ventili",
+        ["Regulacije"] = "Controllers / Regulacije",
+        ["Zaustavljanja"] = "Shutdowns / Zaustavljanja",
+        ["Odbacivanje tereta"] = "Load rejection / Odbacivanje tereta",
+        ["Odbacivanje tereta – svi agregati"] = "Load rejection – all units / Odbacivanje tereta – svi agregati",
+        ["Privodni aparat"] = "Guide vanes / Privodni aparat",
+        ["Lopatice rotora"] = "Runner blades / Lopatice rotora",
+    };
+
+    static readonly (Regex Pattern, string English)[] Numbered =
+    [
+        (new(@"^Mlaznica (\d+)$"), "Nozzle $1 / Mlaznica $1"),
+        (new(@"^Deflektor (\d+)$"), "Deflector $1 / Deflektor $1"),
+        (new(@"^Privodni aparat – sekcija (\d+)$"), "Guide vanes – section $1 / Privodni aparat – sekcija $1"),
+        (new(@"^Agregat (\d+)$"), "Unit $1 / Agregat $1"),
+    ];
+
+    /// <summary>The bilingual name of a default Croatian name; anything else unchanged.</summary>
+    public static string Of(string name)
+    {
+        if (string.IsNullOrEmpty(name) || name.Contains(" / ", StringComparison.Ordinal)) return name;
+        if (Names.TryGetValue(name, out var both)) return both;
+        foreach (var (pattern, english) in Numbered)
+            if (pattern.IsMatch(name)) return pattern.Replace(name, english);
+        return name;
+    }
+
+    /// <summary>"English / Hrvatski".</summary>
+    public static string Both(string english, string croatian) => $"{english} / {croatian}";
+}
+
 public static class TestPhases
 {
     public const string Dry = "1 · Dry test", Wet = "2 · Wet test", Grid = "3 · Testovi na mreži", Common = "Zajednički testovi", User = "Korisnička snimanja";
@@ -180,14 +228,14 @@ public class TestSlot
     /// <summary>Opening and closing times are entered: MIV / bypass, and the opening/closing test of every turbine valve.</summary>
     [JsonIgnore] public bool HasTimes => Manual || Kind.EndsWith("_OPEN_CLOSE", StringComparison.Ordinal);
     [JsonIgnore] public string PhaseName => Phase.Contains(" · ") ? Phase[(Phase.IndexOf(" · ") + 3)..] : Phase;
-    [JsonIgnore] public string Path => string.Join(" · ", new[] { Unit > 0 ? $"Agregat {Unit}" : "", PhaseName, Group.Replace("/", " · "), Title }.Where(x => !string.IsNullOrWhiteSpace(x)));
+    [JsonIgnore] public string Path => string.Join(" · ", new[] { Unit > 0 ? Bilingual.Of($"Agregat {Unit}") : "", Bilingual.Of(PhaseName), string.Join(" · ", Group.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Bilingual.Of)), Title }.Where(x => !string.IsNullOrWhiteSpace(x)));
     /// <summary>Short chart title: the actuator or group plus the test, without phase and tree folders.</summary>
     [JsonIgnore] public string ChartTitle
     {
         get
         {
             string group = Group.Split('/').Last();
-            return string.Join(" · ", new[] { Unit > 0 ? $"Agregat {Unit}" : "", Title.StartsWith(group, StringComparison.OrdinalIgnoreCase) ? "" : group, Title }.Where(x => !string.IsNullOrWhiteSpace(x)));
+            return string.Join(" · ", new[] { Unit > 0 ? Bilingual.Of($"Agregat {Unit}") : "", Title.StartsWith(group, StringComparison.OrdinalIgnoreCase) ? "" : Bilingual.Of(group), Title }.Where(x => !string.IsNullOrWhiteSpace(x)));
         }
     }
 }
@@ -404,6 +452,12 @@ public static class PlantPlanner
         new("NOZZLE", "Mlaznica"), new("DEFLECTOR", "Deflektor"), new("WICKET_GATE", "Privodni aparat"), new("KAPLAN_GATE", "Privodni aparat (Kaplan)"),
         new("RUNNER", "Lopatice rotora"), new("CF_SECTION", "Sekcija privodnog aparata")
     ];
+    /// <summary>English name of a controller (key).</summary>
+    public static string ControllerEnglish(string key) => key switch
+    {
+        "SPEED" => "Speed", "VOLTAGE" => "Voltage", "POWER" => "Power", "LEVEL" => "Level", "OPENING" => "Opening", "REACTIVE" => "Reactive power", _ => key
+    };
+
     public static readonly (string Key, string Name, string Where)[] Controllers =
     [
         ("SPEED", "Brzina", "prazni hod, nazivna brzina"), ("VOLTAGE", "Napon", "prazni hod s uzbudom"),
@@ -445,38 +499,38 @@ public static class PlantPlanner
             {
                 foreach (var c in PlantPlanner.Controllers.Where(c => keys.Contains(c.Key) && Has(c.Key)))
                 {
-                    Add(phase, "Regulacije", $"{c.Name} – step", $"CTRL_{c.Key}_STEP");
-                    Add(phase, "Regulacije", $"{c.Name} – rampa", $"CTRL_{c.Key}_RAMP");
+                    Add(phase, "Regulacije", Bilingual.Both($"{ControllerEnglish(c.Key)} – step", $"{c.Name} – step"), $"CTRL_{c.Key}_STEP");
+                    Add(phase, "Regulacije", Bilingual.Both($"{ControllerEnglish(c.Key)} – ramp", $"{c.Name} – rampa"), $"CTRL_{c.Key}_RAMP");
                 }
             }
 
             foreach (var valve in Valves(unit))
             {
                 string group = "Turbinski ventili/" + valve.Name;
-                Add(TestPhases.Dry, group, "Brzina otvaranja / zatvaranja", valve.Key + "_OPEN_CLOSE", valve.Index);
-                Add(TestPhases.Dry, group, "Odziv na step reference", valve.Key + "_STEP", valve.Index);
-                Add(TestPhases.Dry, group, "Odziv na rampu reference", valve.Key + "_RAMP", valve.Index);
+                Add(TestPhases.Dry, group, Bilingual.Both("Opening and closing speed", "Brzina otvaranja i zatvaranja"), valve.Key + "_OPEN_CLOSE", valve.Index);
+                Add(TestPhases.Dry, group, Bilingual.Both("Reference step response", "Odziv na step reference"), valve.Key + "_STEP", valve.Index);
+                Add(TestPhases.Dry, group, Bilingual.Both("Reference ramp response", "Odziv na rampu reference"), valve.Key + "_RAMP", valve.Index);
             }
-            Add(TestPhases.Dry, "", "HPU – pad tlaka (svi ventili otvoreni, ESD tlak)", "HPU_PRESSURE_DROP");
-            if (unit.HasMiv) Add(TestPhases.Dry, "Glavni ventili", "MIV – vrijeme otvaranja i zatvaranja", "MIV_TIMES", manual: true);
-            if (unit.HasBypass) Add(TestPhases.Dry, "Glavni ventili", "Bypass – vrijeme otvaranja i zatvaranja", "BYPASS_TIMES", manual: true);
+            Add(TestPhases.Dry, "", Bilingual.Both("HPU – pressure drop (all valves open, ESD pressure)", "HPU – pad tlaka (svi ventili otvoreni, ESD tlak)"), "HPU_PRESSURE_DROP");
+            if (unit.HasMiv) Add(TestPhases.Dry, "Glavni ventili", Bilingual.Both("MIV – opening and closing time", "MIV – vrijeme otvaranja i zatvaranja"), "MIV_TIMES", manual: true);
+            if (unit.HasBypass) Add(TestPhases.Dry, "Glavni ventili", Bilingual.Both("Bypass – opening and closing time", "Bypass – vrijeme otvaranja i zatvaranja"), "BYPASS_TIMES", manual: true);
 
-            Add(TestPhases.Wet, "", "Zalet", "STARTUP");
-            Add(TestPhases.Wet, "", "Bearing run test", "BEARING_RUN");
-            if (unit.HasExcitation) Add(TestPhases.Wet, "", "Prva uzbuda", "FIRST_EXCITATION");
+            Add(TestPhases.Wet, "", Bilingual.Both("Start-up", "Zalet"), "STARTUP");
+            Add(TestPhases.Wet, "", Bilingual.Both("Bearing run test", "Test zagrijavanja ležajeva"), "BEARING_RUN");
+            if (unit.HasExcitation) Add(TestPhases.Wet, "", Bilingual.Both("First excitation", "Prva uzbuda"), "FIRST_EXCITATION");
             AddControllers(TestPhases.Wet, "SPEED", "VOLTAGE");
-            Add(TestPhases.Wet, "", "Sinkronizacija", "SYNC");
-            Add(TestPhases.Wet, "Zaustavljanja", "NSD – normalno zaustavljanje", "STOP_NSD");
-            Add(TestPhases.Wet, "Zaustavljanja", "QSD – brzo zaustavljanje", "STOP_QSD");
-            Add(TestPhases.Wet, "Zaustavljanja", "ESD – zaustavljanje u nuždi", "STOP_ESD");
+            Add(TestPhases.Wet, "", Bilingual.Both("Synchronization", "Sinkronizacija"), "SYNC");
+            Add(TestPhases.Wet, "Zaustavljanja", Bilingual.Both("NSD – normal shutdown", "NSD – normalno zaustavljanje"), "STOP_NSD");
+            Add(TestPhases.Wet, "Zaustavljanja", Bilingual.Both("QSD – quick shutdown", "QSD – brzo zaustavljanje"), "STOP_QSD");
+            Add(TestPhases.Wet, "Zaustavljanja", Bilingual.Both("ESD – emergency shutdown", "ESD – zaustavljanje u nuždi"), "STOP_ESD");
 
             AddControllers(TestPhases.Grid, "POWER", "LEVEL", "OPENING", "REACTIVE");
-            foreach (int level in unit.LoadLevels()) Add(TestPhases.Grid, "Odbacivanje tereta", $"Odbacivanje tereta {level} %", "LOAD_REJECTION", level);
-            Add(TestPhases.Grid, "", "Heat run test", "HEAT_RUN");
+            foreach (int level in unit.LoadLevels()) Add(TestPhases.Grid, "Odbacivanje tereta", Bilingual.Both($"Load rejection {level} %", $"Odbacivanje tereta {level} %"), "LOAD_REJECTION", level);
+            Add(TestPhases.Grid, "", Bilingual.Both("Heat run test", "Test zagrijavanja"), "HEAT_RUN");
         }
         if (plant.Units.Count > 1)
             foreach (int level in UnitDefinition.ParseLevels(plant.CommonLoadRejectionLevels ?? "", "Zajednički testovi"))
-                slots.Add(new() { Id = $"C/COMMON_LOAD_REJECTION/{level}", Unit = 0, Phase = TestPhases.Common, Group = "Odbacivanje tereta – svi agregati", Title = $"Odbacivanje tereta {level} % – svi agregati", Kind = "COMMON_LOAD_REJECTION", Index = level });
+                slots.Add(new() { Id = $"C/COMMON_LOAD_REJECTION/{level}", Unit = 0, Phase = TestPhases.Common, Group = "Odbacivanje tereta – svi agregati", Title = Bilingual.Both($"Load rejection {level} % – all units", $"Odbacivanje tereta {level} % – svi agregati"), Kind = "COMMON_LOAD_REJECTION", Index = level });
         return slots;
     }
 
