@@ -121,18 +121,27 @@ public partial class AlmParExportDialog : Window
             return;
         }
 
-        var outputFolder = OutputPathText.Text.Trim();
-        if (string.IsNullOrWhiteSpace(outputFolder) || !Directory.Exists(outputFolder))
-        {
-            MessageBox.Show(this, "Select a valid output folder.", Title, MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-
         if (!_config.PlcMappings.Any(mapping => mapping.Include && (mapping.ExportAlm || mapping.ExportPar)))
         {
             MessageBox.Show(this, "Include at least one PLC and select ALM or PAR for export.", Title, MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+
+        // Every generation asks where to put the documents (starting in the last folder used).
+        var current = OutputPathText.Text.Trim();
+        var folderDialog = new OpenFolderDialog
+        {
+            Title = "Where to generate the ALM/PAR documents?",
+            InitialDirectory = Directory.Exists(current) ? current : GetDefaultOutputFolder()
+        };
+        if (folderDialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var outputFolder = folderDialog.FolderName;
+        OutputPathText.Text = outputFolder;
+        _config.LastOutputPath = outputFolder;
 
         string tempJson;
         try
