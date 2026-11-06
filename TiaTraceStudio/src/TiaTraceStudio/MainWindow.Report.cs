@@ -55,7 +55,7 @@ public partial class MainWindow
             int index = 0;
             foreach (var item in items.OfType<TreeViewItem>())
             {
-                if (item.Tag is not (string or TestSlot) || item.Tag as string == "__unassigned") continue;
+                if (item.Tag is not (string or TestSlot) || item.Tag as string is "__unassigned" or "__empty") continue;
                 string chapter = number.Length == 0 ? $"{++index}" : $"{number}.{++index}";
                 chapters.Add((level, chapter, item.Tag));
                 if (item.Tag is string) Walk(item.Items, level + 1, chapter);

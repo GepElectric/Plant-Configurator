@@ -23,7 +23,7 @@ public sealed class PlantWizard
     readonly DataGrid nominalGrid = new() { AutoGenerateColumns = false, CanUserAddRows = false, Height = 230, HeadersVisibility = DataGridHeadersVisibility.Column, Margin = new Thickness(0, 4, 0, 6) };
     readonly ComboBox nominalPicker = new() { IsEditable = true, IsTextSearchEnabled = true, DisplayMemberPath = nameof(PlantMeasurement.Display), MinWidth = 360 };
     readonly TextBlock configInfo = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
-    readonly ComboBox count = new() { ItemsSource = Enumerable.Range(1, 12).ToArray() };
+    readonly ComboBox count = new() { ItemsSource = Enumerable.Range(0, 13).ToArray() };
     readonly TextBox nameBox;
     readonly bool isNew;
     Result result = Result.Cancel;
@@ -64,7 +64,17 @@ public sealed class PlantWizard
 
         var bottom = new DockPanel { Margin = new Thickness(0, 14, 0, 0) };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal };
-        if (existing == null) buttons.Children.Add(Button("Prazan projekt (bez definicije)", () => { result = Result.Blank; dialog!.Close(); }));
+        if (existing == null)
+        {
+            buttons.Children.Add(Button("Samo grafovi (bez stabla)", () => { result = Result.Blank; dialog!.Close(); }));
+            // Empty project: no units, the tree is built by the user (groups such as Intake, own recordings).
+            buttons.Children.Add(Button("Prazan projekt (bez agregata)", () =>
+            {
+                count.SelectedItem = 0;
+                if (string.IsNullOrWhiteSpace(plant.Name)) nameBox.Text = "Novi projekt";
+                Accept();
+            }));
+        }
         buttons.Children.Add(Button("Odustani", () => dialog!.Close()));
         buttons.Children.Add(Button(existing == null ? "Kreiraj projekt" : "Spremi definiciju", Accept, primary: true));
         DockPanel.SetDock(buttons, Dock.Right); bottom.Children.Add(buttons); bottom.Children.Add(preview);
@@ -246,7 +256,7 @@ public sealed class PlantWizard
         while (units.Count > count) units.RemoveAt(units.Count - 1);
         while (units.Count < count)
         {
-            var unit = units[^1].CopyAs(units.Count + 1);
+            var unit = units.Count > 0 ? units[^1].CopyAs(units.Count + 1) : new UnitDefinition { Number = 1 };
             unit.PropertyChanged += (_, _) => UpdatePreview(); units.Add(unit); Prefill(unit);
         }
         if (unitList.SelectedIndex < 0) unitList.SelectedIndex = 0;
@@ -267,6 +277,15 @@ public sealed class PlantWizard
     {
         if (unitList.SelectedItem is UnitDefinition unit) UpdateTurbinePanels(unit);
         unitList.Items.Refresh();
+        editor.Visibility = units.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (units.Count == 0)
+        {
+            preview.Text = "Bez agregata: prazno stablo. Baze iz Plant Configuratora koje nisu agregati (npr. Intake) dobiju svoju grupu; "
+                + "snimanja i podgrupe dodaješ desnim klikom na grupu ili Projekt ▾ → Nova grupa / Novo korisničko snimanje.";
+            preview.Foreground = Brushes.SlateGray;
+            plant.Units = [];
+            return;
+        }
         try
         {
             plant.Units = units.ToList();

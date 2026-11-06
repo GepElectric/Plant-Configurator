@@ -42,6 +42,11 @@ internal static partial class Program
         Check(oldCatalog.Find("LOAD_REJECTION")!.Signals.Contains("{valves}") && oldCatalog.Find("STARTUP")!.Signals.SequenceEqual(["MY.TAG"]), "Older project catalogues get the new defaults unless the user edited them");
         bool badLevels = false; try { new UnitDefinition { LoadRejectionLevels = "25, abc" }.Validate(); } catch (InvalidDataException) { badLevels = true; }
         Check(badLevels, "Invalid load rejection levels are rejected");
+        var empty = new PlantDefinition { Name = "Zahvat", Plcs = [new PlcConnection { Name = "Intake" }] };
+        empty.Validate();
+        PlantPlanner.AddGroupsForPlcs(empty); PlantPlanner.AddGroupsForPlcs(empty);
+        Check(PlantPlanner.Generate(empty).Count == 0 && empty.CustomGroups.Count == 1 && empty.CustomGroups[0].Name == "Intake" && empty.CustomGroups[0].PlcId == empty.Plcs[0].Id,
+            "Project without units: empty tree, the Intake PLC gets its own group (once)");
 
         var catalog = TestCatalog.Default();
         Check(slots.All(s => catalog.Find(s.Kind) is TestKind k && k.Help.Length > 40), "Every generated test has instructions in the default catalogue");

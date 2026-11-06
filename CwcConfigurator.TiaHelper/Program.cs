@@ -180,20 +180,9 @@ namespace CwcConfigurator.TiaHelper
 
             foreach (var device in _project.Devices)
             {
-                var found = session.Plcs.Count;
                 foreach (var item in device.DeviceItems)
                 {
                     DiscoverSoftware(device.Name, item, session.Plcs);
-                }
-
-                // IP addresses from the hardware configuration of the PLC's device (PROFINET / Ethernet interfaces).
-                if (session.Plcs.Count > found)
-                {
-                    var addresses = ReadIpAddresses(device);
-                    for (var index = found; index < session.Plcs.Count; index++)
-                    {
-                        session.Plcs[index].IpAddresses = addresses;
-                    }
                 }
             }
 
@@ -2882,18 +2871,7 @@ namespace CwcConfigurator.TiaHelper
             try { return Convert.ToString(item.GetAttribute(name), CultureInfo.InvariantCulture) ?? ""; } catch { return ""; }
         }
 
-        /// <summary>IPv4 addresses of the network interfaces of a device: "PROFINET interface_1|10.25.4.11".</summary>
-        private static List<string> ReadIpAddresses(Device device)
-        {
-            var result = new List<string>();
-            foreach (var item in device.DeviceItems)
-            {
-                CollectIpAddresses(item, result);
-            }
-
-            return result;
-        }
-
+        /// <summary>IPv4 addresses of the network interfaces of an item and its sub-items: "PROFINET interface_1|10.25.4.11".</summary>
         private static void CollectIpAddresses(DeviceItem item, List<string> result)
         {
             try
@@ -2933,11 +2911,16 @@ namespace CwcConfigurator.TiaHelper
             var plc = container == null ? null : container.Software as PlcSoftware;
             if (plc != null)
             {
+                // IP addresses from the CPU's own interfaces (PROFINET / Ethernet): only the CPU item and its
+                // sub-items, not every module of the station (each Openness call is slow; a station walk cost ~5 s).
+                var addresses = new List<string>();
+                CollectIpAddresses(item, addresses);
                 plcs.Add(new TiaDiscoveredPlc
                 {
                     DeviceName = deviceName,
                     SoftwareName = plc.Name,
-                    Objects = DiscoverObjectsGroup(plc)
+                    Objects = DiscoverObjectsGroup(plc),
+                    IpAddresses = addresses
                 });
             }
 

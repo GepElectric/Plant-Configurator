@@ -88,7 +88,7 @@ public partial class TiaSyncDialog : Window
             return;
         }
 
-        SetBusy(true, "Attaching to TIA Portal...");
+        SetBusy(true, "Attaching to TIA Portal... (reading the PLC programs of the project, on a big project this can take a minute or two)");
         try
         {
             var session = await _sessionService.AttachToRunningPortalAsync(process.ProcessId, process.Version);
