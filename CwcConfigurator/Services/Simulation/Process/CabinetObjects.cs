@@ -32,7 +32,7 @@ public sealed class BusbarObject : SimObject
         [],
         () => new BusbarObject());
 
-    private const int Feeders = 12;
+    private const int Feeders = 40;
 
     public override void Step(double dt)
     {
@@ -223,6 +223,37 @@ public sealed class MotorObject : SimObject
         Out("Running", _speed >= 90);
         Out("Speed", _speed);
         Out("Current", supplied ? P("RatedCurrent") * (n < 0.95 ? 6 - 5 * Math.Pow(n / 0.95, 4) : 1) : 0);
+    }
+}
+
+/// <summary>
+/// Power supply unit / rectifier / DC-DC converter: while its input is supplied it gives its rated output voltage and
+/// reports Ok (e.g. -U101: 110 VDC → 24 VDC, its contact to a DI "supply OK").
+/// </summary>
+public sealed class PowerSupplyObject : SimObject
+{
+    public static ObjectTypeInfo TypeInfo { get; } = new(
+        "PowerSupply", "Power supply / rectifier", "Electrical",
+        "Power supply unit, rectifier or DC/DC converter: Output = OutputVoltage while Input ≥ half of InputVoltage; Ok then TRUE.",
+        [],
+        [
+            Param("InputVoltage", 230, "V", "Rated input voltage."),
+            Param("OutputVoltage", 24, "V", "Rated output voltage.")
+        ],
+        [
+            PowerIn("Input", "Supply voltage (link, e.g. @F10.Live). Not connected = rated input voltage.", 230),
+            PowerOut("Output", "Output voltage (link to the busbar it supplies)."),
+            BoolOut("Ok", "Supplied and working (to a DI, e.g. ..._SUPPLY_OK).")
+        ],
+        [],
+        ["Input", "Output"],
+        () => new PowerSupplyObject());
+
+    public override void Step(double dt)
+    {
+        var ok = In("Input") >= 0.5 * Math.Max(1, P("InputVoltage"));
+        Out("Output", ok ? P("OutputVoltage") : 0);
+        Out("Ok", ok);
     }
 }
 

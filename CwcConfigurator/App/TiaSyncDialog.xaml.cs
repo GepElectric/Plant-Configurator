@@ -99,6 +99,9 @@ public partial class TiaSyncDialog : Window
             // TIA PLC automatically; valid mappings stay untouched.
             var autoMapped = _mappingService.AutoMapUnresolved(_project, session);
 
+            // IP addresses of the PLCs from the hardware configuration, kept in the PLC databases for every app.
+            var addresses = _mappingService.StoreIpAddresses(_project, session);
+
             StoreDiscoveredObjects(session);
             RefreshDiscoveredNames(session);
             RebuildMappingRows();
@@ -113,6 +116,11 @@ public partial class TiaSyncDialog : Window
                 autoMapNote += $" WinCC Unified devices: {string.Join(", ", UnifiedDeviceNames)}" +
                                (scadaMapped > 0 ? $"; auto-mapped {scadaMapped} SCADA database(s)." : ".");
             }
+            if (addresses.Count > 0)
+            {
+                autoMapNote += $" PLC IP addresses from the TIA hardware: {string.Join(", ", addresses)} — save the project.";
+            }
+
             WriteOutput($"Attached to {session.ProjectName}. {autoMapNote} Loaded {session.Plcs.Sum(plc => plc.Objects.Count)} OBJECTS block(s).{Environment.NewLine}{Environment.NewLine}{FormatObjectsSummary(session)}");
         }
         catch (Exception ex)

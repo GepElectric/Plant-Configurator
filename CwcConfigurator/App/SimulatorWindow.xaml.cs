@@ -23,6 +23,9 @@ public sealed class SimulatorPlcOption
     /// <summary>Identifies the project (its file path) for remembering the last model file.</summary>
     public string ProjectKey { get; init; } = "";
 
+    /// <summary>IP address of the PLC from the project (TIA hardware configuration); used when none is set here.</summary>
+    public string IpAddress { get; init; } = "";
+
     /// <summary>Connection settings from a .plantsim package; null = the settings stored on this PC.</summary>
     public SimulatorConnectionSettings? Settings { get; init; }
 
@@ -75,7 +78,16 @@ public partial class SimulatorWindow : Window
         DeviceTypeColumn.ItemsSource = Enum.GetValues<DeviceType>();
         DevicePresetBox.ItemsSource = DevicePresets;
         DevicePresetBox.SelectedIndex = 0;
-        _sessions = options.Select(option => new PlcSession(option.Name, option.Project, option.SettingsKey, option.Settings)).ToList();
+        _sessions = options.Select(option =>
+        {
+            var session = new PlcSession(option.Name, option.Project, option.SettingsKey, option.Settings);
+            if (string.IsNullOrWhiteSpace(session.Settings.IpAddress) && option.IpAddress.Trim().Length > 0)
+            {
+                session.Settings.IpAddress = option.IpAddress.Trim(); // from the TIA hardware configuration
+            }
+
+            return session;
+        }).ToList();
         _projectKey = options.FirstOrDefault()?.ProjectKey ?? "";
         _projectBytes = projectBytes;
         _projectName = projectName;
@@ -95,7 +107,17 @@ public partial class SimulatorWindow : Window
         UpdateModelFileText();
         ProgramPanel.Attach(_controller);
         ProgramPanel.SaveRequested += SaveModel_Click;
+        ScadaPanel.SaveRequested += SaveModel_Click;
         ScadaPanel.Attach(_controller);
+        RelayPanel.Attach(_controller);
+        CubiclePanel.Attach(_controller);
+        _controller.ModelChanged += UpdateLinks;
+        _controller.NoticesAdded += () => Dispatcher.BeginInvoke(ShowNotices, DispatcherPriority.Loaded);
+        if (_controller.Notices.Count > 0)
+        {
+            Dispatcher.BeginInvoke(ShowNotices, DispatcherPriority.ApplicationIdle);
+        }
+
         foreach (var session in _sessions)
         {
             PlcSelector.Items.Add(session);
@@ -120,7 +142,7 @@ public partial class SimulatorWindow : Window
         {
             var scoped = new CwcProject();
             database.ApplyTo(scoped);
-            return new SimulatorPlcOption { Name = database.Name, Project = scoped, SettingsKey = projectKey + "|" + database.Name, ProjectKey = projectKey };
+            return new SimulatorPlcOption { Name = database.Name, Project = scoped, SettingsKey = projectKey + "|" + database.Name, ProjectKey = projectKey, IpAddress = database.IpAddress };
         }).ToList();
         if (options.Count == 0)
         {
@@ -211,6 +233,7 @@ public partial class SimulatorWindow : Window
             Project = option.Project,
             SettingsKey = option.SettingsKey,
             ProjectKey = option.ProjectKey,
+            IpAddress = option.IpAddress,
             Settings = connections is not null && connections.TryGetValue(option.Name, out var settings) ? settings : null
         }).ToList();
         var active = project.PlcDatabases.FirstOrDefault(database => database.Id == project.ActivePlcDatabaseId)?.Name;
@@ -284,12 +307,137 @@ public partial class SimulatorWindow : Window
         UpdateConnectionUi();
         ProgramPanel.ShowPlc(session.Name);
         ScadaPanel.ShowPlc(session.Name);
+        RelayPanel.ShowPlc(session.Name);
+        CubiclePanel.ShowPlc(session.Name);
         if (!session.IsConnected)
         {
             StatusText.Text = string.IsNullOrWhiteSpace(session.Settings.IpAddress)
                 ? "Enter the PLC IP address and connect. PUT/GET access must be allowed in the PLC."
                 : $"{session.Name}: ready to connect.";
         }
+    }
+
+    /// <summary>The SIMULATOR column: where the model uses each signal (objects, relay logic, cubicle).</summary>
+    private void UpdateLinks()
+    {
+        var conflicts = 0;
+        foreach (var session in _sessions)
+        {
+            conflicts += SignalLinks.Apply(session.Signals, _controller.Models.GetValueOrDefault(session.Name));
+        }
+
+        if (conflicts != _linkConflicts && conflicts > 0)
+        {
+            StatusText.Text = $"⚠ {conflicts} input(s) are written by more than one place (red in the SIMULATOR column; search ⚠). Click the entry to open where it is mapped.";
+        }
+
+        _linkConflicts = conflicts;
+    }
+
+    private int _linkConflicts;
+
+    private PlcInputNotice? _notice;
+
+    /// <summary>
+    /// Mappings moved to (or refused by) the PLC inputs of the relay logic: a bar above the tabs with the place to
+    /// show (not a modal message box, which interrupted the field being edited).
+    /// </summary>
+    private void ShowNotices()
+    {
+        if (_controller.Notices.Count == 0)
+        {
+            return;
+        }
+
+        var notices = _controller.Notices.ToList();
+        _controller.Notices.Clear();
+        StatusText.Text = string.Join("  ·  ", notices.Select(notice => notice.Text));
+        _notice = notices.FirstOrDefault(notice => notice.Refused) ?? notices[^1];
+        var others = notices.Count - 1;
+        NoticeText.Text = (_notice.Refused ? "⚠ " : "✓ ") + _notice.Text + (others > 0 ? $"   (+{others} more in the status line)" : "");
+        NoticeBar.Background = new SolidColorBrush(_notice.Refused ? Color.FromRgb(0xFE, 0xF2, 0xF2) : Color.FromRgb(0xEF, 0xF6, 0xFF));
+        NoticeBar.BorderBrush = new SolidColorBrush(_notice.Refused ? Color.FromRgb(0xFC, 0xA5, 0xA5) : Color.FromRgb(0x93, 0xC5, 0xFD));
+        NoticeText.Foreground = new SolidColorBrush(_notice.Refused ? Color.FromRgb(0x99, 0x1B, 0x1B) : Color.FromRgb(0x1E, 0x3A, 0x8A));
+        NoticeShow.Visibility = _notice.Sheet >= 0 ? Visibility.Visible : Visibility.Collapsed;
+        NoticeBar.Visibility = Visibility.Visible;
+    }
+
+    private void NoticeShow_Click(object sender, RoutedEventArgs e)
+    {
+        if (_notice is { Sheet: >= 0 } notice)
+        {
+            Tabs.SelectedItem = Tabs.Items.OfType<TabItem>().FirstOrDefault(tab => ReferenceEquals(tab.Content, RelayPanel)) ?? Tabs.SelectedItem;
+            RelayPanel.Reveal(notice.Sheet, notice.Item);
+        }
+    }
+
+    private void NoticeClose_Click(object sender, RoutedEventArgs e) => NoticeBar.Visibility = Visibility.Collapsed;
+
+    /// <summary>Click on the SIMULATOR column: opens where the signal is mapped (a menu when there are several places).</summary>
+    private void Links_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not SimulatorSignal signal || signal.LinkTargets.Count == 0)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        var targets = signal.LinkTargets.GroupBy(link => (link.Text, link.Writes)).Select(group => group.First()).ToList();
+        if (targets.Count == 1)
+        {
+            Reveal(targets[0]);
+            return;
+        }
+
+        var menu = new ContextMenu { PlacementTarget = (UIElement)sender, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        if (signal.HasLinkConflict)
+        {
+            menu.Items.Add(new MenuItem { Header = new TextBlock { Text = "⚠ " + signal.LinkWarning, TextWrapping = TextWrapping.Wrap, MaxWidth = 520, Foreground = Brushes.Firebrick }, IsEnabled = false });
+            menu.Items.Add(new Separator());
+        }
+
+        foreach (var link in targets.OrderByDescending(link => link.Writes))
+        {
+            var item = new MenuItem
+            {
+                Header = new TextBlock
+                {
+                    Text = (link.Writes ? "writes  ·  " : "reads  ·  ") + link.Text,
+                    FontWeight = link.Writes && signal.HasLinkConflict ? FontWeights.SemiBold : FontWeights.Normal
+                }
+            };
+            item.Click += (_, _) => Reveal(link);
+            menu.Items.Add(item);
+        }
+
+        menu.IsOpen = true;
+    }
+
+    /// <summary>Shows the place where a signal is mapped: the object on its SCADA screen, the path of the relay logic, the cubicle device.</summary>
+    private void Reveal(SignalLink link)
+    {
+        void Show(UIElement panel) => Tabs.SelectedItem = Tabs.Items.OfType<TabItem>().FirstOrDefault(tab => ReferenceEquals(tab.Content, panel)) ?? Tabs.SelectedItem;
+        switch (link.Area)
+        {
+            case "Object":
+                Show(ScadaPanel);
+                ScadaPanel.Reveal(link.Name);
+                break;
+            case "Relay":
+                Show(RelayPanel);
+                RelayPanel.Reveal(link.Index, link.Item);
+                break;
+            case "Device":
+                Show(RelayPanel);
+                RelayPanel.RevealTag(link.Name);
+                break;
+            case "Cubicle" when link.Item is CubicleItem device:
+                Show(CubiclePanel);
+                CubiclePanel.Reveal(link.Index, device);
+                break;
+        }
+
+        StatusText.Text = "Showing " + link.Text + ".";
     }
 
     private void ShowSignals()
@@ -299,6 +447,7 @@ public partial class SimulatorWindow : Window
             return;
         }
 
+        UpdateLinks();
         _view = CollectionViewSource.GetDefaultView(_session.Signals);
         _view.Filter = item => item is SimulatorSignal signal && Matches(signal);
         SignalsGrid.ItemsSource = _view;
@@ -516,6 +665,8 @@ public partial class SimulatorWindow : Window
             {
                 ProgramPanel.RefreshLive();
                 ScadaPanel.RefreshLive();
+                RelayPanel.RefreshLive();
+                CubiclePanel.RefreshLive();
             }
 
             if (_tick % 10 == 0)
@@ -694,6 +845,7 @@ public partial class SimulatorWindow : Window
 
         try
         {
+            CaptureForces();
             _controller.Save();
             RememberModel();
             StatusText.Text = "Model saved: " + _controller.ModelPath;
@@ -726,6 +878,7 @@ public partial class SimulatorWindow : Window
         }
         try
         {
+            CaptureForces();
             _controller.SaveAs(path);
             RememberModel();
             StatusText.Text = "Model saved as " + path;
@@ -830,7 +983,8 @@ public partial class SimulatorWindow : Window
                           (_session?.IsConnected == true || !signal.IsWritable ? "." : ". Connect to send it to the PLC.");
     }
 
-    private void SaveForces_Click(object sender, RoutedEventArgs e)
+    /// <summary>The forces (SET TRUE / FALSE / value, wire break) of all signals as they are now, into the models.</summary>
+    private void CaptureForces()
     {
         foreach (var session in _sessions)
         {
@@ -842,7 +996,11 @@ public partial class SimulatorWindow : Window
 
             model.Forces = session.Signals.Where(signal => signal.IsForced).SelectMany(DescribeForces).ToList();
         }
+    }
 
+    private void SaveForces_Click(object sender, RoutedEventArgs e)
+    {
+        CaptureForces();
         _controller.MarkDirty();
         SaveModel_Click(sender, e);
         if (!_controller.Dirty)

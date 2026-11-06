@@ -185,6 +185,7 @@ public sealed class ProcessEngine
         }
 
         Objects = Order(objects);
+        Relays = new RelayLogicRunner(models, previous?.Relays, Problems);
         foreach (var instance in Objects)
         {
             var inputs = new List<(PortDef, PortBinding)>();
@@ -218,7 +219,7 @@ public sealed class ProcessEngine
                 }
 
                 var binding = PortBinding.Parse(text);
-                if (binding.Kind == BindingKind.Link && Source(instance, binding) is null)
+                if (binding.Kind == BindingKind.Link && Source(instance, binding) is null && RelayOf(instance, binding) is null)
                 {
                     Problems.Add($"{instance.QualifiedName}.{port.Name}: linked object '{binding.LinkObject}' does not exist.");
                     binding = PortBinding.None;
@@ -236,6 +237,9 @@ public sealed class ProcessEngine
 
     public IReadOnlyList<SimObject> Objects { get; }
 
+    /// <summary>The relay-logic sheets of all PLCs, run after the objects in every step.</summary>
+    public RelayLogicRunner Relays { get; }
+
     public List<string> Problems { get; } = [];
 
     public SimObject? Find(string plc, string name) => _byName.TryGetValue(plc + "/" + name, out var item) ? item : null;
@@ -247,6 +251,8 @@ public sealed class ProcessEngine
             instance.Forces.Clear();
             instance.Reset();
         }
+
+        Relays.Reset();
     }
 
     /// <summary>One simulation step. <paramref name="io"/> gives the signal access of a PLC (null = not connected).</summary>
@@ -276,6 +282,18 @@ public sealed class ProcessEngine
                 }
             }
         }
+
+        Relays.Step(dt, io, this);
+    }
+
+    /// <summary>Link name of the relay coils of the relay logic: "@Relays.-K53" or "@Common/Relays.-K53".</summary>
+    public const string RelaysLink = "Relays";
+
+    private (string Plc, string Tag)? RelayOf(SimObject instance, PortBinding link)
+    {
+        var parts = link.LinkObject.Split('/', 2);
+        var (plc, name) = parts.Length == 2 ? (parts[0], parts[1]) : (instance.Plc, parts[0]);
+        return name.Equals(RelaysLink, StringComparison.OrdinalIgnoreCase) && Relays.IsRelay(plc, link.LinkPort) ? (plc, link.LinkPort) : null;
     }
 
     private SimObject? Source(SimObject instance, PortBinding link)
@@ -291,7 +309,13 @@ public sealed class ProcessEngine
             case BindingKind.Constant:
                 return binding.Constant;
             case BindingKind.Link:
-                return Source(instance, binding) is { } source ? source.Value(binding.LinkPort) : port.Default;
+                if (Source(instance, binding) is { } source)
+                {
+                    return source.Value(binding.LinkPort);
+                }
+
+                // A relay coil of the relay logic, e.g. a contactor's command "@Relays.-K53" (state of the last step).
+                return RelayOf(instance, binding) is { } relay ? (Relays.IsOn(relay.Plc, relay.Tag) ? 1 : 0) : port.Default;
             case BindingKind.Signal:
                 return io is not null && io.TryRead(binding.SignalKind, binding.SignalId, out var value) ? value : port.Default;
             default:

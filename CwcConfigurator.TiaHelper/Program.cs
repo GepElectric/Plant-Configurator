@@ -114,6 +114,10 @@ namespace CwcConfigurator.TiaHelper
                     return ExportTextListTypeTexts(request.Payload);
                 case "ImportTextListTypeTexts":
                     return ImportTextListTypeTexts(request.Payload);
+                case "ReadHardware":
+                    return ReadHardware(request.Payload);
+                case "BuildHardware":
+                    return BuildHardware(request.Payload);
                 case "Disconnect":
                     Disconnect();
                     return new { };
@@ -176,9 +180,20 @@ namespace CwcConfigurator.TiaHelper
 
             foreach (var device in _project.Devices)
             {
+                var found = session.Plcs.Count;
                 foreach (var item in device.DeviceItems)
                 {
                     DiscoverSoftware(device.Name, item, session.Plcs);
+                }
+
+                // IP addresses from the hardware configuration of the PLC's device (PROFINET / Ethernet interfaces).
+                if (session.Plcs.Count > found)
+                {
+                    var addresses = ReadIpAddresses(device);
+                    for (var index = found; index < session.Plcs.Count; index++)
+                    {
+                        session.Plcs[index].IpAddresses = addresses;
+                    }
                 }
             }
 
@@ -2180,6 +2195,738 @@ namespace CwcConfigurator.TiaHelper
             return null;
         }
 
+        private static bool _readChannels;
+
+        /// <summary>Channel attributes that identify a channel (not settings).</summary>
+        private static readonly HashSet<string> ChannelIdentity = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Number", "Type", "IoType", "ChannelAddress", "ChannelWidth"
+        };
+
+        /// <summary>
+        /// Settings of the analog channels of a module (measurement type, range, smoothing, diagnostics…) as captured
+        /// from a channel in TIA: each attribute is converted to the type of the channel's current value and set.
+        /// </summary>
+        private static void SetChannels(DeviceItem module, IDictionary<string, object> spec, bool apply, string label, TiaHardwareBuildResult result)
+        {
+            if (!spec.ContainsKey("Channels") || !(spec["Channels"] is IEnumerable list))
+            {
+                return;
+            }
+
+            var channels = new[] { module }.Concat(module.DeviceItems).SelectMany(item => item.Channels).ToList();
+            foreach (var wanted in list.OfType<IDictionary<string, object>>())
+            {
+                var number = ParseInt(PayloadText(wanted, "Number"), -1);
+                var channel = channels.FirstOrDefault(item => item.Number == number);
+                var where = label + " ch" + number;
+                if (channel == null)
+                {
+                    result.Add(where, "Channel", "Error", "the module has no channel " + number);
+                    continue;
+                }
+
+                if (!(wanted.ContainsKey("Attributes") && wanted["Attributes"] is IDictionary<string, object> attributes))
+                {
+                    continue;
+                }
+
+                var changes = new List<string>();
+                var failed = new List<string>();
+                foreach (var pair in attributes)
+                {
+                    if (ChannelIdentity.Contains(pair.Key))
+                    {
+                        continue;
+                    }
+
+                    var value = Convert.ToString(pair.Value, CultureInfo.InvariantCulture) ?? "";
+                    object current;
+                    try { current = channel.GetAttribute(pair.Key); } catch { failed.Add(pair.Key + " (unknown)"); continue; }
+                    if (string.Equals(Convert.ToString(current, CultureInfo.InvariantCulture), value, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    changes.Add(pair.Key + " " + Convert.ToString(current, CultureInfo.InvariantCulture) + " → " + value);
+                    if (!apply)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        object typed = value;
+                        if (current != null)
+                        {
+                            var type = current.GetType();
+                            typed = type.IsEnum ? Enum.Parse(type, value, true)
+                                : type == typeof(bool) ? (object)bool.Parse(value)
+                                : Convert.ChangeType(value, type, CultureInfo.InvariantCulture);
+                        }
+
+                        channel.SetAttribute(pair.Key, typed);
+                    }
+                    catch (Exception ex)
+                    {
+                        failed.Add(pair.Key + ": " + ex.Message);
+                    }
+                }
+
+                if (failed.Count > 0)
+                {
+                    result.Add(where, "Channel settings", "Error", string.Join("; ", failed));
+                }
+
+                if (changes.Count > 0)
+                {
+                    result.Add(where, "Channel settings", apply ? "Done" : "Planned", string.Join(", ", changes));
+                }
+                else if (failed.Count == 0)
+                {
+                    result.Add(where, "Channel settings", "OK", PayloadText(wanted, "Template"));
+                }
+            }
+        }
+
+        private static string PayloadText(IDictionary<string, object> payload, string key)
+        {
+            return payload != null && payload.ContainsKey(key) && payload[key] != null
+                ? Convert.ToString(payload[key], CultureInfo.InvariantCulture)
+                : "";
+        }
+
+        private static Device FindDevice(string name)
+        {
+            if (_project == null)
+            {
+                throw new InvalidOperationException("Not attached to a TIA project.");
+            }
+
+            return _project.Devices.FirstOrDefault(device => string.Equals(device.Name, name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// The hardware of a device: every device item with its type (order number / firmware), slot and, when asked,
+        /// all its attributes; the network interfaces with IP address, PROFINET device name and subnet.
+        /// </summary>
+        private static TiaHardwareResult ReadHardware(IDictionary<string, object> payload)
+        {
+            var name = PayloadText(payload, "DeviceName");
+            var withAttributes = string.Equals(PayloadText(payload, "Attributes"), "true", StringComparison.OrdinalIgnoreCase);
+            _readChannels = withAttributes || string.Equals(PayloadText(payload, "Channels"), "true", StringComparison.OrdinalIgnoreCase);
+            var result = new TiaHardwareResult { DeviceName = name };
+            var device = FindDevice(name);
+            if (device == null)
+            {
+                result.Found = false;
+                result.Devices = _project.Devices.Select(item => item.Name).ToList();
+                return result;
+            }
+
+            result.Found = true;
+            result.TypeIdentifier = SafeAttribute(device, "TypeIdentifier");
+            foreach (var item in device.DeviceItems)
+            {
+                ReadItem(item, 0, withAttributes, result);
+            }
+
+            return result;
+        }
+
+        private static void ReadItem(DeviceItem item, int depth, bool withAttributes, TiaHardwareResult result)
+        {
+            var info = new TiaHardwareItem
+            {
+                Name = item.Name,
+                TypeIdentifier = item.TypeIdentifier ?? "",
+                Position = SafePosition(item),
+                Depth = depth
+            };
+            if (withAttributes && depth <= 2)
+            {
+                try
+                {
+                    foreach (var attribute in item.GetAttributeInfos())
+                    {
+                        string value;
+                        try { value = Convert.ToString(item.GetAttribute(attribute.Name), CultureInfo.InvariantCulture); } catch (Exception ex) { value = "!" + ex.GetType().Name; }
+                        info.Attributes[attribute.Name] = value;
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            if (_readChannels)
+            {
+                try
+                {
+                    foreach (var channel in item.Channels)
+                    {
+                        var values = new Dictionary<string, string>();
+                        values["#Number"] = Convert.ToString(channel.Number, CultureInfo.InvariantCulture);
+                        values["#Type"] = Convert.ToString(channel.Type, CultureInfo.InvariantCulture);
+                        values["#IoType"] = Convert.ToString(channel.IoType, CultureInfo.InvariantCulture);
+                        foreach (var attribute in channel.GetAttributeInfos())
+                        {
+                            string value;
+                            try { value = Convert.ToString(channel.GetAttribute(attribute.Name), CultureInfo.InvariantCulture); } catch (Exception ex) { value = "!" + ex.GetType().Name; }
+                            values[attribute.Name] = value;
+                        }
+
+                        info.Channels.Add(values);
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            try
+            {
+                var network = item.GetService<NetworkInterface>();
+                if (network != null)
+                {
+                    foreach (Node node in network.Nodes)
+                    {
+                        result.Interfaces.Add(new TiaHardwareInterface
+                        {
+                            Item = item.Name,
+                            Address = SafeAttribute(node, "Address"),
+                            PnDeviceName = SafeAttribute(node, "PnDeviceName"),
+                            Subnet = node.ConnectedSubnet == null ? "" : node.ConnectedSubnet.Name,
+                            IoSystem = network.IoControllers.Select(controller => controller.IoSystem == null ? "" : controller.IoSystem.Name)
+                                .Concat(network.IoConnectors.Select(connector => connector.ConnectedToIoSystem == null ? "" : connector.ConnectedToIoSystem.Name))
+                                .FirstOrDefault(text => !string.IsNullOrEmpty(text)) ?? ""
+                        });
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            result.Items.Add(info);
+            foreach (var child in item.DeviceItems)
+            {
+                ReadItem(child, depth + 1, withAttributes, result);
+            }
+        }
+
+        /// <summary>
+        /// Builds (Apply) or checks the hardware of one station from the plan the user completed: the device with its
+        /// CPU / interface module, the modules in their slots, the potential groups, IP address, PROFINET device name,
+        /// subnet and IO system. Existing items that differ are reported as conflicts and never changed or deleted.
+        /// </summary>
+        private static TiaHardwareBuildResult BuildHardware(IDictionary<string, object> payload)
+        {
+            if (_project == null)
+            {
+                throw new InvalidOperationException("Not attached to a TIA project.");
+            }
+
+            var apply = string.Equals(PayloadText(payload, "Apply"), "true", StringComparison.OrdinalIgnoreCase);
+            var result = new TiaHardwareBuildResult { Applied = apply };
+            var deviceName = PayloadText(payload, "DeviceName");
+            var head = payload.ContainsKey("Head") ? payload["Head"] as IDictionary<string, object> : null;
+            if (string.IsNullOrWhiteSpace(deviceName) || head == null)
+            {
+                throw new InvalidOperationException("The station needs a device name and its CPU / interface module.");
+            }
+
+            var headType = TypeOf(head);
+            var headName = PayloadText(head, "Name");
+            var headSlot = ParseInt(PayloadText(head, "Slot"), 1);
+            var device = FindDevice(deviceName);
+            if (device == null)
+            {
+                if (!apply)
+                {
+                    result.Add(deviceName, "Create station", "Planned", headType);
+                }
+                else
+                {
+                    try
+                    {
+                        device = _project.Devices.CreateWithItem(headType, headName, deviceName);
+                        result.Add(deviceName, "Create station", "Done", headType);
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Add(deviceName, "Create station", "Error", headType + ": " + ex.Message);
+                        return result;
+                    }
+                }
+            }
+            else
+            {
+                result.Add(deviceName, "Station", "Exists", SafeAttribute(device, "TypeIdentifier"));
+            }
+
+            // The rack plugs new modules; the CPU and the modules can be its children or (ET 200SP) its siblings.
+            var rack = device == null ? null
+                : device.DeviceItems.FirstOrDefault(item => (item.TypeIdentifier ?? "").StartsWith("System:Rack", StringComparison.OrdinalIgnoreCase))
+                  ?? device.DeviceItems.FirstOrDefault();
+            Func<int, DeviceItem> atSlot = slot => rack == null ? null
+                : device.DeviceItems.Concat(rack.DeviceItems).FirstOrDefault(item => item != rack && SafePosition(item) == slot);
+            DeviceItem headItem = null;
+            if (rack != null)
+            {
+                headItem = atSlot(headSlot);
+                if (headItem == null)
+                {
+                    result.Add(headName, "CPU / interface module", "Conflict", "nothing in slot " + headSlot);
+                }
+                else if (!SameType(headItem.TypeIdentifier, headType))
+                {
+                    result.Add(headItem.Name, "CPU / interface module", "Conflict", "TIA: " + headItem.TypeIdentifier + " · plan: " + headType + " (not changed)");
+                }
+                else
+                {
+                    result.Add(headItem.Name, "CPU / interface module", "OK", headType);
+                }
+            }
+
+            // Bus adapter (ET 200SP: slot 127) and the I/O modules in their slots.
+            var modules = new List<IDictionary<string, object>>();
+            if (payload.ContainsKey("BusAdapter") && payload["BusAdapter"] is IDictionary<string, object> adapter && PayloadText(adapter, "Order").Length > 0)
+            {
+                modules.Add(adapter);
+            }
+
+            if (payload.ContainsKey("Modules") && payload["Modules"] is IEnumerable list)
+            {
+                modules.AddRange(list.OfType<IDictionary<string, object>>());
+            }
+
+            foreach (var module in modules)
+            {
+                var type = TypeOf(module);
+                var name = PayloadText(module, "Name");
+                var slot = ParseInt(PayloadText(module, "Slot"), -1);
+                var group = PayloadText(module, "PotentialGroup");
+                var label = name + " (slot " + slot + ")";
+                var existing = atSlot(slot);
+                if (existing != null)
+                {
+                    if (!SameType(existing.TypeIdentifier, type))
+                    {
+                        result.Add(label, "Module", "Conflict", "TIA: " + existing.Name + " " + existing.TypeIdentifier + " · plan: " + type + " (not changed)");
+                        continue;
+                    }
+
+                    result.Add(label, "Module", "OK", type);
+                    SetPotentialGroup(existing, group, apply, label, result);
+                    SetNoSupplyDiagnostics(existing, group, apply, label, result);
+                    SetChannels(existing, module, apply, label, result);
+                    continue;
+                }
+
+                if (rack == null)
+                {
+                    result.Add(label, "Plug module", "Planned", type);
+                    continue;
+                }
+
+                bool canPlug;
+                try { canPlug = rack.CanPlugNew(type, name, slot); }
+                catch (Exception ex) { result.Add(label, "Plug module", "Error", type + ": " + ex.Message); continue; }
+                if (!canPlug)
+                {
+                    result.Add(label, "Plug module", "Error", type + " cannot be plugged in slot " + slot + " (order number, firmware version or slot)");
+                    continue;
+                }
+
+                if (!apply)
+                {
+                    result.Add(label, "Plug module", "Planned", type);
+                    continue;
+                }
+
+                try
+                {
+                    var plugged = rack.PlugNew(type, name, slot);
+                    result.Add(label, "Plug module", "Done", type);
+                    SetPotentialGroup(plugged, group, true, label, result);
+                    SetNoSupplyDiagnostics(plugged, group, true, label, result);
+                    SetChannels(plugged, module, true, label, result);
+                }
+                catch (Exception ex)
+                {
+                    result.Add(label, "Plug module", "Error", type + ": " + ex.Message);
+                }
+            }
+
+            // Network: IP address, PROFINET device name, subnet, IO system.
+            var network = headItem == null ? null : FindNetwork(headItem);
+            var node = network == null ? null : network.Nodes.FirstOrDefault();
+            if (headItem != null && node == null)
+            {
+                result.Add(headItem.Name, "Network", "Error", "no PROFINET / Ethernet interface found");
+            }
+            else if (node != null)
+            {
+                SetNodeAttribute(node, "Address", PayloadText(payload, "Ip"), "IP address", apply, result);
+                var pnName = PayloadText(payload, "PnDeviceName");
+                if (pnName.Length > 0 && SafeAttribute(node, "PnDeviceName") != pnName)
+                {
+                    try { if (apply) node.SetAttribute("PnDeviceNameAutoGeneration", false); } catch { }
+                    SetNodeAttribute(node, "PnDeviceName", pnName, "PROFINET device name", apply, result);
+                }
+                else if (pnName.Length > 0)
+                {
+                    result.Add("PROFINET device name", "PROFINET device name", "OK", pnName);
+                }
+
+                var subnetName = PayloadText(payload, "Subnet");
+                if (subnetName.Length > 0)
+                {
+                    var connected = node.ConnectedSubnet;
+                    if (connected != null && connected.Name == subnetName)
+                    {
+                        result.Add("Subnet", "Subnet", "OK", subnetName);
+                    }
+                    else if (connected != null)
+                    {
+                        result.Add("Subnet", "Subnet", "Conflict", "connected to " + connected.Name + " · plan: " + subnetName + " (not changed)");
+                    }
+                    else if (!apply)
+                    {
+                        result.Add("Subnet", "Connect to subnet", "Planned", subnetName);
+                    }
+                    else
+                    {
+                        try
+                        {
+                            var subnet = _project.Subnets.Find(subnetName);
+                            if (subnet != null)
+                            {
+                                node.ConnectToSubnet(subnet);
+                            }
+                            else
+                            {
+                                node.CreateAndConnectToSubnet(subnetName);
+                            }
+
+                            result.Add("Subnet", "Connect to subnet", "Done", subnetName);
+                        }
+                        catch (Exception ex)
+                        {
+                            result.Add("Subnet", "Connect to subnet", "Error", subnetName + ": " + ex.Message);
+                        }
+                    }
+                }
+
+                var ioSystemName = PayloadText(payload, "IoSystem");
+                var controllerDevice = PayloadText(payload, "IoControllerDevice");
+                if (ioSystemName.Length > 0 && network.IoControllers.Count > 0)
+                {
+                    // CPU: its PROFINET IO system.
+                    var controller = network.IoControllers.FirstOrDefault(item => item.IoSystem != null) ?? network.IoControllers.First();
+                    if (controller.IoSystem != null)
+                    {
+                        result.Add("IO system", "IO system", "OK", controller.IoSystem.Name);
+                    }
+                    else if (!apply)
+                    {
+                        result.Add("IO system", "Create IO system", "Planned", ioSystemName);
+                    }
+                    else
+                    {
+                        try { controller.CreateIoSystem(ioSystemName); result.Add("IO system", "Create IO system", "Done", ioSystemName); }
+                        catch (Exception ex) { result.Add("IO system", "Create IO system", "Error", ex.Message); }
+                    }
+                }
+                else if (controllerDevice.Length > 0 && network.IoConnectors.Count > 0)
+                {
+                    // Interface module: assigned to the IO system of its CPU.
+                    var connector = network.IoConnectors.First();
+                    var number = PayloadText(payload, "PnDeviceNumber");
+                    if (number.Length > 0 && number != "0")
+                    {
+                        var current = SafeAttribute(connector, "PnDeviceNumber");
+                        if (current == number)
+                        {
+                            result.Add("PROFINET device number", "PROFINET device number", "OK", number);
+                        }
+                        else if (!apply)
+                        {
+                            result.Add("PROFINET device number", "PROFINET device number", "Planned", (current.Length > 0 ? current + " → " : "") + number);
+                        }
+                        else
+                        {
+                            try
+                            {
+                                connector.SetAttribute("PnDeviceNumber", int.Parse(number, CultureInfo.InvariantCulture));
+                                result.Add("PROFINET device number", "PROFINET device number", "Done", (current.Length > 0 ? current + " → " : "") + number);
+                            }
+                            catch (Exception ex)
+                            {
+                                result.Add("PROFINET device number", "PROFINET device number", "Error", number + ": " + ex.Message);
+                            }
+                        }
+                    }
+
+                    var controllerNetwork = FindDevice(controllerDevice) == null ? null : FindNetworkInDevice(FindDevice(controllerDevice));
+                    var ioSystem = controllerNetwork == null ? null : controllerNetwork.IoControllers.Select(item => item.IoSystem).FirstOrDefault(item => item != null);
+                    if (connector.ConnectedToIoSystem != null)
+                    {
+                        result.Add("IO system", "IO controller", "OK", connector.ConnectedToIoSystem.Name);
+                    }
+                    else if (ioSystem == null)
+                    {
+                        result.Add("IO system", "IO controller", "Error", controllerDevice + " has no IO system yet (build the CPU station first)");
+                    }
+                    else if (!apply)
+                    {
+                        result.Add("IO system", "Assign to IO system", "Planned", ioSystem.Name);
+                    }
+                    else
+                    {
+                        try { connector.ConnectToIoSystem(ioSystem); result.Add("IO system", "Assign to IO system", "Done", ioSystem.Name); }
+                        catch (Exception ex) { result.Add("IO system", "Assign to IO system", "Error", ex.Message); }
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        private static string TypeOf(IDictionary<string, object> item)
+        {
+            var order = PayloadText(item, "Order").Trim();
+            var version = PayloadText(item, "Version").Trim();
+            if (order.Length == 0 || version.Length == 0)
+            {
+                throw new InvalidOperationException((PayloadText(item, "Name") + " needs an order number and a firmware version.").Trim());
+            }
+
+            return "OrderNumber:" + order + "/" + (version.StartsWith("V", StringComparison.OrdinalIgnoreCase) ? "V" + version.Substring(1) : "V" + version);
+        }
+
+        private static bool SameType(string tia, string plan)
+        {
+            Func<string, string> normal = text => (text ?? "").Replace(" ", "").ToUpperInvariant();
+            return normal(tia) == normal(plan);
+        }
+
+        private static int ParseInt(string text, int fallback)
+        {
+            int value;
+            return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value) ? value : fallback;
+        }
+
+        private static void SetPotentialGroup(DeviceItem item, string group, bool apply, string label, TiaHardwareBuildResult result)
+        {
+            if (group.Length == 0)
+            {
+                return;
+            }
+
+            var current = SafeAttribute(item, "PotentialGroup");
+            if (current.Length == 0)
+            {
+                return; // the module has no potential group
+            }
+
+            if (current == group)
+            {
+                return;
+            }
+
+            if (!apply)
+            {
+                result.Add(label, "Potential group", "Planned", current + " → " + group);
+                return;
+            }
+
+            try
+            {
+                var info = item.GetAttributeInfos().FirstOrDefault(attribute => attribute.Name == "PotentialGroup");
+                object value = int.Parse(group, CultureInfo.InvariantCulture);
+                var type = item.GetAttribute("PotentialGroup").GetType();
+                if (type.IsEnum)
+                {
+                    value = Enum.ToObject(type, value);
+                }
+
+                item.SetAttribute("PotentialGroup", value);
+                result.Add(label, "Potential group", "Done", current + " → " + group);
+            }
+            catch (Exception ex)
+            {
+                result.Add(label, "Potential group", "Error", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// "No supply voltage" diagnostics: on for a module that opens a new potential group (light BaseUnit with the
+        /// supply), off for the others. The parameter lives on the module's sub-item.
+        /// </summary>
+        private static void SetNoSupplyDiagnostics(DeviceItem module, string group, bool apply, string label, TiaHardwareBuildResult result)
+        {
+            if (group.Length == 0)
+            {
+                return;
+            }
+
+            var wanted = group == "1";
+            foreach (var item in new[] { module }.Concat(module.DeviceItems))
+            {
+                var current = SafeAttribute(item, "DiagnosticsNoSupplyVoltage");
+                if (current.Length == 0)
+                {
+                    continue;
+                }
+
+                if (string.Equals(current, wanted.ToString(), StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                if (!apply)
+                {
+                    result.Add(label, "Diagnostics: no supply voltage", "Planned", wanted ? "on" : "off");
+                    return;
+                }
+
+                try
+                {
+                    item.SetAttribute("DiagnosticsNoSupplyVoltage", wanted);
+                    result.Add(label, "Diagnostics: no supply voltage", "Done", wanted ? "on" : "off");
+                }
+                catch (Exception ex)
+                {
+                    result.Add(label, "Diagnostics: no supply voltage", "Error", ex.Message);
+                }
+
+                return;
+            }
+        }
+
+        private static void SetNodeAttribute(Node node, string attribute, string value, string label, bool apply, TiaHardwareBuildResult result)
+        {
+            if (value.Length == 0)
+            {
+                return;
+            }
+
+            var current = SafeAttribute(node, attribute);
+            if (current == value)
+            {
+                result.Add(label, label, "OK", value);
+                return;
+            }
+
+            if (!apply)
+            {
+                result.Add(label, label, "Planned", (current.Length > 0 ? current + " → " : "") + value);
+                return;
+            }
+
+            try
+            {
+                node.SetAttribute(attribute, value);
+                result.Add(label, label, "Done", (current.Length > 0 ? current + " → " : "") + value);
+            }
+            catch (Exception ex)
+            {
+                result.Add(label, label, "Error", value + ": " + ex.Message);
+            }
+        }
+
+        private static NetworkInterface FindNetwork(DeviceItem item)
+        {
+            NetworkInterface network = null;
+            try { network = item.GetService<NetworkInterface>(); } catch { }
+            if (network != null && network.Nodes.Count > 0)
+            {
+                return network;
+            }
+
+            foreach (var child in item.DeviceItems)
+            {
+                var found = FindNetwork(child);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        private static NetworkInterface FindNetworkInDevice(Device device)
+        {
+            foreach (var item in device.DeviceItems)
+            {
+                var found = FindNetwork(item);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        private static int SafePosition(DeviceItem item)
+        {
+            try { return item.PositionNumber; } catch { return -1; }
+        }
+
+        private static string SafeAttribute(IEngineeringObject item, string name)
+        {
+            try { return Convert.ToString(item.GetAttribute(name), CultureInfo.InvariantCulture) ?? ""; } catch { return ""; }
+        }
+
+        /// <summary>IPv4 addresses of the network interfaces of a device: "PROFINET interface_1|10.25.4.11".</summary>
+        private static List<string> ReadIpAddresses(Device device)
+        {
+            var result = new List<string>();
+            foreach (var item in device.DeviceItems)
+            {
+                CollectIpAddresses(item, result);
+            }
+
+            return result;
+        }
+
+        private static void CollectIpAddresses(DeviceItem item, List<string> result)
+        {
+            try
+            {
+                var network = item.GetService<NetworkInterface>();
+                if (network != null)
+                {
+                    foreach (Node node in network.Nodes)
+                    {
+                        string address = null;
+                        try { address = node.GetAttribute("Address") as string; } catch { }
+                        if (!string.IsNullOrWhiteSpace(address) && address != "0.0.0.0")
+                        {
+                            var entry = item.Name + "|" + address.Trim();
+                            if (!result.Contains(entry))
+                            {
+                                result.Add(entry);
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // an item without network features
+            }
+
+            foreach (var child in item.DeviceItems)
+            {
+                CollectIpAddresses(child, result);
+            }
+        }
+
         private static void DiscoverSoftware(string deviceName, DeviceItem item, IList<TiaDiscoveredPlc> plcs)
         {
             var container = item.GetService<SoftwareContainer>();
@@ -2782,9 +3529,13 @@ namespace CwcConfigurator.TiaHelper
         public string SoftwareName { get; set; }
         public List<TiaPlcObjectInfo> Objects { get; set; }
 
+        /// <summary>IP addresses of the device's interfaces: "interface name|IPv4".</summary>
+        public List<string> IpAddresses { get; set; }
+
         public TiaDiscoveredPlc()
         {
             Objects = new List<TiaPlcObjectInfo>();
+            IpAddresses = new List<string>();
         }
     }
 
@@ -2805,6 +3556,73 @@ namespace CwcConfigurator.TiaHelper
         public string ProjectName { get; set; }
         public string ModeLabel { get; set; }
         public string AcquiredAtLabel { get; set; }
+    }
+
+    public sealed class TiaHardwareResult
+    {
+        public string DeviceName { get; set; }
+        public bool Found { get; set; }
+        public string TypeIdentifier { get; set; }
+        public List<string> Devices { get; set; }
+        public List<TiaHardwareItem> Items { get; set; }
+        public List<TiaHardwareInterface> Interfaces { get; set; }
+
+        public TiaHardwareResult()
+        {
+            Devices = new List<string>();
+            Items = new List<TiaHardwareItem>();
+            Interfaces = new List<TiaHardwareInterface>();
+        }
+    }
+
+    public sealed class TiaHardwareBuildResult
+    {
+        public bool Applied { get; set; }
+        public List<TiaHardwareStep> Steps { get; set; }
+
+        public TiaHardwareBuildResult()
+        {
+            Steps = new List<TiaHardwareStep>();
+        }
+
+        public void Add(string item, string action, string status, string detail)
+        {
+            Steps.Add(new TiaHardwareStep { Item = item, Action = action, Status = status, Detail = detail ?? "" });
+        }
+    }
+
+    public sealed class TiaHardwareStep
+    {
+        public string Item { get; set; }
+        public string Action { get; set; }
+        /// <summary>OK, Exists, Planned, Done, Conflict, Error.</summary>
+        public string Status { get; set; }
+        public string Detail { get; set; }
+    }
+
+    public sealed class TiaHardwareItem
+    {
+        public string Name { get; set; }
+        public string TypeIdentifier { get; set; }
+        public int Position { get; set; }
+        public int Depth { get; set; }
+        public Dictionary<string, string> Attributes { get; set; }
+        public List<Dictionary<string, string>> Channels { get; set; }
+
+        public TiaHardwareItem()
+        {
+            Attributes = new Dictionary<string, string>();
+            Channels = new List<Dictionary<string, string>>();
+        }
+    }
+
+    public sealed class TiaHardwareInterface
+    {
+        public string Item { get; set; }
+        public string Address { get; set; }
+        public string PnDeviceName { get; set; }
+        public string Subnet { get; set; }
+        public string IoSystem { get; set; }
     }
 
     public sealed class TiaAttachedSession

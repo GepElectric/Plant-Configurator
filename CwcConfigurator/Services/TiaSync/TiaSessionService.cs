@@ -182,6 +182,25 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
         }, LongHelperResponseTimeout);
     }
 
+    public Task<TiaHardwareResult> ReadHardwareAsync(string deviceName) =>
+        SendAsync<TiaHardwareResult>(RequireActiveVersion(), "ReadHardware", new { DeviceName = deviceName, Attributes = "false", Channels = "true" }, LongHelperResponseTimeout);
+
+    public Task<TiaHardwareBuildResult> BuildHardwareAsync(TiaHardwareBuildRequest request) =>
+        SendAsync<TiaHardwareBuildResult>(RequireActiveVersion(), "BuildHardware", new
+        {
+            Apply = request.Apply ? "true" : "false",
+            request.DeviceName,
+            request.Head,
+            request.BusAdapter,
+            request.Modules,
+            request.Ip,
+            request.PnDeviceName,
+            request.Subnet,
+            request.IoSystem,
+            request.IoControllerDevice,
+            request.PnDeviceNumber
+        }, LongHelperResponseTimeout);
+
     public Task<TiaTextListTypesResult> ImportTextListTypeTextsAsync(string? inputFile, IReadOnlyList<string> listNames, string comment)
     {
         return SendAsync<TiaTextListTypesResult>(RequireActiveVersion(), "ImportTextListTypeTexts", new

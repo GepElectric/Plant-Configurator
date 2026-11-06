@@ -51,6 +51,21 @@ internal static partial class Program
             Check(double.IsNaN(ProjectStore.Load(missingPath).Data.Signals[0].Values[1]), "NaN values survive project round trip");
             var preset = ProjectStore.Preset(project); var next = MainWindow.NewProject(TraceCsv.Read(sample)); next.Options.End = 30;
             Check(ProjectStore.ApplyPreset(next, preset) == 3 && next.Options.End == 30 && !next.Options.Cursors, "Preset matches source tags and preserves target range");
+            string exportPath = Path.Combine(output, "Export.csv"); TraceExport.SaveCsv(project, exportPath);
+            var exported = TraceCsv.Read(exportPath);
+            Check(exported.Time.Length == data.Time.Length && exported.Signals.Count == data.Signals.Count && Math.Abs(exported.Signals[0].Values[5] - data.Signals[0].Scaled()[5]) < 1e-5, "Export CSV reads back: every sample and signal in its units");
+            Check(Bilingual.Of("1 · Dry test") == "1 · Dry test / Suhi test" && Bilingual.Of("Mlaznica 2") == "Nozzle 2 / Mlaznica 2" && Bilingual.Of("Moje snimanje") == "Moje snimanje", "Default tree names are English / Croatian, user names unchanged");
+            Check(PlantPlanner.Generate(new PlantDefinition { Name = "P", Units = [new UnitDefinition()] }).All(slot => slot.Title.Contains(" / ")), "Every default test title is English / Croatian");
+            if (Type.GetTypeFromProgID("Excel.Application") != null)
+            {
+                try
+                {
+                    TraceExport.CopyExcelChart(project, "Check");
+                    var formats = Clipboard.GetDataObject()?.GetFormats() ?? [];
+                    Check(formats.Contains("Art::GVML ClipFormat") && formats.Contains("ShadowWorkbook"), "Copy Excel chart: an Office chart with its workbook on the clipboard (editable in Word)");
+                }
+                finally { TraceExport.Quit(); }
+            }
             var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             DisplayChecks();
             EditingChecks();

@@ -83,6 +83,8 @@ public sealed class PlcCatalog
 {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
+    /// <summary>PLC IP address from Plant Configurator (read there from the TIA hardware configuration).</summary>
+    public string Ip { get; set; } = "";
     /// <summary>Configuration block number from Plant Configurator (DB MEAS).</summary>
     public int Db { get; set; } = 3;
     int readDb;
@@ -169,7 +171,12 @@ public sealed class PlantConfigLink
             var link = new PlantConfigLink { SourceFile = path, ProjectName = Text(root, "ProjectName"), LoadedAt = DateTime.Now };
             if (TryGet(root, "PlcDatabases", out var databases) && databases.ValueKind == JsonValueKind.Array)
                 foreach (var database in databases.EnumerateArray())
-                    if (TryGet(database, "DbCatalog", out var catalog)) link.Plcs.Add(ReadCatalog(catalog, Text(database, "Id"), Text(database, "Name")));
+                    if (TryGet(database, "DbCatalog", out var catalog))
+                    {
+                        var plc = ReadCatalog(catalog, Text(database, "Id"), Text(database, "Name"));
+                        plc.Ip = Text(database, "IpAddress").Trim();
+                        link.Plcs.Add(plc);
+                    }
             // Projects saved before multi-PLC support keep a single catalogue at the root.
             if (link.Plcs.Count == 0 && TryGet(root, "DbCatalog", out var single)) link.Plcs.Add(ReadCatalog(single, "default", "PLC"));
             link.Plcs.RemoveAll(p => p.Items.Count(i => !i.IsDigital) == 0);

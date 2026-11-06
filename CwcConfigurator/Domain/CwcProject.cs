@@ -40,6 +40,12 @@ public sealed class CwcProject
     public AlmParExportConfig AlmParExport { get; set; } = new();
     public EplanImportConfig EplanImport { get; set; } = new();
 
+    /// <summary>Data of the level controllers' basins for PID auto-tuning, by "database id|PID structure".</summary>
+    public Dictionary<string, LevelBasin> PidBasins { get; set; } = [];
+
+    /// <summary>Hardware of the EPLAN stations completed for TIA (Tools → Hardware configuration in TIA).</summary>
+    public HardwareConfigSettings HardwareConfig { get; set; } = new();
+
     public static CwcProject CreateEmpty()
     {
         var project = new CwcProject();
@@ -49,6 +55,106 @@ public sealed class CwcProject
         database.ApplyTo(project);
         return project;
     }
+}
+
+/// <summary>
+/// The basin of a level controller: its surface, the measuring range of the level and the flow the controller output
+/// moves. The level rises by ΔQ / A, so these decide how fast the level loop can be.
+/// </summary>
+public sealed class LevelBasin
+{
+    /// <summary>Water surface of the basin in m² (at the operating level).</summary>
+    public double Area { get; set; }
+    /// <summary>Measuring range of the level in m (100 % of the measurement).</summary>
+    public double LevelRange { get; set; }
+    /// <summary>Flow at 100 % controller output in m³/s.</summary>
+    public double FlowAt100 { get; set; }
+    /// <summary>The controller output moves the outflow (turbines, gates) — the level falls when it rises; false: inflow.</summary>
+    public bool Outflow { get; set; } = true;
+    /// <summary>Dead time between the output and the level in s (flow travel, waves).</summary>
+    public double DeadTime { get; set; }
+}
+
+/// <summary>The hardware plans of the EPLAN stations for TIA, with what the user filled in.</summary>
+public sealed class HardwareConfigSettings
+{
+    public List<HardwareStationSettings> Stations { get; set; } = [];
+
+    /// <summary>Channel settings learned from channels set up in TIA ("4–20 mA 2-wire", "Pt100 3-wire"…).</summary>
+    public List<ChannelTemplate> ChannelTemplates { get; set; } = [];
+}
+
+/// <summary>Settings of one analog channel as TIA keeps them (attribute → value), under a name the user gives.</summary>
+public sealed class ChannelTemplate
+{
+    public string Name { get; set; } = "";
+    /// <summary>Module type it was read from, e.g. "AI 8xI 2-/4-wire BA" (order number in brackets).</summary>
+    public string Source { get; set; } = "";
+    /// <summary>"Input" or "Output".</summary>
+    public string IoType { get; set; } = "";
+    public Dictionary<string, string> Attributes { get; set; } = [];
+
+    public override string ToString() => Name;
+}
+
+/// <summary>The template a channel of a module gets ("" = left as it is in TIA).</summary>
+public sealed class HardwareChannelSettings
+{
+    public int Number { get; set; }
+    public string Template { get; set; } = "";
+}
+
+/// <summary>One station (CPU or interface module with its modules) as it is to be built in TIA.</summary>
+public sealed class HardwareStationSettings
+{
+    /// <summary>EPLAN function | head device tag.</summary>
+    public string Key { get; set; } = "";
+    /// <summary>Name of the device (station) in TIA.</summary>
+    public string DeviceName { get; set; } = "";
+    /// <summary>Name of the CPU / interface module in TIA (the CPU name is the PLC software name).</summary>
+    public string HeadName { get; set; } = "";
+    public string HeadOrder { get; set; } = "";
+    public string HeadVersion { get; set; } = "";
+    public int HeadSlot { get; set; } = 1;
+    /// <summary>Bus adapter (ET 200SP, slot 127), e.g. 6ES7 193-6AR00-0AA0 / V0.0; empty = none.</summary>
+    public string BusAdapterOrder { get; set; } = "";
+    public string BusAdapterVersion { get; set; } = "";
+    public int BusAdapterSlot { get; set; } = 127;
+    public string Ip { get; set; } = "";
+    public string PnDeviceName { get; set; } = "";
+    public string Subnet { get; set; } = "";
+    /// <summary>CPU: name of its PROFINET IO system.</summary>
+    public string IoSystem { get; set; } = "";
+    /// <summary>Interface module: TIA device of the CPU whose IO system it joins.</summary>
+    public string IoControllerDevice { get; set; } = "";
+    /// <summary>Interface module: PROFINET device number in the IO system (distributed stations 101–110); 0 = not set.</summary>
+    public int PnDeviceNumber { get; set; }
+    public List<HardwareModuleSettings> Modules { get; set; } = [];
+}
+
+public sealed class HardwareModuleSettings
+{
+    /// <summary>EPLAN device tag without '-', e.g. "A611".</summary>
+    public string Tag { get; set; } = "";
+    public string Type { get; set; } = "";
+    public string Order { get; set; } = "";
+    public string Version { get; set; } = "";
+    public int Slot { get; set; }
+    /// <summary>ET 200SP: the module opens a new potential group (light BaseUnit with the supply); its "no supply voltage"
+    /// diagnostics is switched on, on the other modules off.</summary>
+    public bool NewPotentialGroup { get; set; }
+    /// <summary>Built in TIA (untick to leave the module out).</summary>
+    public bool Include { get; set; } = true;
+    /// <summary>"AnalogInput", "RtdInput", "AnalogOutput"… (EPLAN module kind).</summary>
+    public string Kind { get; set; } = "";
+    /// <summary>Number of channels of the module (EPLAN).</summary>
+    public int ChannelCount { get; set; }
+    /// <summary>Analog modules: the template of every channel.</summary>
+    public List<HardwareChannelSettings> Channels { get; set; } = [];
+
+    /// <summary>An analog module whose channels are set up (AI, RTD, AO).</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsAnalog => Kind is "AnalogInput" or "RtdInput" or "AnalogOutput";
 }
 
 /// <summary>Remembered EPLAN import: which CPU fills which PLC database and which distributed stations belong to it.</summary>
@@ -305,6 +411,13 @@ public sealed class AlmParExportConfig
     public string PlantFullName { get; set; } = "";
     public string CustomerBlock { get; set; } = "";
     public string FbNumber { get; set; } = "01";
+
+    /// <summary>Form of the document: "Geppert" (Geppert Electric) or "PrimeVolt" (Prime Volt).</summary>
+    public string Company { get; set; } = GeppertCompany;
+
+    public const string GeppertCompany = "Geppert";
+    public const string PrimeVoltCompany = "PrimeVolt";
+
     public string ExportLanguageCode { get; set; } = "en-US";
     public string ExportLanguage { get; set; } = "ENG";
     public bool ExportPdf { get; set; } = true;
@@ -785,6 +898,15 @@ public sealed class PlcDatabase
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "PLC";
+
+    /// <summary>
+    /// IP address of the PLC, read from the TIA hardware configuration on attach / pull; every app that talks to the PLC
+    /// (simulator, TIA Trace Studio…) takes it from here.
+    /// </summary>
+    public string IpAddress { get; set; } = "";
+
+    /// <summary>All interfaces of the PLC from TIA: "interface name|IPv4".</summary>
+    public List<string> IpAddresses { get; set; } = [];
     [JsonIgnore]
     public bool IsActive { get; set; }
     [JsonIgnore]

@@ -37,6 +37,14 @@
             <StackPanel>
                 <TextBlock Text="ALM/PAR List Export" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4"/>
 
+                <TextBlock Text="Document Form" Style="{StaticResource SectionTitle}"/>
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton x:Name="GeppertRadio" Content="Geppert Electric" GroupName="Company" Margin="0,0,24,0"/>
+                    <RadioButton x:Name="PrimeVoltRadio" Content="Prime Volt" GroupName="Company"/>
+                </StackPanel>
+                <TextBlock Text="Header, cover page and tables in the form of the chosen company (Prime Volt: as its FAT report)."
+                           Foreground="#57606A" Margin="0,4,0,0" TextWrapping="Wrap"/>
+
                 <TextBlock Text="Document Metadata" Style="{StaticResource SectionTitle}"/>
                 <Grid>
                     <Grid.ColumnDefinitions>

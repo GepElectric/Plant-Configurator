@@ -1,0 +1,215 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
+using CwcConfigurator.Domain;
+
+namespace CwcConfigurator.Services.Simulation.Process;
+
+/// <summary>
+/// Connects the relay logic to the PLC from the start, by the device each PLC channel is wired to (EPLAN hardware
+/// import, e.g. DO:0 → -2K05:A1, DI:65 ← -1K01:14; or "(-2K05)" in the signal name):
+/// <list type="bullet">
+/// <item>output relay (2-K…): the relay's input is the DO itself (no contact in its path);</item>
+/// <item>input relay (1-K…): the coil drives the DI (its contact is wired to the PLC input);</item>
+/// <item>such a relay whose coil is not drawn on the sheets becomes a device with the DO / DI as its input.</item>
+/// </list>
+/// Only empty inputs and outputs are filled — nothing set by hand is changed.
+/// </summary>
+public static class RelayPlcSignals
+{
+    private static readonly Regex TagInName = new(@"\((-?[0-9A-Za-z.]*[A-Za-z][0-9A-Za-z.]*)\)", RegexOptions.Compiled);
+
+    /// <summary>Relay tag (normalised, see <see cref="Normalize"/>) → channel id.</summary>
+    public static Dictionary<string, int> Map(IEnumerable<DigitalSignalConfig> channels)
+    {
+        var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var channel in channels.Where(channel => channel.Config != SignalConfigState.Disabled && !channel.SignalName.Contains("SPARE", StringComparison.OrdinalIgnoreCase)))
+        {
+            var device = channel.EplanConnectedTo.Split(':')[0];
+            if (device.Trim().Length == 0 && TagInName.Match(channel.SignalName) is { Success: true } match)
+            {
+                device = match.Groups[1].Value;
+            }
+
+            var tag = Normalize(device);
+            if (tag.Length > 0)
+            {
+                map.TryAdd(tag, channel.Id);
+            }
+        }
+
+        return map;
+    }
+
+    /// <summary>
+    /// A relay whose supply is not drawn on its page (only the "SUPPLY ?" contact, e.g. 1-K18 fed from -F36 on another
+    /// page) gets the devices named by the PLC input it drives: "External signals MCB ON (-F36)" → its path is -F36
+    /// (the voltage after the breaker when it is a simulator object, "@F36.Live"); "Gate 1 closed (-1GS2)" → -1GS2.
+    /// </summary>
+    /// <returns>Number of relay paths filled.</returns>
+    public static int SupplyFromSignalNames(ProcessModel model)
+    {
+        var circuits = model.RelaySheets.SelectMany(sheet => sheet.Circuits).ToList();
+        var objects = model.Objects.Select(item => item.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var filled = 0;
+        foreach (var relay in circuits.Where(circuit => circuit.Coil.Tag.Trim().Length > 0 && circuit.Feed.Length == 0 && !circuit.Coil.HasInput
+                                                          && (circuit.Elements is [{ IsParallel: false, Tag.Length: 0 }]
+                                                              // filled from the names before, upgraded once the power part is there
+                                                              || (circuit.Elements.Count > 0 && circuit.Elements.All(element => !element.IsParallel && element.Tag.StartsWith('-') && element.Text == element.Tag)))))
+        {
+            var tag = relay.Coil.Tag.Trim();
+            var input = circuits.FirstOrDefault(circuit => circuit.Coil.Tag.Trim().Length == 0 && circuit.Coil.Outputs.Trim().Length > 0
+                                                         && RelayLogicRunner.AllElements(circuit.Elements).Any(element => element.Tag.Trim().Equals(tag, StringComparison.OrdinalIgnoreCase)));
+            if (input is null)
+            {
+                continue;
+            }
+
+            var named = System.Text.RegularExpressions.Regex.Matches(input.Coil.Text, @"\(([^)]*)\)")
+                .SelectMany(match => match.Groups[1].Value.Split(','))
+                .Select(part => part.Trim())
+                .Where(part => part.StartsWith('-') && !Normalize(part).Equals(Normalize(tag), StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (named.Count == 0)
+            {
+                continue;
+            }
+
+            var contact = relay.Elements[0];
+            relay.Elements = named.Select((part, index) =>
+            {
+                var name = new string(part.Where(char.IsLetterOrDigit).ToArray());
+                return new RelayElement
+                {
+                    Id = index == 0 ? contact.Id : RelayElement.NewId(),
+                    Tag = objects.Contains(name) ? $"@{name}.Live" : part,
+                    Contact = "NO",
+                    Pins = contact.Pins,
+                    Text = part
+                };
+            }).ToList();
+            filled++;
+        }
+
+        return filled;
+    }
+
+    /// <summary>
+    /// Contacts of power devices on the sheets (aux contact of -F53, -Q1, contactor -K53) follow their simulator
+    /// object of the power part ("F53"): breakers by On, contactors by State, motors by Running — defined once as a
+    /// device. Contacts of relays, switches, push buttons and devices already defined are left alone.
+    /// </summary>
+    public static int LinkPowerObjects(ProcessModel model)
+    {
+        var known = model.RelaySheets.SelectMany(sheet => sheet.Circuits).Select(circuit => circuit.Coil.Tag.Trim())
+            .Concat(model.RelaySwitches.Select(item => item.Tag.Trim()))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var objects = model.Objects.GroupBy(item => item.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var linked = 0;
+        foreach (var tag in model.RelaySheets.SelectMany(sheet => sheet.Circuits).SelectMany(circuit => RelayLogicRunner.AllElements(circuit.Elements))
+                     .Where(element => !element.IsParallel).Select(element => element.Tag.Trim())
+                     .Where(tag => tag.StartsWith('-') && !known.Contains(tag) && RelayDevices.Find(model, tag) is null)
+                     .Distinct(StringComparer.OrdinalIgnoreCase).ToList())
+        {
+            var name = new string(tag.Where(char.IsLetterOrDigit).ToArray());
+            var port = objects.TryGetValue(name, out var item)
+                ? item.Type switch { "Mcb" => "On", "Contactor" => "State", "Motor" => "Running", "PowerSupply" => "Ok", _ => "" }
+                : "";
+            if (port.Length > 0 && RelayDevices.Define(model, tag, $"@{item!.Name}.{port}"))
+            {
+                linked++;
+            }
+        }
+
+        return linked;
+    }
+
+    /// <summary>
+    /// Paths that are only a contact operated by a PLC output ("DO:160", the old way of driving an output relay)
+    /// become the relay's direct input.
+    /// </summary>
+    public static int MigrateInputs(ProcessModel model)
+    {
+        RelayDevices.Unify(model);
+        var changed = 0;
+        foreach (var circuit in model.RelaySheets.SelectMany(sheet => sheet.Circuits))
+        {
+            if (!circuit.Coil.HasInput && circuit.Feed.Length == 0 && circuit.Coil.Tag.Trim().Length > 0
+                && circuit.Elements is [{ IsParallel: false, IsNormallyClosed: false } contact]
+                && PortBinding.Parse(contact.Tag) is { Kind: BindingKind.Signal, SignalKind: SimulatorSignalKind.DO })
+            {
+                circuit.Coil.Input = contact.Tag.Trim();
+                circuit.Elements.Clear();
+                changed++;
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>"2-K05", "-2K05", "-2K05:A1" → "2K05" (the same relay however EPLAN writes the tag).</summary>
+    public static string Normalize(string tag) => new((tag ?? "").Split(':')[0].Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
+
+    /// <returns>Number of sources and outputs filled.</returns>
+    public static int Link(ProcessModel model, IEnumerable<DigitalSignalConfig> outputs, IEnumerable<DigitalSignalConfig> inputs)
+    {
+        var filled = RelayDevices.Unify(model) + MigrateInputs(model);
+        var doMap = Map(outputs);
+        var diMap = Map(inputs);
+        if (doMap.Count + diMap.Count == 0)
+        {
+            return filled;
+        }
+
+        var coils = model.RelaySheets.SelectMany(sheet => sheet.Circuits).Select(circuit => Normalize(circuit.Coil.Tag))
+            .Where(tag => tag.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // PLC inputs already driven by a PLC input object (a path wired to the card): the relay's contact is in that path.
+        var drivenInputs = model.RelaySheets.SelectMany(sheet => sheet.Circuits).Where(circuit => circuit.Coil.Tag.Trim().Length == 0)
+            .SelectMany(circuit => PortBinding.ParseList(circuit.Coil.Outputs)).Where(target => target.Kind == BindingKind.Signal)
+            .Select(target => target.SignalId).ToHashSet();
+        foreach (var circuit in model.RelaySheets.SelectMany(sheet => sheet.Circuits))
+        {
+            // "-TM2:DI1" (input of a drive), "-H104:LAMP": not a relay wired to the PLC.
+            var coilTag = circuit.Coil.Tag.Contains(':') ? "" : Normalize(circuit.Coil.Tag);
+
+            // Output relay: driven by the PLC output itself; its path has no contact (or only an empty one).
+            if (doMap.TryGetValue(coilTag, out var output) && !circuit.Coil.HasInput && circuit.Feed.Length == 0
+                && circuit.Elements is [] or [{ IsParallel: false, Tag.Length: 0 }])
+            {
+                circuit.Elements.Clear();
+                circuit.Coil.Input = "DO:" + output.ToString(CultureInfo.InvariantCulture);
+                filled++;
+            }
+
+            // Input relay: its contact is wired to the PLC input.
+            if (diMap.TryGetValue(coilTag, out var input) && circuit.Coil.Outputs.Trim().Length == 0 && !drivenInputs.Contains(input))
+            {
+                circuit.Coil.Outputs = "DI:" + input.ToString(CultureInfo.InvariantCulture);
+                filled++;
+            }
+
+            foreach (var contact in RelayLogicRunner.AllElements(circuit.Elements).Where(element => !element.IsParallel))
+            {
+                var tag = Normalize(contact.Tag);
+                if (tag.Length == 0 || coils.Contains(tag) || PortBinding.Parse(contact.Tag).Kind != BindingKind.None)
+                {
+                    continue;
+                }
+
+                // A relay whose coil is not drawn: a device driven by its PLC output / reading its PLC input.
+                if (doMap.TryGetValue(tag, out var contactOutput) && RelayDevices.Define(model, contact.Tag, "DO:" + contactOutput.ToString(CultureInfo.InvariantCulture)))
+                {
+                    filled++;
+                }
+                // (Not a contact that is itself wired to that PLC input: the input follows the contact, not the other way.)
+                else if (diMap.TryGetValue(tag, out var contactInput) && !drivenInputs.Contains(contactInput)
+                         && RelayDevices.Define(model, contact.Tag, "DI:" + contactInput.ToString(CultureInfo.InvariantCulture)))
+                {
+                    filled++;
+                }
+            }
+        }
+
+        return filled;
+    }
+}

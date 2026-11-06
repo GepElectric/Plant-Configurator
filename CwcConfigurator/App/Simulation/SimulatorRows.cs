@@ -327,11 +327,15 @@ public static class BindingSuggestions
             var kinds = port.Direction == PortDirection.Input
                 ? port.Type == PortType.Bool ? new[] { SimulatorSignalKind.DO, SimulatorSignalKind.DI } : [SimulatorSignalKind.AO, SimulatorSignalKind.AI, SimulatorSignalKind.RTD, SimulatorSignalKind.COUNTER]
                 : port.Type == PortType.Bool ? [SimulatorSignalKind.DI, SimulatorSignalKind.DEVBIT] : [SimulatorSignalKind.AI, SimulatorSignalKind.RTD, SimulatorSignalKind.COUNTER, SimulatorSignalKind.DEV];
-            foreach (var signal in session.Signals.Where(signal => signal.IsEnabled && kinds.Contains(signal.Kind))
+            // Module and port in the text, so a channel is found by its card ("A111 port 3"); spare (disabled) channels
+            // with an ID of their own are offered too.
+            var ids = session.Signals.GroupBy(signal => (signal.Kind, signal.Id)).ToDictionary(group => group.Key, group => group.Count());
+            foreach (var signal in session.Signals.Where(signal => kinds.Contains(signal.Kind) && signal.Id >= 0 && (signal.IsEnabled || ids[(signal.Kind, signal.Id)] == 1))
                          .OrderBy(signal => Array.IndexOf(kinds, signal.Kind)).ThenBy(signal => signal.Id))
             {
-                var where = signal.InDeviceDb ? signal.System + " · " : "";
-                list.Add($"{signal.Kind}:{signal.Id}{PortRow.Separator}{where}{signal.PlcName} · {signal.Name}");
+                var where = signal.InDeviceDb ? signal.System + " · " : $"{signal.ModuleText} port {signal.Channel} · ";
+                var spare = signal.IsEnabled ? "" : " (spare)";
+                list.Add($"{signal.Kind}:{signal.Id}{PortRow.Separator}{where}{signal.PlcName} · {signal.Name}{spare}".TrimEnd(' ', '·'));
             }
         }
 
@@ -351,6 +355,16 @@ public static class BindingSuggestions
                     foreach (var output in info.Ports.Where(output => output.Direction == PortDirection.Output && output.Type == port.Type))
                     {
                         list.Add($"{prefix}.{output.Name}{PortRow.Separator}{info.Title}: {output.Description}");
+                    }
+                }
+
+                // Relay coils of the relay logic (e.g. a contactor's command follows -K53).
+                if (port.Type == PortType.Bool)
+                {
+                    var relays = otherPlc.Equals(plc, StringComparison.OrdinalIgnoreCase) ? "@" + ProcessEngine.RelaysLink : $"@{otherPlc}/{ProcessEngine.RelaysLink}";
+                    foreach (var coil in model.RelaySheets.SelectMany(sheet => sheet.Circuits).Select(circuit => circuit.Coil).Where(coil => coil.Tag.Trim().Length > 0))
+                    {
+                        list.Add($"{relays}.{coil.Tag.Trim()}{PortRow.Separator}relay coil {coil.Text.Replace("\r", "").Replace('\n', ' ').Trim()}");
                     }
                 }
             }

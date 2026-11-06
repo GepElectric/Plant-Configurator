@@ -22,7 +22,33 @@ public sealed class SimulationController
             Models.TryAdd(session.Name, new ProcessModel());
         }
 
+        AssignPlcInputs();
         Engine = new ProcessEngine(Models);
+        SimulationStateIo.Restore(Engine); // continue from the state saved last time
+    }
+
+    /// <summary>What the last model change connected or refused at the PLC inputs of the relay logic (shown by the window).</summary>
+    public List<PlcInputNotice> Notices { get; } = [];
+
+    /// <summary>Raised when <see cref="Notices"/> got new lines.</summary>
+    public event Action? NoticesAdded;
+
+    /// <summary>
+    /// Mappings to a DI that a PLC input of the relay logic drives become the source of its open contact (or are
+    /// refused when it has one), see <see cref="PlcInputSources"/>.
+    /// </summary>
+    private void AssignPlcInputs()
+    {
+        var added = Models.Values.SelectMany(PlcInputSources.Assign).ToList();
+        if (added.Count == 0)
+        {
+            return;
+        }
+
+        Notices.AddRange(added);
+        Dirty = true;
+        FileStateChanged?.Invoke();
+        NoticesAdded?.Invoke();
     }
 
     public IReadOnlyList<PlcSession> Sessions { get; }
@@ -59,6 +85,7 @@ public sealed class SimulationController
     /// <summary>Applies structural changes (objects added/removed/renamed, ports, options); running state is kept.</summary>
     public void Rebuild()
     {
+        AssignPlcInputs();
         Engine = new ProcessEngine(Models, Engine);
         MarkDirty();
         ModelChanged?.Invoke();
@@ -103,6 +130,8 @@ public sealed class SimulationController
 
     private void Write(string path)
     {
+        // "Save" keeps the last state of everything: positions, levels, latches, relays, emergency stops.
+        SimulationStateIo.Capture(Engine);
         if (SimulationPackage.IsPackage(path))
         {
             (PackageWriter ?? throw new InvalidOperationException("Saving a simulation package is not available here."))(path);
@@ -132,8 +161,10 @@ public sealed class SimulationController
         }
 
         ModelPath = path;
-        Engine = new ProcessEngine(Models, Engine);
         Dirty = false;
+        AssignPlcInputs();
+        Engine = new ProcessEngine(Models, Engine);
+        SimulationStateIo.Restore(Engine);
         ModelChanged?.Invoke();
         FileStateChanged?.Invoke();
         return loaded.Keys.Where(plc => Session(plc) is null && loaded[plc].Objects.Count > 0).ToList();
@@ -158,8 +189,10 @@ public sealed class SimulationController
             Models.TryAdd(session.Name, new ProcessModel());
         }
 
-        Engine = new ProcessEngine(Models, Engine);
         Dirty = false;
+        AssignPlcInputs();
+        Engine = new ProcessEngine(Models, Engine);
+        SimulationStateIo.Restore(Engine);
         ModelChanged?.Invoke();
         FileStateChanged?.Invoke();
         return true;
@@ -181,17 +214,13 @@ public sealed class SimulationController
         if (Running)
         {
             SimulatedTime += dt;
-            Engine.Step(dt, plc => Session(plc) is { IsConnected: true } session ? session : null);
+            // The simulator works on the simulator variables of the signals, with or without a PLC.
+            Engine.Step(dt, plc => Session(plc));
         }
 
-        // Forces in the signal list are written every cycle and override the model.
+        // Communication variables of the inputs (Set wins over the simulator variable) to the PLC.
         foreach (var session in Sessions.Where(session => session.IsConnected))
         {
-            if (session.HasForcedOutputs)
-            {
-                session.ApplyForces();
-            }
-
             await Guard(session, session.FlushAsync, errors);
         }
 

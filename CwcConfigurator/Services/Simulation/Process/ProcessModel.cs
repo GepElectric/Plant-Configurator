@@ -17,6 +17,21 @@ public sealed class ProcessModel
     /// <summary>Screens drawn as a single-line diagram (electrical objects as SLD symbols).</summary>
     public List<string> SldScreens { get; set; } = [];
 
+    /// <summary>Relay-logic sheets (current paths with contacts and relay coils), see <see cref="RelayLogicRunner"/>.</summary>
+    public List<RelaySheet> RelaySheets { get; set; } = [];
+
+    /// <summary>Selector switches (2 or 3 positions) whose contacts are used on the relay-logic sheets.</summary>
+    public List<RelaySwitch> RelaySwitches { get; set; } = [];
+
+    /// <summary>Devices whose contacts are used on the sheets (breakers, field contacts…), each with its input.</summary>
+    public List<RelayDevice> RelayDevices { get; set; } = [];
+
+    /// <summary>Cubicle doors with push buttons, selector switches, lamps and label plates.</summary>
+    public List<Cubicle> Cubicles { get; set; } = [];
+
+    /// <summary>The running state at the last save (objects, relays, latched emergency stops); null = initial state.</summary>
+    public SavedState? State { get; set; }
+
     public bool IsSld(string screen) => SldScreens.Contains(screen, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The object is shown on this screen (its own screen or an extra view).</summary>

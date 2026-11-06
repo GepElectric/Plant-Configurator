@@ -91,6 +91,15 @@
             </StackPanel>
         </Border>
 
+        <!-- notice of the PLC inputs (no modal message box): what was connected or refused, with the place to show -->
+        <Border x:Name="NoticeBar" DockPanel.Dock="Top" Visibility="Collapsed" Padding="10,6" Margin="0,4,0,0" BorderThickness="1" CornerRadius="4">
+            <DockPanel>
+                <Button x:Name="NoticeClose" DockPanel.Dock="Right" Content="✕" Width="26" Height="24" Margin="6,0,0,0" Click="NoticeClose_Click" ToolTip="Hide"/>
+                <Button x:Name="NoticeShow" DockPanel.Dock="Right" Content="Show where" Height="24" Padding="10,0" Margin="10,0,0,0" Click="NoticeShow_Click"/>
+                <TextBlock x:Name="NoticeText" TextWrapping="Wrap" VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+
         <TabControl x:Name="Tabs" Margin="0,4,0,0">
             <TabItem Header="  Signals  ">
                 <DockPanel>
@@ -237,13 +246,33 @@
                             <DataGridTextColumn Header="SYSTEM" Width="150" MinWidth="100" Binding="{Binding System}"/>
                             <DataGridTextColumn Header="NAME" Width="*" MinWidth="180" Binding="{Binding Name}"/>
                             <DataGridTextColumn Header="PLC NAME" Width="160" MinWidth="100" Binding="{Binding PlcName}"/>
+                            <DataGridTemplateColumn Header="SIMULATOR" Width="200" MinWidth="100" SortMemberPath="Links">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Links}" ToolTip="{Binding LinkToolTip}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                                   Cursor="Hand" MouseLeftButtonUp="Links_MouseUp">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#1F6FEB"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasLinkConflict}" Value="True">
+                                                            <Setter Property="Foreground" Value="#DC2626"/>
+                                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="CONFIG" Width="64" MinWidth="64" Binding="{Binding ConfigText}"/>
                             <DataGridTextColumn Header="ADDRESS" Width="80" MinWidth="80" Binding="{Binding Address}"/>
-                            <DataGridTemplateColumn Header="VALUE" Width="120" MinWidth="100" SortMemberPath="ValueText">
+                            <DataGridTemplateColumn Header="COMM (PLC)" Width="110" MinWidth="90" SortMemberPath="ValueText">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Border x:Name="ValueBorder" CornerRadius="3" Padding="6,1" HorizontalAlignment="Left">
-                                            <TextBlock Text="{Binding ValueText}" FontWeight="SemiBold" ToolTip="{Binding ScalingDetails}"/>
+                                            <TextBlock Text="{Binding ValueText}" FontWeight="SemiBold" ToolTip="Communication variable: the value in the PLC DB. Inputs: SET ?? SIM; outputs: what the PLC writes."/>
                                         </Border>
                                         <DataTemplate.Triggers>
                                             <DataTrigger Binding="{Binding IsTrue}" Value="True">
@@ -261,6 +290,21 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
                             <DataGridTextColumn Header="RAW" Width="64" MinWidth="60" Binding="{Binding RawText}"/>
+                            <DataGridTemplateColumn Header="SIM" Width="110" MinWidth="90" SortMemberPath="SimText">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border x:Name="SimBorder" CornerRadius="3" Padding="6,1" HorizontalAlignment="Left">
+                                            <TextBlock Text="{Binding SimText}" FontWeight="SemiBold"
+                                                       ToolTip="Simulator variable: what the simulator (objects, relay logic, cubicle) uses. Outputs: SET ?? COMM; inputs: written by the simulator."/>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsSimTrue}" Value="True">
+                                                <Setter TargetName="SimBorder" Property="Background" Value="#B7E4C7"/>
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTemplateColumn Header="SCALING" Width="200" MinWidth="120" SortMemberPath="ScalingText">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -302,6 +346,12 @@
             </TabItem>
             <TabItem Header="  SCADA  ">
                 <sim:ScadaView x:Name="ScadaPanel"/>
+            </TabItem>
+            <TabItem Header="  Relay logic  ">
+                <sim:RelayLogicView x:Name="RelayPanel"/>
+            </TabItem>
+            <TabItem Header="  Cubicle  ">
+                <sim:CubicleView x:Name="CubiclePanel"/>
             </TabItem>
         </TabControl>
     </DockPanel>

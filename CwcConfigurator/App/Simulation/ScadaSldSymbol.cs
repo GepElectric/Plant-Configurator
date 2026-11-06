@@ -18,7 +18,7 @@ public partial class ScadaView
         private const double Center = 30;
         private const double MinBusLength = 80;
         private static readonly Brush TripBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xF5, 0x9E, 0x0B)));
-        private static readonly string[] Types = ["Busbar", "AuxSupply", "Mcb", "Contactor", "Disconnector", "EarthSwitch", "Motor", "Transformer", "Breaker", "Generator", "Grid"];
+        private static readonly string[] Types = ["Busbar", "AuxSupply", "Mcb", "Contactor", "Disconnector", "EarthSwitch", "Motor", "Transformer", "PowerSupply", "Breaker", "Generator", "Grid"];
 
         private readonly Canvas _canvas = new();
         private readonly Canvas _body = new();
@@ -49,6 +49,12 @@ public partial class ScadaView
             _canvas.Height = !_bus ? 92 : _vertical ? _busLength + 20 : 44;
             _canvas.Children.Add(_body);
             var label = new StackPanel { Children = { _name, _state } };
+            if (!_bus && !string.IsNullOrWhiteSpace(config.Description))
+            {
+                // The text of the device (EPLAN: the path text and rating, e.g. "INCOMING 110 VDC POWER SUPPLY").
+                label.Children.Add(new TextBlock { Text = config.Description.Trim(), FontSize = 9.5, Foreground = Brushes.SteelBlue, TextWrapping = TextWrapping.Wrap, MaxWidth = 96 });
+            }
+
             Canvas.SetLeft(label, !_bus ? 52 : _vertical ? 36 : 0);
             Canvas.SetTop(label, _bus ? 0 : 28);
             _canvas.Children.Add(label);
@@ -291,6 +297,20 @@ public partial class ScadaView
                     }
 
                     _state.Text = earthed ? "EARTHED" : "NOT EARTHED";
+                    return;
+                }
+
+                case "PowerSupply":
+                {
+                    // Power supply unit: a box with ~ / = on the line.
+                    var ok = instance is not null && instance.Value("Ok") >= 0.5;
+                    _body.Children.Add(Segment(Center, 2, Center, 26, Wire("Input")));
+                    _body.Children.Add(Segment(Center, 62, Center, 90, Wire("Output")));
+                    _body.Children.Add(Shape(new Rectangle { Width = 36, Height = 36, StrokeThickness = 2, Stroke = ok ? ClosedBrush : OpenBrush, Fill = Brushes.White }, Center - 18, 26));
+                    _body.Children.Add(Segment(Center - 18, 62, Center + 18, 26, Brushes.Black, 1));
+                    _body.Children.Add(Shape(new TextBlock { Text = "~", FontSize = 13, FontWeight = FontWeights.Bold }, Center - 15, 26));
+                    _body.Children.Add(Shape(new TextBlock { Text = "=", FontSize = 13, FontWeight = FontWeights.Bold }, Center + 4, 42));
+                    _state.Text = instance is null ? "" : ok ? $"OK  {Value(instance, "Output")} V" : "OFF";
                     return;
                 }
 

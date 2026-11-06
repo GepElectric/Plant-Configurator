@@ -52,9 +52,27 @@ public static class ProcessModelStore
             .Build();
         var file = new ModelFile
         {
-            Plcs = models.Where(pair => pair.Value.Objects.Count > 0 || pair.Value.Forces.Count > 0).ToDictionary(pair => pair.Key, pair => pair.Value)
+            Plcs = models.Where(pair => pair.Value.Objects.Count > 0 || pair.Value.Forces.Count > 0 || pair.Value.RelaySheets.Count > 0 || pair.Value.RelaySwitches.Count > 0 || pair.Value.RelayDevices.Count > 0 || pair.Value.Cubicles.Count > 0).ToDictionary(pair => pair.Key, pair => pair.Value)
         };
         return Header + serializer.Serialize(file);
+    }
+
+    private static List<RelayElement> NormalizeSeries(List<RelayElement>? series)
+    {
+        var items = (series ?? []).Where(item => item is not null).ToList();
+        foreach (var item in items)
+        {
+            item.Kind ??= RelayElementKind.Contact;
+            item.Id = string.IsNullOrWhiteSpace(item.Id) ? RelayElement.NewId() : item.Id.Trim();
+            item.Tag ??= "";
+            item.Contact ??= "NO";
+            item.Pins ??= "11/12/14";
+            item.Position ??= "";
+            item.Text ??= "";
+            item.Branches = (item.Branches ?? []).Select(NormalizeSeries).ToList();
+        }
+
+        return items;
     }
 
     private static ProcessModel Normalize(ProcessModel model)
@@ -63,6 +81,60 @@ public static class ProcessModelStore
         model.Forces ??= [];
         model.Screens ??= [];
         model.SldScreens ??= [];
+        model.RelaySheets ??= [];
+        // One switch per tag (older models could hold the same switch twice).
+        model.RelaySwitches = (model.RelaySwitches ?? []).Where(item => item is not null)
+            .GroupBy(item => (item.Tag ?? "").Trim(), StringComparer.OrdinalIgnoreCase).Select(group => group.First()).ToList();
+        model.RelayDevices = (model.RelayDevices ?? []).Where(item => item is not null).ToList();
+        foreach (var device in model.RelayDevices)
+        {
+            device.Tag ??= "";
+            device.Text ??= "";
+            device.Input ??= "";
+        }
+        model.Cubicles = (model.Cubicles ?? []).Where(item => item is not null).ToList();
+        foreach (var cubicle in model.Cubicles)
+        {
+            cubicle.Name ??= "";
+            cubicle.Items = (cubicle.Items ?? []).Where(item => item is not null).ToList();
+            foreach (var item in cubicle.Items)
+            {
+                item.Kind ??= CubicleItemKind.PushButton;
+                item.Tag ??= "";
+                item.Text ??= "";
+                item.Color ??= "Green";
+                item.Source ??= "";
+                item.Outputs ??= "";
+                item.Contact ??= "NO";
+            }
+        }
+        foreach (var item in model.RelaySwitches)
+        {
+            item.Tag ??= "";
+            item.Text ??= "";
+            item.Positions ??= "0/1";
+            item.Position ??= "";
+        }
+
+        foreach (var sheet in model.RelaySheets)
+        {
+            sheet.Name ??= "";
+            sheet.Circuits ??= [];
+            foreach (var circuit in sheet.Circuits)
+            {
+                circuit.Coil ??= new RelayCoil();
+                circuit.Feed = circuit.Feed?.Trim() ?? "";
+                circuit.Coil.Tag ??= "";
+                circuit.Coil.Text ??= "";
+                circuit.Coil.Outputs ??= "";
+                circuit.Coil.Input ??= "";
+                circuit.Coil.Timer ??= "";
+                circuit.Elements = NormalizeSeries(circuit.Elements);
+            }
+        }
+
+        RelayDevices.Unify(model);
+
         foreach (var item in model.Objects)
         {
             item.Name ??= "";

@@ -6,6 +6,17 @@ public sealed class TiaDiscoveredPlc
     public string SoftwareName { get; set; } = "";
     public List<TiaPlcObjectInfo> Objects { get; set; } = [];
 
+    /// <summary>IP addresses from the TIA hardware configuration: "interface name|IPv4".</summary>
+    public List<string> IpAddresses { get; set; } = [];
+
+    /// <summary>The PLC's address: the first PROFINET (else any) interface's IPv4; "" when the hardware has none.</summary>
+    public string PrimaryIp()
+    {
+        var entries = IpAddresses.Select(entry => entry.Split('|', 2)).Where(parts => parts.Length == 2 && parts[1].Trim().Length > 0).ToList();
+        var profinet = entries.FirstOrDefault(parts => parts[0].Contains("PROFINET", StringComparison.OrdinalIgnoreCase) || parts[0].Contains("PN", StringComparison.Ordinal));
+        return (profinet ?? entries.FirstOrDefault())?[1].Trim() ?? "";
+    }
+
     public override string ToString()
     {
         var label = string.IsNullOrWhiteSpace(SoftwareName) || SoftwareName == DeviceName
@@ -77,6 +88,12 @@ public interface ITiaSessionService
     Task<TiaTextListTypesResult> UpdateTextListTypesAsync(string inputFolder, IReadOnlyList<string> listNames, string comment);
     Task<TiaTextListTypesResult> ExportTextListTypeTextsAsync(string outputFile, IReadOnlyList<string> listNames, bool inWork);
     Task<TiaTextListTypesResult> ImportTextListTypeTextsAsync(string? inputFile, IReadOnlyList<string> listNames, string comment);
+
+    /// <summary>The hardware of a TIA device (items, slots, order numbers / firmware, network).</summary>
+    Task<TiaHardwareResult> ReadHardwareAsync(string deviceName);
+
+    /// <summary>Checks (Apply = false) or builds a station in TIA from a completed plan.</summary>
+    Task<TiaHardwareBuildResult> BuildHardwareAsync(TiaHardwareBuildRequest request);
 }
 
 /// <summary>New versions of text lists that are library types (project library), created from exported documents.</summary>

@@ -76,7 +76,7 @@ public partial class MainWindow
                 double width = TextWidth(SlotLevel(slot) + 1);
                 foreach (var doc in recordings)
                 {
-                    var child = new TreeViewItem { Header = Header("∿", Accent, doc.Title, null, bold: doc == activeDocument, maxWidth: width), Tag = doc, ToolTip = doc.Title };
+                    var child = new TreeViewItem { Header = RecordingHeader(doc, Accent, width), Tag = doc, ToolTip = doc.Title };
                     item.Items.Add(child); if (doc == activeDocument) docItem = child;
                 }
                 if (slot.Id == selectedSlotId) slotItem = item;
@@ -88,7 +88,7 @@ public partial class MainWindow
                 var node = new TreeViewItem { Header = Header("!", Warn, "Nepridružene snimke", $"{unassigned.Count}", bold: true), Tag = "__unassigned", IsExpanded = true };
                 foreach (var doc in unassigned)
                 {
-                    var child = new TreeViewItem { Header = Header("∿", Warn, doc.Title, null, bold: doc == activeDocument, maxWidth: TextWidth(1)), Tag = doc, ToolTip = doc.Title };
+                    var child = new TreeViewItem { Header = RecordingHeader(doc, Warn, TextWidth(1)), Tag = doc, ToolTip = doc.Title };
                     node.Items.Add(child); if (doc == activeDocument) docItem = child;
                 }
                 PlantTree.Items.Add(node);
@@ -226,6 +226,7 @@ public partial class MainWindow
     /// <summary>Name of a tree node: the user's name if renamed, otherwise the generated one.</summary>
     string TreeName(string key, string original)
     {
+        original = Bilingual.Of(original); // default tree names in English / Croatian
         treeDefaults[key] = original;
         return plant?.TreeNames.TryGetValue(key, out var name) == true ? name : original;
     }
@@ -277,6 +278,8 @@ public partial class MainWindow
         SlotPanel.Children.Add(new TextBlock { Text = "Snimka nije pridružena nijednom testu.", Foreground = Warn, Margin = new Thickness(0, 4, 0, 10), TextWrapping = TextWrapping.Wrap });
         Action(SlotPanel, "Pridruži testu…", (_, _) => Guard(AssignActiveDocument), true);
         Action(SlotPanel, "Ukloni snimku iz projekta", RemoveDocument_Click);
+        Action(SlotPanel, "Export CSV", (_, _) => Guard(() => ExportCsv(doc)));
+        Action(SlotPanel, "Copy Excel chart", (_, _) => Guard(() => CopyExcelChart(doc)));
     }
 
     void ShowSlot(TestSlot? slot)
@@ -346,6 +349,9 @@ public partial class MainWindow
             var row = new WrapPanel();
             Action(row, "Premjesti snimku…", (_, _) => Guard(AssignActiveDocument));
             Action(row, "Ukloni snimku", RemoveDocument_Click);
+            var current = activeDocument;
+            Action(row, "Export CSV", (_, _) => Guard(() => ExportCsv(current)));
+            Action(row, "Copy Excel chart", (_, _) => Guard(() => CopyExcelChart(current)));
             SlotPanel.Children.Add(row);
             var statistics = new CheckBox { Content = "Statistika ispod grafa u izvještaju", IsChecked = project.Options.ReportStatistics, Margin = new Thickness(0, 4, 0, 0), ToolTip = "Word izvještaj: min, max, srednja vrijednost, početak i kraj svakog signala ispod grafa ove snimke." };
             statistics.Click += (_, _) => { project.Options.ReportStatistics = statistics.IsChecked == true; RebindOptions(); Commit(); };
