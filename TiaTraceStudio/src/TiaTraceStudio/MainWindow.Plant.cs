@@ -93,6 +93,13 @@ public partial class MainWindow
                 }
                 PlantTree.Items.Add(node);
             }
+            // Project without units and groups: the tree starts empty, offer the first group (e.g. Intake).
+            if (PlantTree.Items.Count == 0)
+            {
+                var add = new Button { Content = "+ Nova grupa (npr. Zahvat / Intake)…", Padding = new Thickness(10, 4, 10, 4), Margin = new Thickness(0, 6, 0, 0) };
+                add.Click += (_, _) => Guard(() => EditGroup(null));
+                PlantTree.Items.Add(new TreeViewItem { Header = add, Focusable = false, Tag = "__empty", ToolTip = "Grupa ima svoj PLC i bazu; u nju desnim klikom dodaješ snimanja i podgrupe." });
+            }
             // Keep a test the user selected even when the graph still shows a recording of another test.
             var target = selectedSlotId == null || activeDocument?.SlotId == selectedSlotId ? docItem ?? slotItem : slotItem ?? docItem;
             if (target != null)
@@ -489,7 +496,7 @@ public partial class MainWindow
         definition.Plcs = plant?.Plcs ?? [];
         plant = definition;
         PlantPlanner.LinkPlcs(plant, plantConfig);
-        if (first) catalog = TestCatalog.LoadGlobal();
+        if (first) { catalog = TestCatalog.LoadGlobal(); PlantPlanner.AddGroupsForPlcs(plant); }
         slots = PlantPlanner.Merge(slots, PlantPlanner.Generate(plant), id => documents.Any(d => d.SlotId == id));
         if (plantConfig != null && plantConfig != linkedBefore) LinkPlantConfig(plantConfig.SourceFile);
         ApplyNominalRangesEverywhere();
@@ -894,7 +901,8 @@ public partial class MainWindow
     PlantDefinition? SuggestedPlant()
     {
         if (plantConfig == null) return null;
-        int units = Math.Max(1, plantConfig.Plcs.Select(p => PlantConfigLink.UnitNumber(p.Name) ?? 0).DefaultIfEmpty(0).Max());
+        // No "Unit n" database (e.g. a project with only Intake): suggest a project without units.
+        int units = plantConfig.Plcs.Select(p => PlantConfigLink.UnitNumber(p.Name) ?? 0).DefaultIfEmpty(0).Max();
         return new PlantDefinition { Name = plantConfig.ProjectName, Units = Enumerable.Range(1, Math.Min(units, 12)).Select(n => new UnitDefinition { Number = n }).ToList() };
     }
 
@@ -909,6 +917,7 @@ public partial class MainWindow
                 var (result, definition) = RunPlantWizard(null, SuggestedPlant(), askConfig: false);
                 if (result == PlantWizard.Result.Plant && definition != null)
                 {
+                    PlantPlanner.LinkPlcs(definition, plantConfig); PlantPlanner.AddGroupsForPlcs(definition);
                     var session = new TraceSession { Plant = definition, Slots = PlantPlanner.Generate(definition), Catalog = TestCatalog.LoadGlobal(), PlantConfig = plantConfig };
                     ReplaceWorkspace(session, null); savedWorkspaceState = "";
                 }

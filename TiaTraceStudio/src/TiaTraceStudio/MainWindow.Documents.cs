@@ -250,7 +250,7 @@ public partial class MainWindow
         var (result, definition) = RunPlantWizard(null, SuggestedPlant(), askConfig: true);
         if (result == PlantWizard.Result.Cancel) return;
         var session = new TraceSession();
-        if (definition != null) { PlantPlanner.LinkPlcs(definition, plantConfig); session.Plant = definition; session.Slots = PlantPlanner.Generate(definition); session.Catalog = TestCatalog.LoadGlobal(); session.PlantConfig = plantConfig; }
+        if (definition != null) { PlantPlanner.LinkPlcs(definition, plantConfig); PlantPlanner.AddGroupsForPlcs(definition); session.Plant = definition; session.Slots = PlantPlanner.Generate(definition); session.Catalog = TestCatalog.LoadGlobal(); session.PlantConfig = plantConfig; }
         ReplaceWorkspace(session, null);
         if (definition != null) { savedWorkspaceState = ""; Status($"Projekt {definition.Name} kreiran · {session.Slots.Count} testova. Odaberi test i učitaj CSV."); }
     });

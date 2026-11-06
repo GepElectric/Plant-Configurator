@@ -82,7 +82,8 @@ public class PlantDefinition
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(Name)) throw new InvalidDataException("Unesi naziv postrojenja.");
-        if (Units.Count is < 1 or > 12) throw new InvalidDataException("Postrojenje mora imati 1–12 agregata.");
+        // 0 units: an empty project whose tree holds only the user's own groups (e.g. Intake) and recordings.
+        if (Units.Count > 12) throw new InvalidDataException("Postrojenje može imati najviše 12 agregata.");
         foreach (var unit in Units) unit.Validate();
         if (Units.Count > 1) UnitDefinition.ParseLevels(CommonLoadRejectionLevels ?? "", "Zajednički testovi");
     }
@@ -448,6 +449,16 @@ public static class PlantPlanner
         // The PLC's IP address comes from Plant Configurator (TIA hardware) unless one was entered here.
         foreach (var plc in plant.Plcs.Where(p => string.IsNullOrWhiteSpace(p.Ip)))
             if (link.Get(plc.CatalogId)?.Ip is { Length: > 0 } ip) plc.Ip = ip;
+    }
+    /// <summary>
+    /// Project without units: every PLC that belongs to no unit (Plant Configurator databases such as Intake or
+    /// Common) gets its own group in the tree, so its recordings can be defined right away.
+    /// </summary>
+    public static void AddGroupsForPlcs(PlantDefinition plant)
+    {
+        if (plant.Units.Count > 0) return;
+        foreach (var plc in plant.Plcs.Where(p => p.UnitNumbers().Length == 0 && plant.CustomGroups.All(g => g.PlcId != p.Id)))
+            plant.CustomGroups.Add(new CustomGroup { Name = plc.Name, PlcId = plc.Id });
     }
     public sealed record ValveType(string Key, string Generic);
     public static readonly ValveType[] ValveTypes =
