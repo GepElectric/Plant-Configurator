@@ -55,7 +55,8 @@ public sealed class TiaSessionService : ITiaSessionService, IDisposable
     public async Task<TiaAttachedSession> AttachToRunningPortalAsync(int processId, string portalVersion)
     {
         var version = NormalizeVersion(portalVersion);
-        var response = await SendAsync<TiaAttachedSession>(version, "Attach", new { ProcessId = processId });
+        // Attach lists the OBJECTS blocks of every PLC: on a big project with a busy TIA this takes minutes.
+        var response = await SendAsync<TiaAttachedSession>(version, "Attach", new { ProcessId = processId }, LongHelperResponseTimeout);
         _activeVersion = version;
         CurrentSession = response;
         return response;
