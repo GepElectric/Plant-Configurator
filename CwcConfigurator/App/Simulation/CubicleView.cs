@@ -803,10 +803,20 @@ public sealed class CubicleView : UserControl
                 return;
             }
 
-            // Click on the left half turns left, on the right half turns right (like turning the knob).
-            var index = positions.FindIndex(position => position.Equals(selector.Current, StringComparison.OrdinalIgnoreCase));
-            var clickX = e.GetPosition(_door).X - (Margin + item.X * Scale);
-            index = Math.Clamp(index + (clickX < 0 ? -1 : 1), 0, positions.Count - 1);
+            // One click changes the position: a 2-position switch toggles; with more positions the click points where
+            // the handle should go (left part = first position, right part = last, between = the ones in between).
+            var index = Math.Max(0, positions.FindIndex(position => position.Equals(selector.Current, StringComparison.OrdinalIgnoreCase)));
+            if (positions.Count == 2)
+            {
+                index = 1 - index;
+            }
+            else
+            {
+                var half = Bezel * Scale / 2;
+                var clickX = e.GetPosition(_door).X - (Margin + item.X * Scale);
+                var share = Math.Clamp((clickX + half) / (2 * half), 0, 0.999);
+                index = (int)(share * positions.Count);
+            }
             selector.Position = positions[index];
             _controller?.MarkDirty();
             Redraw();
