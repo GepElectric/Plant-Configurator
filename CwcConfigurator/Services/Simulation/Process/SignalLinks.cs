@@ -20,6 +20,7 @@ public static class SignalLinks
     public static Dictionary<(SimulatorSignalKind Kind, int Id), List<SignalLink>> Detailed(ProcessModel model)
     {
         var links = new Dictionary<(SimulatorSignalKind, int), List<SignalLink>>();
+        var noSource = RelayLogicRunner.Unsourced(model);
         void Add(string binding, SignalLink link)
         {
             foreach (var target in PortBinding.ParseList(binding).Where(target => target.Kind == BindingKind.Signal))
@@ -60,7 +61,7 @@ public static class SignalLinks
                 var where = sheet.Name.Trim().Length > 0 ? $" ({sheet.Name.Trim()})" : "";
                 Add(circuit.Coil.Input, new SignalLink($"relay {coil} {location}", false, "Relay", Index: sheetIndex, Item: circuit.Coil));
                 // A PLC input without a source does not write its DI (an external signal still to be connected).
-                var unsourced = RelayLogicRunner.IsUnsourced(circuit);
+                var unsourced = noSource.Contains(circuit);
                 Add(circuit.Coil.Outputs, new SignalLink((coil.Length > 0 ? $"relay {coil} {location}" : $"PLC input {location}") + where + (unsourced ? " — no source" : ""),
                     !unsourced, "Relay", Index: sheetIndex, Item: circuit.Coil));
                 foreach (var contact in RelayLogicRunner.AllElements(circuit.Elements).Where(element => !element.IsParallel))

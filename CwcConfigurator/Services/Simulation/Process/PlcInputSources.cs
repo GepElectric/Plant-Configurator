@@ -34,7 +34,8 @@ public static class PlcInputSources
                     continue;
                 }
 
-                var kept = Route(PortBinding.ParseList(text), $"@{item.Name}.{port.Name}", inputs, messages, contact => contact.Tag = $"@{item.Name}.{port.Name}");
+                var kept = Route(PortBinding.ParseList(text), $"@{item.Name}.{port.Name}", inputs, messages, contact => contact.Tag = $"@{item.Name}.{port.Name}",
+                    $"@{item.Name}.{port.Name}");
                 if (kept is not null)
                 {
                     if (kept.Length == 0)
@@ -58,7 +59,7 @@ public static class PlcInputSources
                     // The push button's own contact: NO closes while pressed, NC opens (as on the cubicle).
                     contact.Tag = device.Tag.Trim();
                     contact.Contact = device.Contact.Equals("NC", StringComparison.OrdinalIgnoreCase) ? "NC" : "NO";
-                });
+                }, device.Tag.Trim());
                 if (kept is not null)
                 {
                     device.Outputs = kept;
@@ -74,7 +75,7 @@ public static class PlcInputSources
                     {
                         contact.Tag = device.Tag.Trim();
                         contact.Position = position;
-                    });
+                    }, null);
                     if (kept is not null)
                     {
                         outputs[position] = kept;
@@ -97,7 +98,7 @@ public static class PlcInputSources
     /// targets as text, or null when nothing changed.
     /// </summary>
     private static string? Route(IReadOnlyList<PortBinding> targets, string source, Dictionary<(SimulatorSignalKind, int), PlcInput> inputs, List<string> messages,
-        Action<RelayElement> connect)
+        Action<RelayElement> connect, string? deviceInput)
     {
         var kept = new List<PortBinding>();
         var changed = false;
@@ -115,7 +116,14 @@ public static class PlcInputSources
                 connect(contact);
                 contact.Text = "";
                 input.Open = null; // it has a source now
-                messages.Add($"{target}: {source} is now the source of the PLC input {input.Location} (external signal into the cubicle).");
+                input.Device = null;
+                messages.Add($"{target}: {source} is now the source of the PLC input {input.Location}{input.Via} (external signal into the cubicle).");
+            }
+            else if (input.Device is { } device && deviceInput is not null)
+            {
+                device.Input = deviceInput;
+                input.Device = null;
+                messages.Add($"{target}: {source} is now the input of the device {device.Tag.Trim()} of the PLC input {input.Location}{input.Via}.");
             }
             else
             {
@@ -132,12 +140,62 @@ public static class PlcInputSources
 
         /// <summary>The contact still without a source (the path has no other contact), or null.</summary>
         public RelayElement? Open { get; set; }
+
+        /// <summary>The device without an input the path depends on, or null.</summary>
+        public RelayDevice? Device { get; set; }
+
+        /// <summary>" through relay 1-K14 /27.8" when the open contact is on another path.</summary>
+        public string Via { get; set; } = "";
     }
 
     /// <summary>The DI driven by a PLC input object of the relay logic, with its open contact.</summary>
     private static Dictionary<(SimulatorSignalKind, int), PlcInput> PlcInputs(ProcessModel model)
     {
         var inputs = new Dictionary<(SimulatorSignalKind, int), PlcInput>();
+        var noSource = RelayLogicRunner.Unsourced(model);
+        var places = new Dictionary<RelayCircuit, string>(ReferenceEqualityComparer.Instance);
+        for (var sheetIndex = 0; sheetIndex < model.RelaySheets.Count; sheetIndex++)
+        {
+            for (var path = 0; path < model.RelaySheets[sheetIndex].Circuits.Count; path++)
+            {
+                places[model.RelaySheets[sheetIndex].Circuits[path]] = RelayLogicRunner.Location(model.RelaySheets[sheetIndex], sheetIndex, path);
+            }
+        }
+
+        // From a path without a source back to where the external signal comes in: its only contact when it has no
+        // tag; through a relay (its only path) or a device without an input.
+        (RelayElement? Contact, RelayDevice? Device, string Via) Entry(RelayCircuit circuit)
+        {
+            var via = "";
+            for (var depth = 0; depth < 8; depth++)
+            {
+                var contacts = RelayLogicRunner.AllElements(circuit.Elements).Where(element => !element.IsParallel && !element.IsWire).ToList();
+                if (contacts.Count != 1)
+                {
+                    return (null, null, via);
+                }
+
+                var tag = contacts[0].Tag.Trim();
+                if (tag.Length == 0)
+                {
+                    return (contacts[0], null, via);
+                }
+
+                var coils = model.RelaySheets.SelectMany(sheet => sheet.Circuits).Where(item => item.Coil.Tag.Trim().Equals(tag, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (coils.Count == 1 && noSource.Contains(coils[0]))
+                {
+                    circuit = coils[0];
+                    via += $" through relay {tag} {places.GetValueOrDefault(circuit, "")}";
+                    continue;
+                }
+
+                var device = coils.Count == 0 ? model.RelayDevices.FirstOrDefault(item => item.Tag.Trim().Equals(tag, StringComparison.OrdinalIgnoreCase) && item.Input.Trim().Length == 0) : null;
+                return (null, device, via);
+            }
+
+            return (null, null, via);
+        }
+
         for (var sheetIndex = 0; sheetIndex < model.RelaySheets.Count; sheetIndex++)
         {
             var sheet = model.RelaySheets[sheetIndex];
@@ -149,12 +207,11 @@ public static class PlcInputSources
                     continue;
                 }
 
-                var contacts = RelayLogicRunner.AllElements(circuit.Elements).Where(element => !element.IsParallel && !element.IsWire).ToList();
-                var open = contacts.Count == 1 && RelayLogicRunner.IsUnsourced(circuit) ? contacts[0] : null;
+                var entry = noSource.Contains(circuit) ? Entry(circuit) : (null, null, "");
                 var location = RelayLogicRunner.Location(sheet, sheetIndex, path) + (sheet.Name.Trim().Length > 0 ? $" ({sheet.Name.Trim()})" : "");
                 foreach (var target in PortBinding.ParseList(circuit.Coil.Outputs).Where(target => target.Kind == BindingKind.Signal))
                 {
-                    inputs.TryAdd((target.SignalKind, target.SignalId), new PlcInput { Location = location, Open = open });
+                    inputs.TryAdd((target.SignalKind, target.SignalId), new PlcInput { Location = location, Open = entry.Contact, Device = entry.Device, Via = entry.Via });
                 }
             }
         }

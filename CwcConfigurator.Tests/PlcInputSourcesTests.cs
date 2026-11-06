@@ -55,6 +55,45 @@ public sealed class PlcInputSourcesTests
     }
 
     [Fact]
+    public void ThroughARelayWithoutSource_TheSourceGoesToTheRelaysPath()
+    {
+        // /27.7: 1-K14 contact → DI:377; /27.8: "SUPPLY ?" → coil 1-K14 (the external signal comes in there).
+        var input = new RelayCircuit { Elements = [new RelayElement { Tag = "1-K14" }], Coil = new RelayCoil { Outputs = "DI:377" } };
+        var relay = PlcInput("");
+        relay.Coil = new RelayCoil { Tag = "1-K14" };
+        var level = new ObjectConfig { Name = "Drainage water level", Type = "Logic", Ports = new() { ["In1"] = "=1", ["Out"] = "DI:377" } };
+        var model = new ProcessModel { Objects = [level], RelaySheets = [new RelaySheet { Page = 27, Circuits = [input, relay] }] };
+
+        Assert.Equal(2, RelayLogicRunner.Unsourced(model).Count);           // neither writes before a source is given
+        var notice = Assert.Single(PlcInputSources.Assign(model));
+
+        Assert.Equal("@Drainage water level.Out", relay.Elements[0].Tag);
+        Assert.Equal("1-K14", input.Elements[0].Tag);
+        Assert.Contains("through relay 1-K14 /27.2", notice);
+        Assert.Empty(RelayLogicRunner.Unsourced(model));
+
+        var engine = new ProcessEngine(new Dictionary<string, ProcessModel> { ["Intake"] = model });
+        var io = new FakeIo();
+        engine.Step(0.1, _ => io);
+        engine.Step(0.1, _ => io);
+        Assert.Equal(1, io.Values[(SimulatorSignalKind.DI, 377)]);
+    }
+
+    [Fact]
+    public void ThroughADeviceWithoutInput_TheSourceBecomesItsInput()
+    {
+        var input = new RelayCircuit { Elements = [new RelayElement { Tag = "-B12" }], Coil = new RelayCoil { Outputs = "DI:40" } };
+        var device = new RelayDevice { Tag = "-B12", Input = "" };
+        var level = new ObjectConfig { Name = "Level", Type = "Logic", Ports = new() { ["Out"] = "DI:40" } };
+        var model = new ProcessModel { Objects = [level], RelaySheets = [new RelaySheet { Page = 5, Circuits = [input] }], RelayDevices = [device] };
+
+        PlcInputSources.Assign(model);
+
+        Assert.Equal("@Level.Out", device.Input);
+        Assert.False(level.Ports.ContainsKey("Out"));
+    }
+
+    [Fact]
     public void MappingToAPlcInputWithASource_IsRefused()
     {
         var logic = new ObjectConfig { Name = "Logic1", Type = "Logic", Ports = new() { ["Out"] = "DI:67" } };

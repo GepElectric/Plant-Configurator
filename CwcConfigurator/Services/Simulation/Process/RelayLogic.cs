@@ -213,6 +213,7 @@ public sealed class RelayLogicRunner
         foreach (var (plc, model) in models)
         {
             RelayDevices.Unify(model);
+            var unsourced = Unsourced(model);
             foreach (var device in model.RelayDevices.Where(item => item.Tag.Trim().Length > 0))
             {
                 if (!_devices.TryAdd(Key(plc, device.Tag), device))
@@ -281,7 +282,7 @@ public sealed class RelayLogicRunner
                         Circuit = circuit,
                         Location = Location(sheet, sheetIndex, path),
                         Input = circuit.Coil.HasInput ? circuit.Coil.Input.Trim() : null,
-                        Unsourced = IsUnsourced(circuit)
+                        Unsourced = unsourced.Contains(circuit)
                     };
 
                     if (state.Input is not null && circuit.Elements.Count > 0)
@@ -430,6 +431,46 @@ public sealed class RelayLogicRunner
 
         var contacts = AllElements(circuit.Elements).Where(element => !element.IsParallel && !element.IsWire).ToList();
         return contacts.Count > 0 && contacts.All(contact => contact.Tag.Trim().Length == 0);
+    }
+
+    /// <summary>
+    /// The paths without a source, also through other relays: every contact has no tag, is a relay whose paths all
+    /// have no source, or a device without an input (e.g. DI ← 1-K14 ← "SUPPLY ?"). Such a path does not drive its
+    /// outputs.
+    /// </summary>
+    public static HashSet<RelayCircuit> Unsourced(ProcessModel model)
+    {
+        var circuits = model.RelaySheets.SelectMany(sheet => sheet.Circuits).ToList();
+        var byTag = circuits.Where(circuit => circuit.Coil.Tag.Trim().Length > 0)
+            .GroupBy(circuit => circuit.Coil.Tag.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.OrdinalIgnoreCase);
+        var devices = model.RelayDevices.Where(device => device.Tag.Trim().Length > 0)
+            .GroupBy(device => device.Tag.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var result = new HashSet<RelayCircuit>(ReferenceEqualityComparer.Instance);
+        bool NoSource(RelayElement contact)
+        {
+            var tag = contact.Tag.Trim();
+            return tag.Length == 0
+                   || (byTag.TryGetValue(tag, out var coils) && coils.All(result.Contains))
+                   || (!byTag.ContainsKey(tag) && devices.TryGetValue(tag, out var device) && device.Input.Trim().Length == 0);
+        }
+
+        for (var changed = true; changed;)
+        {
+            changed = false;
+            foreach (var circuit in circuits.Where(circuit => !result.Contains(circuit) && !circuit.Coil.HasInput && circuit.Feed.Length == 0))
+            {
+                var contacts = AllElements(circuit.Elements).Where(element => !element.IsParallel && !element.IsWire).ToList();
+                if (contacts.Count > 0 && contacts.All(NoSource))
+                {
+                    result.Add(circuit);
+                    changed = true;
+                }
+            }
+        }
+
+        return result;
     }
 
     /// <summary>Picked-up (or timing) relays of a PLC for the saved state: "tag|on|elapsed".</summary>
