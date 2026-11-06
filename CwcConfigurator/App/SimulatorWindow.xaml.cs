@@ -336,7 +336,12 @@ public partial class SimulatorWindow : Window
 
     private int _linkConflicts;
 
-    /// <summary>Mappings moved to (or refused by) the PLC inputs of the relay logic: in the status line, a refusal also as a message.</summary>
+    private PlcInputNotice? _notice;
+
+    /// <summary>
+    /// Mappings moved to (or refused by) the PLC inputs of the relay logic: a bar above the tabs with the place to
+    /// show (not a modal message box, which interrupted the field being edited).
+    /// </summary>
     private void ShowNotices()
     {
         if (_controller.Notices.Count == 0)
@@ -346,13 +351,27 @@ public partial class SimulatorWindow : Window
 
         var notices = _controller.Notices.ToList();
         _controller.Notices.Clear();
-        StatusText.Text = string.Join("  ·  ", notices);
-        var refused = notices.Where(notice => notice.Contains("not connected", StringComparison.OrdinalIgnoreCase)).ToList();
-        if (refused.Count > 0)
+        StatusText.Text = string.Join("  ·  ", notices.Select(notice => notice.Text));
+        _notice = notices.FirstOrDefault(notice => notice.Refused) ?? notices[^1];
+        var others = notices.Count - 1;
+        NoticeText.Text = (_notice.Refused ? "⚠ " : "✓ ") + _notice.Text + (others > 0 ? $"   (+{others} more in the status line)" : "");
+        NoticeBar.Background = new SolidColorBrush(_notice.Refused ? Color.FromRgb(0xFE, 0xF2, 0xF2) : Color.FromRgb(0xEF, 0xF6, 0xFF));
+        NoticeBar.BorderBrush = new SolidColorBrush(_notice.Refused ? Color.FromRgb(0xFC, 0xA5, 0xA5) : Color.FromRgb(0x93, 0xC5, 0xFD));
+        NoticeText.Foreground = new SolidColorBrush(_notice.Refused ? Color.FromRgb(0x99, 0x1B, 0x1B) : Color.FromRgb(0x1E, 0x3A, 0x8A));
+        NoticeShow.Visibility = _notice.Sheet >= 0 ? Visibility.Visible : Visibility.Collapsed;
+        NoticeBar.Visibility = Visibility.Visible;
+    }
+
+    private void NoticeShow_Click(object sender, RoutedEventArgs e)
+    {
+        if (_notice is { Sheet: >= 0 } notice)
         {
-            MessageBox.Show(this, string.Join("\n\n", refused), "Simulator – PLC input", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Tabs.SelectedItem = Tabs.Items.OfType<TabItem>().FirstOrDefault(tab => ReferenceEquals(tab.Content, RelayPanel)) ?? Tabs.SelectedItem;
+            RelayPanel.Reveal(notice.Sheet, notice.Item);
         }
     }
+
+    private void NoticeClose_Click(object sender, RoutedEventArgs e) => NoticeBar.Visibility = Visibility.Collapsed;
 
     /// <summary>Click on the SIMULATOR column: opens where the signal is mapped (a menu when there are several places).</summary>
     private void Links_MouseUp(object sender, MouseButtonEventArgs e)

@@ -91,6 +91,15 @@
             </StackPanel>
         </Border>
 
+        <!-- notice of the PLC inputs (no modal message box): what was connected or refused, with the place to show -->
+        <Border x:Name="NoticeBar" DockPanel.Dock="Top" Visibility="Collapsed" Padding="10,6" Margin="0,4,0,0" BorderThickness="1" CornerRadius="4">
+            <DockPanel>
+                <Button x:Name="NoticeClose" DockPanel.Dock="Right" Content="✕" Width="26" Height="24" Margin="6,0,0,0" Click="NoticeClose_Click" ToolTip="Hide"/>
+                <Button x:Name="NoticeShow" DockPanel.Dock="Right" Content="Show where" Height="24" Padding="10,0" Margin="10,0,0,0" Click="NoticeShow_Click"/>
+                <TextBlock x:Name="NoticeText" TextWrapping="Wrap" VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+
         <TabControl x:Name="Tabs" Margin="0,4,0,0">
             <TabItem Header="  Signals  ">
                 <DockPanel>

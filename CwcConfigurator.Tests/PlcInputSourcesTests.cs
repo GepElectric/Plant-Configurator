@@ -44,7 +44,7 @@ public sealed class PlcInputSourcesTests
         Assert.Equal("@Logic1.Out", circuit.Elements[0].Tag);
         Assert.Equal("", circuit.Elements[0].Text);
         Assert.Equal("DI:5", logic.Ports["Out"]);                       // the other target stays
-        Assert.Contains("source of the PLC input /21.1", Assert.Single(notices));
+        Assert.Contains("source of the PLC input /21.1", Assert.Single(notices).Text);
 
         var engine = new ProcessEngine(new Dictionary<string, ProcessModel> { ["Intake"] = model });
         var io = new FakeIo();
@@ -65,7 +65,7 @@ public sealed class PlcInputSourcesTests
         var model = new ProcessModel { Objects = [level], RelaySheets = [new RelaySheet { Page = 27, Circuits = [input, relay] }] };
 
         Assert.Equal(2, RelayLogicRunner.Unsourced(model).Count);           // neither writes before a source is given
-        var notice = Assert.Single(PlcInputSources.Assign(model));
+        var notice = Assert.Single(PlcInputSources.Assign(model)).Text;
 
         Assert.Equal("@Drainage water level.Out", relay.Elements[0].Tag);
         Assert.Equal("1-K14", input.Elements[0].Tag);
@@ -104,7 +104,9 @@ public sealed class PlcInputSourcesTests
 
         Assert.Equal("-K12", circuit.Elements[0].Tag);
         Assert.False(logic.Ports.ContainsKey("Out"));
-        Assert.Contains("not connected", Assert.Single(notices));
+        Assert.Contains("not connected", Assert.Single(notices).Text);
+        Assert.True(notices[0].Refused);
+        Assert.Same(circuit.Coil, notices[0].Item);
     }
 
     [Fact]

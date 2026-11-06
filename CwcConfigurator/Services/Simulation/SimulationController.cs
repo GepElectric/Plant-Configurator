@@ -28,7 +28,7 @@ public sealed class SimulationController
     }
 
     /// <summary>What the last model change connected or refused at the PLC inputs of the relay logic (shown by the window).</summary>
-    public List<string> Notices { get; } = [];
+    public List<PlcInputNotice> Notices { get; } = [];
 
     /// <summary>Raised when <see cref="Notices"/> got new lines.</summary>
     public event Action? NoticesAdded;
