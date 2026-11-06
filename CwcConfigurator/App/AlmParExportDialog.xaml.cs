@@ -48,6 +48,8 @@ public partial class AlmParExportDialog : Window
             : _config.LastOutputPath;
         PdfCheck.IsChecked = _config.ExportPdf;
         DocxCheck.IsChecked = _config.ExportDocx;
+        PrimeVoltRadio.IsChecked = IsPrimeVolt;
+        GeppertRadio.IsChecked = !IsPrimeVolt;
         RefreshLanguageDropdown();
     }
 
@@ -63,6 +65,7 @@ public partial class AlmParExportDialog : Window
         _config.LastOutputPath = OutputPathText.Text.Trim();
         _config.ExportPdf = PdfCheck.IsChecked == true;
         _config.ExportDocx = DocxCheck.IsChecked == true;
+        _config.Company = PrimeVoltRadio.IsChecked == true ? AlmParExportConfig.PrimeVoltCompany : AlmParExportConfig.GeppertCompany;
         _config.ExportLanguageCode = GetSelectedLanguageCode();
         _config.ExportLanguage = _config.ExportLanguageCode.Equals("en-US", StringComparison.OrdinalIgnoreCase) ? "ENG" : "LANG2";
         _config.PlcMappings = _mappings.ToList();
@@ -79,6 +82,8 @@ public partial class AlmParExportDialog : Window
         LanguageCombo.ItemsSource = languages.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         LanguageCombo.SelectedItem = languages.Contains(selected, StringComparer.OrdinalIgnoreCase) ? selected : "en-US";
     }
+
+    private bool IsPrimeVolt => string.Equals(_config.Company, AlmParExportConfig.PrimeVoltCompany, StringComparison.OrdinalIgnoreCase);
 
     private string GetSelectedLanguageCode() => LanguageCombo.SelectedItem as string ?? "en-US";
 
@@ -248,7 +253,8 @@ public partial class AlmParExportDialog : Window
             ["formats"] = formats,
             ["output_folder"] = outputFolder,
             ["base_filename"] = BuildBaseFileName(languageCode),
-            ["template_path"] = Path.Combine(baseDir, "Templates", GetTemplateFileName(languageCode)),
+            ["company"] = IsPrimeVolt ? AlmParExportConfig.PrimeVoltCompany : AlmParExportConfig.GeppertCompany,
+            ["template_path"] = Path.Combine(baseDir, "Templates", IsPrimeVolt ? "alm_par_template_primevolt.docx" : GetTemplateFileName(languageCode)),
             ["doc_meta"] = new Dictionary<string, object>
             {
                 ["doc_number"] = _config.DocNumber ?? "",

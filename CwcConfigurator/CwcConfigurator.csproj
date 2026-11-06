@@ -30,6 +30,7 @@
     <None Include="Templates\SEQ_PAR.db" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Templates\alm_par_template.docx" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Templates\alm_par_template_nb.docx" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Templates\alm_par_template_primevolt.docx" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Start Plant Configurator.bat" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Installers\install_prerequisites.ps1" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Installers\*.exe" CopyToOutputDirectory="PreserveNewest" />

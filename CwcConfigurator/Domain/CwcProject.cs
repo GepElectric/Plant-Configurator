@@ -411,6 +411,13 @@ public sealed class AlmParExportConfig
     public string PlantFullName { get; set; } = "";
     public string CustomerBlock { get; set; } = "";
     public string FbNumber { get; set; } = "01";
+
+    /// <summary>Form of the document: "Geppert" (Geppert Electric) or "PrimeVolt" (Prime Volt).</summary>
+    public string Company { get; set; } = GeppertCompany;
+
+    public const string GeppertCompany = "Geppert";
+    public const string PrimeVoltCompany = "PrimeVolt";
+
     public string ExportLanguageCode { get; set; } = "en-US";
     public string ExportLanguage { get; set; } = "ENG";
     public bool ExportPdf { get; set; } = true;

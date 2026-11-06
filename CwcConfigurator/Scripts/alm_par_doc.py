@@ -6,6 +6,7 @@ Usage:
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import re
@@ -30,6 +31,33 @@ CAPTION_STYLE_FALLBACKS = ["Caption", "Normal"]
 ALM_COL_W = [Cm(1.383), Cm(2.656), Cm(3.963), Cm(8.950), Cm(2.270)]
 PAR_COL_W = [Cm(2.108), Cm(5.278), Cm(9.126), Cm(1.547), Cm(1.196)]
 DEFAULT_LANGUAGE = "en-US"
+PRIME_VOLT = "PrimeVolt"
+PRIME_VOLT_TEMPLATE = "alm_par_template_primevolt.docx"
+PRIME_VOLT_FILL = "0F4761"
+
+# How the generated part of the document looks: the Geppert form (Arial, grey table headers) or the Prime Volt
+# form (template fonts and heading styles, dark-blue table headers as in its revision table).
+GEPPERT_LOOK = {
+    "font": "Arial",
+    "heading": dict(bold=True, italic=True, size=Pt(16), font_name="Arial", space_before=Pt(0), space_after=Pt(6)),
+    "section_number": "{index}  ",
+    "header_fill": "F2F2F2",
+    "header_color": None,
+    "caption_size": Pt(10),
+    "alm_widths": ALM_COL_W,
+    "par_widths": PAR_COL_W,
+}
+PRIME_VOLT_LOOK = {
+    "font": None,
+    "heading": dict(space_before=Pt(0), space_after=Pt(6)),
+    "section_number": "{index}. ",
+    "header_fill": PRIME_VOLT_FILL,
+    "header_color": RGBColor(0xFF, 0xFF, 0xFF),
+    "caption_size": None,
+    # 18.4 cm between the margins of the Prime Volt form
+    "alm_widths": [Cm(1.75), Cm(2.6), Cm(3.75), Cm(8.1), Cm(2.2)],
+    "par_widths": [Cm(2.4), Cm(5.0), Cm(8.0), Cm(1.75), Cm(1.25)],
+}
 LANGUAGE_PACKS = {
     "en-US": {
         "category": "Alarm and parameter list",
@@ -419,13 +447,13 @@ def _remove_existing_sections(document: Document):
             body.remove(child)
 
 
-def _add_field_only_paragraph(document: Document, instruction: str, *, style_name: str | None = None, align=WD_ALIGN_PARAGRAPH.LEFT, size=Pt(10)):
+def _add_field_only_paragraph(document: Document, instruction: str, *, style_name: str | None = None, align=WD_ALIGN_PARAGRAPH.LEFT, size=Pt(10), font_name="Arial"):
     paragraph = document.add_paragraph()
     if style_name:
         paragraph.style = style_name
     _clear_paragraph(paragraph)
     _apply_paragraph_format(paragraph, align=align, space_before=Pt(0), space_after=Pt(0))
-    _append_instr_field(paragraph, instruction, "", font_name="Arial", size=size)
+    _append_instr_field(paragraph, instruction, "", font_name=font_name, size=size)
     return paragraph
 
 
@@ -580,7 +608,8 @@ def _populate_template_bindings(document: Document, meta: dict):
         _set_content_control_text(section.footer._element, alias_map)
 
 
-def _build_table(document: Document, headers: list[str], widths, rows: list[list[str]]):
+def _build_table(document: Document, headers: list[str], widths, rows: list[list[str]], look: dict | None = None):
+    look = look or GEPPERT_LOOK
     table = document.add_table(rows=1, cols=len(headers))
     table.style = "Table Grid"
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -592,7 +621,7 @@ def _build_table(document: Document, headers: list[str], widths, rows: list[list
 
     for col_index, header in enumerate(headers):
         cell = header_row.cells[col_index]
-        _shade_cell(cell, "F2F2F2")
+        _shade_cell(cell, look["header_fill"])
         cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
         paragraph = _clear_cell(cell)
         _set_paragraph_text(
@@ -600,7 +629,8 @@ def _build_table(document: Document, headers: list[str], widths, rows: list[list
             header,
             bold=True,
             size=Pt(10),
-            font_name="Arial",
+            font_name=look["font"],
+            color=look["header_color"],
             align=WD_ALIGN_PARAGRAPH.CENTER,
             space_before=Pt(0),
             space_after=Pt(0),
@@ -616,7 +646,7 @@ def _build_table(document: Document, headers: list[str], widths, rows: list[list
                 paragraph,
                 value or "",
                 size=Pt(10),
-                font_name="Arial",
+                font_name=look["font"],
                 align=WD_ALIGN_PARAGRAPH.LEFT,
                 space_before=Pt(0),
                 space_after=Pt(0),
@@ -625,44 +655,47 @@ def _build_table(document: Document, headers: list[str], widths, rows: list[list
     return table
 
 
-def _add_heading_paragraph(document: Document, text: str, style_name: str | None, bookmark_id: int):
-    paragraph = _add_body_paragraph(
-        document,
-        text,
-        style_name=style_name,
-        bold=True,
-        italic=True,
-        size=Pt(16),
-        font_name="Arial",
-        space_before=Pt(0),
-        space_after=Pt(6),
-    )
+def _add_heading_paragraph(document: Document, text: str, style_name: str | None, bookmark_id: int, look: dict | None = None):
+    paragraph = _add_body_paragraph(document, text, style_name=style_name, **(look or GEPPERT_LOOK)["heading"])
     _append_bookmark(paragraph, bookmark_id, f"_TocGen{bookmark_id:06d}")
     return paragraph
 
 
-def _add_caption_paragraph(document: Document, labels: dict[str, str], table_no: int, caption_suffix: str, style_name: str | None, bookmark_ids: tuple[int, int]):
+def _add_caption_paragraph(document: Document, labels: dict[str, str], table_no: int, caption_suffix: str, style_name: str | None, bookmark_ids: tuple[int, int], look: dict | None = None):
+    look = look or GEPPERT_LOOK
     paragraph = document.add_paragraph()
     if style_name:
         paragraph.style = style_name
     _clear_paragraph(paragraph)
     _apply_paragraph_format(paragraph, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(0), space_after=Pt(8))
-    paragraph.add_run(labels["table_word"]).font.name = "Arial"
-    paragraph.runs[-1].font.size = Pt(10)
+    paragraph.add_run(labels["table_word"])
+    if look["font"]:
+        paragraph.runs[-1].font.name = look["font"]
+    paragraph.runs[-1].font.size = look["caption_size"]
     paragraph.runs[-1].italic = True
-    _append_instr_field(paragraph, " SEQ Table \\* ARABIC ", str(table_no), font_name="Arial", size=Pt(10), no_proof=True)
+    _append_instr_field(paragraph, " SEQ Table \\* ARABIC ", str(table_no), font_name=look["font"], size=look["caption_size"], no_proof=True)
     suffix_run = paragraph.add_run(caption_suffix)
-    suffix_run.font.name = "Arial"
-    suffix_run.font.size = Pt(10)
+    if look["font"]:
+        suffix_run.font.name = look["font"]
+    suffix_run.font.size = look["caption_size"]
     suffix_run.italic = True
     _append_bookmark(paragraph, bookmark_ids[0], f"_TocGen{bookmark_ids[0]:06d}")
     _append_bookmark(paragraph, bookmark_ids[1], f"_TocGen{bookmark_ids[1]:06d}")
     return paragraph
 
 
-def _append_content_sections(document: Document, plcs: list[dict], meta: dict):
-    labels = _labels(meta)
+def _append_content_sections(document: Document, plcs: list[dict], meta: dict, look: dict | None = None):
+    look = look or GEPPERT_LOOK
+    labels = dict(_labels(meta))
     heading_style = _resolve_style_name(document, SECTION_STYLE_FALLBACKS)
+    # A numbered heading style (the Geppert "Style1 - Header 1") numbers the chapters itself: no number in the text.
+    numbered = False
+    style = document.styles[heading_style] if heading_style else None
+    while style is not None and not numbered:   # the numbering may come from the base style ("Heading 1")
+        numbered = style.element.find(".//" + qn("w:numPr")) is not None
+        style = style.base_style
+    for key in ("alarm_section", "parameter_section"):
+        labels[key] = labels[key].replace("{index}  ", "" if numbered else look["section_number"])
     caption_style = _resolve_style_name(document, CAPTION_STYLE_FALLBACKS)
     bookmark_id = _next_bookmark_id(document)
     section_no = 1
@@ -680,6 +713,7 @@ def _append_content_sections(document: Document, plcs: list[dict], meta: dict):
                 labels["alarm_section"].format(index=section_no, name=plc_name),
                 heading_style,
                 bookmark_id,
+                look,
             )
             bookmark_id += 1
             _add_caption_paragraph(
@@ -689,12 +723,13 @@ def _append_content_sections(document: Document, plcs: list[dict], meta: dict):
                 labels["alarm_caption"].format(table_no=table_no, name=plc_name)[len(f"{labels['table_word']}{table_no}") :],
                 caption_style,
                 (bookmark_id, bookmark_id + 1),
+                look,
             )
             bookmark_id += 2
             _build_table(
                 document,
                 labels["alarm_headers"],
-                ALM_COL_W,
+                look["alm_widths"],
                 [
                     [
                         str(alm.get("id", "")),
@@ -705,6 +740,7 @@ def _append_content_sections(document: Document, plcs: list[dict], meta: dict):
                     ]
                     for alm in alarms
                 ],
+                look,
             )
             section_no += 1
             table_no += 1
@@ -716,6 +752,7 @@ def _append_content_sections(document: Document, plcs: list[dict], meta: dict):
                 labels["parameter_section"].format(index=section_no, name=plc_name),
                 heading_style,
                 bookmark_id,
+                look,
             )
             bookmark_id += 1
             _add_caption_paragraph(
@@ -725,12 +762,13 @@ def _append_content_sections(document: Document, plcs: list[dict], meta: dict):
                 labels["parameter_caption"].format(table_no=table_no, name=plc_name)[len(f"{labels['table_word']}{table_no}") :],
                 caption_style,
                 (bookmark_id, bookmark_id + 1),
+                look,
             )
             bookmark_id += 2
             _build_table(
                 document,
                 labels["parameter_headers"],
-                PAR_COL_W,
+                look["par_widths"],
                 [
                     [
                         str(par.get("id", "")),
@@ -741,14 +779,25 @@ def _append_content_sections(document: Document, plcs: list[dict], meta: dict):
                     ]
                     for par in parameters
                 ],
+                look,
             )
             section_no += 1
             table_no += 1
 
 
+def _is_prime_volt(data: dict) -> bool:
+    return (data.get("company") or "").replace(" ", "").lower() == PRIME_VOLT.lower()
+
+
 def _resolve_template_path(data: dict) -> Path:
     language_code = _resolve_language_code(data.get("doc_meta", {}))
     candidate = data.get("template_path")
+    if _is_prime_volt(data):
+        # One Prime Volt form for every language (the texts of the generated part are localized).
+        for path in (Path(candidate) if candidate else None, Path(__file__).resolve().parent.parent / "Templates" / PRIME_VOLT_TEMPLATE):
+            if path is not None and path.exists():
+                return path
+        raise FileNotFoundError("Prime Volt ALM/PAR template DOCX not found.")
     if candidate:
         template_path = Path(candidate)
         if language_code == "nb-NO":
@@ -765,7 +814,126 @@ def _resolve_template_path(data: dict) -> Path:
     raise FileNotFoundError("ALM/PAR template DOCX not found.")
 
 
+def _xml_paragraphs(root):
+    return list(root.iter(qn("w:p")))
+
+
+def _set_paragraph_xml_text(p, text: str):
+    """Writes the text into the first run of a paragraph (keeps its formatting), empties the other runs."""
+    texts = list(p.iter(qn("w:t")))
+    if not texts:
+        run = p.find(qn("w:r"))
+        if run is None:
+            run = OxmlElement("w:r")
+            p.append(run)
+        node = OxmlElement("w:t")
+        run.append(node)
+        texts = [node]
+    texts[0].text = text
+    texts[0].set(qn("xml:space"), "preserve")
+    for extra in texts[1:]:
+        extra.text = ""
+
+
+def _unbind_content_controls(root):
+    # The template binds its fields to the document properties; the texts are written directly instead
+    # (a bound field would show the property, e.g. the date in its own format).
+    for binding in list(root.iter(qn("w:dataBinding"))):
+        binding.getparent().remove(binding)
+    for date in list(root.iter(qn("w:date"))):
+        parent = date.getparent()
+        parent.remove(date)
+        parent.append(OxmlElement("w:text"))
+
+
+def _populate_prime_volt_header(root, values: dict[str, str]):
+    """Header of the Prime Volt form: a label paragraph ("Document NUMBER") and its value below it."""
+    for tc in root.iter(qn("w:tc")):
+        paragraphs = _xml_paragraphs(tc)
+        if len(paragraphs) < 2:
+            continue
+        label = "".join(node.text or "" for node in paragraphs[0].iter(qn("w:t"))).strip().lower()
+        if label in values:
+            _set_paragraph_xml_text(paragraphs[1], values[label])
+            for extra in paragraphs[2:]:
+                _set_paragraph_xml_text(extra, "")
+
+
+def generate_docx_prime_volt(data: dict, output_path: str):
+    template_path = _resolve_template_path(data)
+    document = Document(str(template_path))
+    meta = data["doc_meta"]
+    labels = _labels(meta)
+    doc_number = meta.get("doc_number", "")
+    project = meta.get("plant_name", "")
+    title = labels["category"].upper()
+    customer_lines = _normalize_lines(meta.get("customer_block", ""))
+
+    props = document.core_properties
+    props.comments = customer_lines[0] if customer_lines else ""
+    props.title = doc_number
+    props.subject = project
+    props.category = title
+    props.author = meta.get("author", "")
+    props.content_status = meta.get("fb_number", "01")
+
+    header_values = {"document number": doc_number, "project name": project, "document title": title}
+    for section in document.sections:
+        for part in (section.header, section.first_page_header, section.footer, section.first_page_footer):
+            _unbind_content_controls(part._element)
+            _populate_prime_volt_header(part._element, header_values)
+
+    # Cover: document title (big), document number, date, plant (and customer) as in the Prime Volt form.
+    body = document.element.body
+    _unbind_content_controls(body)
+    _set_content_control_text(body, {"Category": title, "Title": doc_number, "Publish Date": meta.get("date", "")})
+    cover = document.tables[0]
+    plant_cell = cover.cell(2, 1)._tc
+    paragraphs = _xml_paragraphs(plant_cell)
+    _set_paragraph_xml_text(paragraphs[0], project.upper())
+    for extra in paragraphs[1:]:
+        plant_cell.remove(extra)
+    # (the form has no customer on the cover: the revision table sits right below the plant)
+
+    # Revision table (as in the FAT report): first issue with the date and author of this export.
+    revision = document.tables[1]
+    first_issue = revision.rows[2].cells
+    _set_paragraph_xml_text(first_issue[2].paragraphs[0]._p, meta.get("date", ""))
+    _set_paragraph_xml_text(first_issue[3].paragraphs[0]._p, meta.get("author", ""))
+
+    # Contents: the TOC of the template (its old entries replaced by a field filled on update) + the list of tables.
+    toc = next(child for child in body if child.tag == qn("w:sdt"))
+    content = toc.find(qn("w:sdtContent"))
+    for paragraph in _xml_paragraphs(content)[1:]:
+        paragraph.getparent().remove(paragraph)
+    toc_paragraph = Paragraph(OxmlElement("w:p"), document._body)
+    content.append(toc_paragraph._p)
+    toc_paragraph.style = _resolve_style_name(document, ["toc 1", "Normal"])
+    _append_instr_field(toc_paragraph, ' TOC \\o "1-3" \\h \\z \\u ', "", font_name=None, size=None)
+    remove = False
+    for child in list(body):
+        if child is toc:
+            remove = True
+            continue
+        if remove and child.tag != qn("w:sectPr"):
+            body.remove(child)
+    _add_body_paragraph(document, "", space_before=Pt(0), space_after=Pt(8))
+    # The list of tables in the font of the form (its "table of figures" style is Arial 12).
+    figures_style = _resolve_style_name(document, ["table of figures", "Normal"])
+    if figures_style and figures_style != "Normal":
+        document.styles[figures_style].font.name = None
+        document.styles[figures_style].font.size = None
+    _add_field_only_paragraph(document, ' TOC \\h \\z \\c "Table" ', style_name=figures_style, size=None, font_name=None)
+
+    _append_content_sections(document, data["plcs"], meta, PRIME_VOLT_LOOK)
+    _set_update_fields_on_open(document)
+    document.save(output_path)
+
+
 def generate_docx(data: dict, output_path: str):
+    if _is_prime_volt(data):
+        generate_docx_prime_volt(data, output_path)
+        return
     template_path = _resolve_template_path(data)
     document = Document(str(template_path))
     meta = data["doc_meta"]
@@ -813,8 +981,13 @@ def convert_docx_to_pdf(docx_path: str, pdf_path: str, word_loader=None):
     try:
         try:
             app = win32_client.gencache.EnsureDispatch("Word.Application")
-        except Exception as exc:
-            raise RuntimeError("Microsoft Word is not available for PDF export.") from exc
+        except Exception:
+            # A damaged win32com cache (gen_py folder of Word without its module) breaks EnsureDispatch;
+            # late binding needs no cache.
+            try:
+                app = win32_client.dynamic.Dispatch("Word.Application")
+            except Exception as exc:
+                raise RuntimeError("Microsoft Word is not available for PDF export.") from exc
 
         app.Visible = False
         app.DisplayAlerts = 0
