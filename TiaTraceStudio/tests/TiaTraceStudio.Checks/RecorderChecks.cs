@@ -66,7 +66,10 @@ internal static partial class Program
               {"Id":"in","Name":"Intake","ControlSignals":[
                 {"Block":"REFERENCES","Db":9,"Element":"GATE_1","Member":"DATA.FINAL","DataType":"Real","ByteOffset":66,"Description":"Gate 1 regulation","Unit":"%"},
                 {"Block":"REG_INTF","Db":31,"Element":"GATE_1","Member":"VALUES.OUT","DataType":"Real","ByteOffset":44,"Description":"Gate 1 regulation","Unit":"%"}],
-               "DbCatalog":{"DataBlockNames":[{"DbName":"DB MEAS","BlockKind":"Configuration","Number":4}],"MeasRows":[
+               "DbCatalog":{"DataBlockNames":[{"DbName":"DB MEAS","BlockKind":"Configuration","Number":4}],
+                "Sequence":{"ControlStatusRows":[{"Id":2,"PlcName":"HPP_STARTED","StringNameEnglish":"HPP Started","NameEnglish":"x"},{"Id":37,"PlcName":"SPARE_37"}],
+                  "CommandRows":[{"Id":1,"PlcName":"INTAKE","NameEnglish":"Intake"}]},
+                "MeasRows":[
                 {"Id":0,"PlcStructure":"INTAKE","PlcName":"INTAKE_LEVEL","NameEnglish":"Intake level","Unit":"20","TrueText":"TRUE"},
                 {"Id":1,"PlcStructure":"INTAKE","PlcName":"SPARE_LEVEL","NameEnglish":"Spare","Unit":"20"}]}}]}
             """;
@@ -100,6 +103,11 @@ internal static partial class Program
             "REFERENCES and REG_INTF pulled by Plant Configurator: element names and addresses of this PLC (intake gates), not the fixed unit layout");
         Check(intake.SearchItems.Where(m => m.Kind == "MEAS").Select(m => m.Id).SequenceEqual([0]) && intake.Find("MEAS#1") != null && map.SearchItems.Count(m => m.Kind == "MEAS") == 3,
             "Signal search offers only signals mapped in Plant Configurator (USED); older projects without the column keep all");
+        var started = intake.Find("CTRL_STATUS.HPP_STARTED.DATA.VAL")!; var intakeCmd = intake.Find("STS#2")!;
+        Check(intake.AddressOf(started).ToString() == "%DB1006.DBX44.0" && started.Name == "HPP Started" && intakeCmd == started
+            && intake.AddressOf(intake.Find("SEQ_CMDs.INTAKE.DATA.VAL")!).ToString() == "%DB1007.DBX22.0" && !intake.Items.Any(m => m.PlcName == "SPARE_37")
+            && intake.SearchItems.Count(m => m.Kind is "STS" or "CMD") == 2,
+            "Control status (DB CTRL_STS) and sequence commands (DB SEQ_CMD) from Plant Configurator: DB1006 / DB1007, ID × 22, bit 0; spares left out");
         string realConfig = @"C:\Users\Mazda\OneDrive - Geppert Electric d.o.o\3000_Aplikacije\01_Plant_Configurator\01_Source_Code\PlantConfigurator.plantcfg";
         if (File.Exists(realConfig))
         {

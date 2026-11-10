@@ -1,0 +1,39 @@
+﻿TYPE "DT_SEQUENCE_COMMAND_ALL"
+VERSION : 0.1
+   STRUCT
+      HPP { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 0), ((), (), ()), ((), (), ()), ((), (), ()));
+      INTAKE { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 1), ((), (), ()), ((), (), ()), ((), (), ()));
+      HPU { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 2), ((), (), ()), ((), (), ()), ((), (), ()));
+      LIFTING { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 3), ((), (), ()), ((), (), ()), ((), (), ()));
+      CWS { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 4), ((), (), ()), ((), (), ()), ((), (), ()));
+      BYPASS : "DT_STATUS_SOLO";
+      MIV { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 5), ((), (), ()), ((), (), ()), ((), (), ()));
+      TURBINE { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 6), ((), (), ()), ((), (), ()), ((), (), ()));
+      EXC { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 7), ((), (), ()), ((), (), ()), ((), (), ()));
+      SYNC { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 8), ((), (), ()), ((), (), ()), ((), (), ()));
+      ENABLE_GCB { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 9), ((), (), ()), ((), (), ()), ((), (), ()));
+      REGULATION { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 10), ((), (), ()), ((), (), ()), ((), (), ()));
+      SEALING { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 12), ((), (), ()), ((), (), ()), ((), (), ()));
+      BRAKE { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 13), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_14 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 14), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_15 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 15), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_16 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 16), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_17 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 17), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_18 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 18), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_19 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 19), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_20 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 20), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_21 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 21), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_22 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 22), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_23 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 23), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_24 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 24), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_25 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 25), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_26 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 26), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_27 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 27), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_28 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 28), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_29 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 29), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_30 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 30), ((), (), ()), ((), (), ()), ((), (), ()));
+      SPARE_31 { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 31), ((), (), ()), ((), (), ()), ((), (), ()));
+   END_STRUCT;
+
+END_TYPE
+

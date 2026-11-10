@@ -96,6 +96,17 @@ public sealed class TiaLiveSyncService(ITiaSessionService sessionService)
             if (project.PlcDatabases.FirstOrDefault(item => item.Id == binding.PlcDatabaseId) is { } pulled)
             {
                 await ReadControlBlocksAsync(binding, pulled, Path.Combine(remoteRoot, SanitizeName(binding.PlcName), "control_blocks"), result);
+                foreach (var family in StatusDbFamilies.All)
+                {
+                    try
+                    {
+                        await ReadStatusDbAsync(binding, pulled, family, Path.Combine(remoteRoot, SanitizeName(binding.PlcName), "status_" + SanitizeName(family.DataBlockName)), result);
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Warnings.Add($"{binding.PlcName}: {family.DbName} not read - {ex.Message}");
+                    }
+                }
             }
         }
 
@@ -858,6 +869,79 @@ public sealed class TiaLiveSyncService(ITiaSessionService sessionService)
         }
     }
 
+    /// <summary>Pull DB CTRL_STS / DB SEQ_CMD of the active PLC database: element names and string names.</summary>
+    public async Task<TiaLiveSyncResult> PullStatusDbAsync(CwcProject project, StatusDbFamilies.Family family)
+    {
+        var session = RequireSession();
+        var (database, binding) = RequireActiveMappedBinding(project, session);
+        var snapshotRoot = CreateSnapshotFolder(project, "pull_" + SanitizeName(family.DataBlockName));
+        var result = new TiaLiveSyncResult { SnapshotFolder = snapshotRoot };
+        var changed = await ReadStatusDbAsync(binding, database, family, Path.Combine(snapshotRoot, "remote"), result);
+        result.ImportedRows = changed;
+        result.Message = $"{family.DbName} pull completed: {changed} value(s).";
+        return result;
+    }
+
+    private async Task<int> ReadStatusDbAsync(TiaPlcBinding binding, PlcDatabase database, StatusDbFamilies.Family family, string folder, TiaLiveSyncResult result)
+    {
+        Directory.CreateDirectory(folder);
+        StatusDbFamilies.EnsureDefaults(database.DbCatalog);
+        var (configuration, english, other) = StatusDbFamilies.Settings(database.DbCatalog, family);
+        TiaPlcSourceExportRequest Request(IEnumerable<TiaSourceArtifactRequest> artifacts) => new()
+        {
+            PlcName = binding.PlcName, DeviceName = binding.DeviceName, SoftwareName = binding.SoftwareName,
+            OutputSubfolder = folder, Artifacts = artifacts.ToList()
+        };
+
+        // The blocks first; the type of the configuration DB is read from its source (DT_CONTROL_STATUS_ALL in the unit PLC).
+        var blocks = await sessionService.ExportSourcesAsync([Request([
+            BlockArtifact(configuration.DataBlockName, configuration.DataBlockName + ".db"),
+            BlockArtifact(english.DataBlockName, english.DataBlockName + ".db"),
+            BlockArtifact(other.DataBlockName, other.DataBlockName + ".db")])], folder);
+        var files = blocks.Files.Where(File.Exists).ToList();
+        var blockFile = files.FirstOrDefault(file => Path.GetFileNameWithoutExtension(file).Equals(configuration.DataBlockName, StringComparison.OrdinalIgnoreCase));
+        if (blockFile is null)
+        {
+            result.Warnings.Add($"{binding.PlcName}: {configuration.DataBlockName} not found in TIA - {family.DbName} kept.");
+            return 0;
+        }
+
+        var typeName = StatusDbFamilies.TypeOfBlock(File.ReadAllText(blockFile)) ?? configuration.DataTypeName;
+        var type = await sessionService.ExportSourcesAsync([Request([new TiaSourceArtifactRequest { TargetName = typeName, FileName = SanitizeName(typeName) + ".udt", Kind = "PlcType" }])], folder);
+        files.AddRange(type.Files.Where(File.Exists));
+        result.Warnings.AddRange(blocks.Warnings.Concat(type.Warnings).Where(warning => !warning.Contains(other.DataBlockName, StringComparison.OrdinalIgnoreCase)));
+
+        configuration.DataTypeName = typeName;
+        var changed = StatusDbFamilies.Import(database.DbCatalog, family, files);
+        result.Messages.Add($"{binding.PlcName}: {family.DbName} - {configuration.DataBlockName} ({typeName}), {changed} value(s).");
+        return changed;
+    }
+
+    /// <summary>Push DB CTRL_STS / DB SEQ_CMD to the active PLC: type, instance DB and string-name DBs (created where missing, e.g. intake).</summary>
+    public async Task<TiaLiveSyncResult> PushStatusDbAsync(CwcProject project, StatusDbFamilies.Family family)
+    {
+        var session = RequireSession();
+        var (database, binding) = RequireActiveMappedBinding(project, session);
+        var snapshotRoot = CreateSnapshotFolder(project, "push_" + SanitizeName(family.DataBlockName));
+        var folder = Path.Combine(snapshotRoot, "push");
+        StatusDbFamilies.EnsureDefaults(database.DbCatalog);
+        var files = StatusDbFamilies.Generate(database.DbCatalog, family, folder, folder, System.Text.Encoding.UTF8)
+            .OrderBy(file => Path.GetExtension(file).Equals(".udt", StringComparison.OrdinalIgnoreCase) ? 0 : 1).ToList();
+        var transfer = await sessionService.ImportSourcesAsync([
+            new TiaPlcSourceImportRequest
+            {
+                PlcName = binding.PlcName, DeviceName = binding.DeviceName, SoftwareName = binding.SoftwareName,
+                SourceFiles = files,
+                ResetDataBlocks = [StatusDbFamilies.Settings(database.DbCatalog, family).Configuration.DataBlockName]
+            }]);
+        var result = new TiaLiveSyncResult { SnapshotFolder = snapshotRoot, FileCount = files.Count };
+        result.Messages.Add($"{binding.PlcName} / {family.DbName}: generated and pushed {files.Count} source file(s).");
+        result.Messages.AddRange(transfer.Messages);
+        result.Warnings.AddRange(transfer.Warnings);
+        result.Message = $"{family.DbName} push completed: {files.Count} file(s).";
+        return result;
+    }
+
     private static TiaPlcSourceExportRequest CreateHwExportRequest(TiaPlcBinding binding, string plcFolder)
     {
         return new TiaPlcSourceExportRequest
@@ -1422,6 +1506,12 @@ public sealed class TiaLiveSyncService(ITiaSessionService sessionService)
 
     private static bool IsSequenceDataBlockRow(DbDataBlockNameSetting item)
     {
+        // DB CTRL_STS / DB SEQ_CMD have their own rows (also DB 6 / 7): not part of DB SEQUENCE.
+        if (StatusDbFamilies.IsFamily(item.DbName))
+        {
+            return false;
+        }
+
         return IsSequenceDbName(item.DbName)
                || item.Number is 6 or 7 or 28
                || item.DataBlockName.Contains("CTRL_STATUS", StringComparison.OrdinalIgnoreCase)

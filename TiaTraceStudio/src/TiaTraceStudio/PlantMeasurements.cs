@@ -14,13 +14,15 @@ public sealed record PlantMeasurement(int Id, string System, string PlcName, str
 {
     /// <summary>0 % / 100 % of the measurement from its Plant Configurator parameters (ParVal1Id / ParVal2Id).</summary>
     [JsonIgnore] public bool HasRange => RangeLow is double low && RangeHigh is double high && high > low;
-    [JsonIgnore] public bool IsDigital => Kind is "DI" or "DO";
+    /// <summary>DI, DO, control status (STS, CTRL_STATUS) and sequence command (CMD, SEQ_CMDs): BOOL.</summary>
+    [JsonIgnore] public bool IsDigital => Kind is "DI" or "DO" or "STS" or "CMD";
     [JsonIgnore] public bool IsRegulator => Kind == "REG";
     /// <summary>Value of a regulation reference (REFERENCES, DB9): Id is its byte offset, PlcName the path ("DATA.FINAL").</summary>
     [JsonIgnore] public bool IsReference => Kind == "REF";
     [JsonIgnore] public string Tag => Kind switch
     {
         "DI" or "DO" => $"{Kind}.{System}.{PlcName}.DATA.VAL",
+        "STS" or "CMD" => $"{System}.{PlcName}.DATA.VAL",
         "REG" => $"REG_INTF.{System}.VALUES.{PlcName}",
         "REF" => $"REFERENCES.{System}.{PlcName}",
         _ => $"MEAS.{System}.{PlcName}.VAL"
@@ -36,7 +38,9 @@ public static class PlantLayout
     public const int MeasDb = 1003, MeasSize = 56, MeasValue = 44;
     // DI (DB1001) and DO (DB1002): arrays of the same 22 B structure, DATA.VAL (BOOL) is bit 0 of byte 0.
     public const int DiDb = 1001, DoDb = 1002, DiSize = 22;
-    static readonly System.Text.RegularExpressions.Regex IdTag = new(@"^\s*(MEAS|DI|DO)\s*#\s*(\d+)\s*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    // Control status (CTRL_STATUS_INDIRECT, DB1006) and sequence commands (SEQ_CMDs_INDIRECT, DB1007): DT_STATUS_SOLO, 22 B, DATA.VAL bit 0.
+    public const int StatusDb = 1006, CommandDb = 1007;
+    static readonly System.Text.RegularExpressions.Regex IdTag = new(@"^\s*(MEAS|DI|DO|STS|CMD)\s*#\s*(\d+)\s*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     /// <summary>"DI#23" / "DO#5" / "MEAS#0": a signal referenced by its Plant Configurator ID.</summary>
     public static (string Kind, int Id)? ParseIdTag(string tag)
     {
@@ -74,6 +78,8 @@ public static class PlantLayout
         "REF" => new(S7Area.DataBlock, db ?? RefDb, id, 0, "REAL"),
         "DI" => new(S7Area.DataBlock, db ?? DiDb, id * DiSize, 0, "BOOL"),
         "DO" => new(S7Area.DataBlock, db ?? DoDb, id * DiSize, 0, "BOOL"),
+        "STS" => new(S7Area.DataBlock, db ?? StatusDb, id * DiSize, 0, "BOOL"),
+        "CMD" => new(S7Area.DataBlock, db ?? CommandDb, id * DiSize, 0, "BOOL"),
         "REG" => new(S7Area.DataBlock, db ?? RegDb, id, 0, "REAL"),
         _ => new(S7Area.DataBlock, db ?? MeasDb, id * MeasSize + MeasValue, 0, "REAL")
     };
@@ -125,7 +131,8 @@ public sealed class PlcCatalog
     [JsonIgnore] public IEnumerable<PlantMeasurement> AllItems => Items.Concat(Regulators).Concat(ControlItems.Where(m => m.IsReference));
     /// <summary>What the signal search offers: mapped measurements, statuses (DI) and digital outputs, regulators and references.</summary>
     /// A database where nothing is marked USED yet (not mapped at all) still offers everything.
-    [JsonIgnore] public IEnumerable<PlantMeasurement> SearchItems => (Items.Any(m => m.Used) ? Items.Where(m => m.Used) : Items).Concat(Regulators).Concat(ControlItems.Where(m => m.IsReference));
+    [JsonIgnore] public IEnumerable<PlantMeasurement> SearchItems => (Items.Any(m => m.Used && m.Kind is "MEAS" or "DI" or "DO") ? Items.Where(m => m.Used) : Items)
+        .Concat(Regulators).Concat(ControlItems.Where(m => m.IsReference));
 
     public PlantMeasurement? Find(string tag)
     {
@@ -137,6 +144,7 @@ public sealed class PlcCatalog
     {
         "DI" => PlantLayout.Address("DI", measurement.Id, DiReadDb),
         "DO" => PlantLayout.Address("DO", measurement.Id),
+        "STS" or "CMD" => PlantLayout.Address(measurement.Kind, measurement.Id),
         "REG" => PlantLayout.Address("REG", measurement.Id, RegDb),
         "REF" => PlantLayout.Address("REF", measurement.Id, RefDb),
         _ => new(S7Area.DataBlock, ReadDb, measurement.Id * StructSize + ValueOffset, 0, "REAL")
@@ -250,7 +258,19 @@ public sealed class PlantConfigLink
                     if (Text(row, "PlcName").Length == 0 || Text(row, "PlcStructure").Length == 0) continue;
                     plc.Items.Add(new(number, Text(row, "PlcStructure"), Text(row, "PlcName"), Text(row, "NameEnglish"), "", kind, Used: IsUsed(row)));
                 }
-        plc.Items = plc.Items.OrderBy(i => i.Kind == "MEAS" ? 0 : i.Kind == "DI" ? 1 : 2).ThenBy(i => i.Id).ToList();
+        // Control status (DB CTRL_STS) and sequence commands (DB SEQ_CMD): named elements only (no spares / placeholders).
+        if (TryGet(catalog, "Sequence", out var sequence))
+            foreach (var (rowsName, kind, block) in new[] { ("ControlStatusRows", "STS", "CTRL_STATUS"), ("CommandRows", "CMD", "SEQ_CMDs") })
+                if (TryGet(sequence, rowsName, out var statusRows) && statusRows.ValueKind == JsonValueKind.Array)
+                    foreach (var row in statusRows.EnumerateArray())
+                    {
+                        if (!TryGet(row, "Id", out var idValue) || !idValue.TryGetInt32(out int number)) continue;
+                        string elementName = Text(row, "PlcName");
+                        if (elementName.Length == 0 || Regex.IsMatch(elementName, @"^(SPARE_?\d+|CTRL_STS_\d+|SEQ_CMD_\d+)$", RegexOptions.IgnoreCase)) continue;
+                        string text = Text(row, "StringNameEnglish") is { Length: > 0 } stringName ? stringName : Text(row, "NameEnglish");
+                        plc.Items.Add(new(number, block, elementName, text, "", kind));
+                    }
+        plc.Items = plc.Items.OrderBy(i => i.Kind switch { "MEAS" => 0, "DI" => 1, "DO" => 2, "STS" => 3, _ => 4 }).ThenBy(i => i.Id).ToList();
         return plc;
     }
 

@@ -781,6 +781,7 @@ public partial class MainWindow : Window
         InitializeColumnFilterSync();
         PreviewKeyDown += MainWindow_PreviewKeyDown;
         _tiaStatusTimer.Tick += TiaStatusTimer_Tick;
+        InitializeStatusDbTabs();
         _allMainTabs = MainTabs.Items.OfType<TabItem>().ToList();
         ArrangeMainTabs();
         LoadProjectDatabase();
@@ -1586,6 +1587,7 @@ public partial class MainWindow : Window
             "DB ALM" => DbAlmTiaStatusText,
             "DB PAR" => DbParTiaStatusText,
             "DB SEQUENCE" => DbSequenceTiaStatusText,
+            _ when StatusDbTabFor(dbName) is { } statusTab => statusTab.StatusText,
             _ => throw new NotSupportedException($"DB family '{dbName}' is not supported.")
         };
     }
@@ -3365,6 +3367,8 @@ public partial class MainWindow : Window
                 "DB AO",
                 "DB ALM",
                 "DB PAR",
+                "DB CTRL_STS",
+                "DB SEQ_CMD",
                 "Sequence",
                 "Text lists"
             };
@@ -3438,7 +3442,7 @@ public partial class MainWindow : Window
         GetFromConfigurationButton.Visibility = activeHeader is "DB DI" or "DB DO" or "DB MEAS" or "DB AO"
             ? Visibility.Visible
             : Visibility.Collapsed;
-        var activeDb = activeHeader is "DB DI" or "DB DO" or "DB MEAS" or "DB AO" or "DB ALM" or "DB PAR" or "Sequence";
+        var activeDb = activeHeader is "DB DI" or "DB DO" or "DB MEAS" or "DB AO" or "DB ALM" or "DB PAR" or "Sequence" || StatusDbFamilies.IsFamily(activeHeader);
         TabGroupNamesButton.Visibility = activeHeader is "DB DI" or "DB DO" or "DB MEAS" or "DB ALM" or "DB PAR"
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -7918,6 +7922,7 @@ public partial class MainWindow : Window
         LoadDbParFilterItems();
         DbParGrid.ItemsSource = _dbParView;
         BindSequenceViews();
+        BindStatusDbTabs();
         BindTextListViews();
         BindScadaViews();
         DevicesGrid.ItemsSource = _project.Devices;
@@ -9757,6 +9762,11 @@ public partial class MainWindow : Window
     private async Task RunDbPullFromActiveToolbarAsync()
     {
         var dbName = NormalizeDbName(GetActiveTabKey());
+        if (await RunStatusDbToolbarAsync(dbName, push: false))
+        {
+            return;
+        }
+
         if (dbName == "DB DI")
         {
             DbDiTiaPull_Click(this, new RoutedEventArgs());
@@ -9775,6 +9785,11 @@ public partial class MainWindow : Window
     private async Task RunDbPushFromActiveToolbarAsync()
     {
         var dbName = NormalizeDbName(GetActiveTabKey());
+        if (await RunStatusDbToolbarAsync(dbName, push: true))
+        {
+            return;
+        }
+
         if (dbName == "DB DI")
         {
             DbDiTiaPush_Click(this, new RoutedEventArgs());
@@ -9975,6 +9990,7 @@ public partial class MainWindow : Window
     {
         SequenceParDbParser.RefreshReferenceCounts(_project.DbCatalog.Sequence);
         BindSequenceViews();
+        BindStatusDbTabs();
         _sequenceControlStatusView?.Refresh();
         _sequenceCommandView?.Refresh();
         SequenceControlStatusGrid.Items.Refresh();
@@ -12188,6 +12204,12 @@ public partial class MainWindow : Window
         _project.DbCatalog.ConditionalColors ??= DbConditionalColorSettings.CreateDefaults();
         _project.DbCatalog.Sequence ??= SequenceCatalog.CreateDefault();
         _project.DbCatalog.Sequence.EnsureDefaults();
+        StatusDbFamilies.EnsureDefaults(_project.DbCatalog);
+        foreach (var database in _project.PlcDatabases.Where(database => database.DbCatalog is not null))
+        {
+            StatusDbFamilies.EnsureDefaults(database.DbCatalog);
+        }
+
         _project.DbCatalog.TextLists ??= TextListCatalog.CreateDefault();
         _project.DbCatalog.TextLists.EnsureDefaults();
         foreach (var defaultList in DbValidationDefaults.Create())
