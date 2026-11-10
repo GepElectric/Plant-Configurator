@@ -10114,6 +10114,13 @@ public partial class MainWindow : Window
 
     private string GetSequenceReferenceDataBlockName(bool isCommand)
     {
+        // The block names of DB CTRL_STS / DB SEQ_CMD (Settings → DB Names and Numbers) come first.
+        var family = isCommand ? StatusDbFamilies.SequenceCommand : StatusDbFamilies.ControlStatus;
+        if (_project.DbCatalog.DataBlockNames.Any(item => StatusDbFamilies.Find(item.DbName) == family))
+        {
+            return StatusDbFamilies.Settings(_project.DbCatalog, family).Configuration.DataBlockName;
+        }
+
         var number = isCommand ? 7 : 6;
         var fallbackName = isCommand ? "SEQ_CMDs" : "CTRL_STATUS";
         var fallbackTokens = isCommand ? new[] { "SEQ_CMDS", "SEQ_CMD" } : new[] { "CTRL_STATUS", "CTRL_STS" };

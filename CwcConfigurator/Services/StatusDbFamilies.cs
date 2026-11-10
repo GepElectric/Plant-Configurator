@@ -274,6 +274,18 @@ public static class StatusDbFamilies
         return files;
     }
 
+    /// <summary>File names <see cref="Generate"/> writes for a family.</summary>
+    public static HashSet<string> GeneratedFileNames(DbCatalog catalog, Family family)
+    {
+        var (configuration, english, _) = Settings(catalog, family);
+        var strings = Text(english.FileName, family.StringFileName);
+        return new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            Text(configuration.FileName, family.FileName), Text(configuration.DataBlockName, family.DataBlockName) + ".db",
+            strings, Path.GetFileNameWithoutExtension(strings) + ".udt"
+        };
+    }
+
     static string Write(string path, string text, Encoding encoding)
     {
         File.WriteAllText(path, text, encoding);

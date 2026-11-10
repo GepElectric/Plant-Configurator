@@ -157,6 +157,24 @@ public sealed class TiaLiveSyncService(ITiaSessionService sessionService)
                     .Where(IsTiaSourceFile)
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
+
+                // DB CTRL_STS / DB SEQ_CMD only go to a PLC that has these blocks (a PLC without sequence is left alone;
+                // the push of the DB itself creates them there).
+                var skippedBlocks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var family in StatusDbFamilies.All)
+                {
+                    var blockName = StatusDbFamilies.Settings(database.DbCatalog, family).Configuration.DataBlockName;
+                    if (await PlcHasBlockAsync(binding, blockName, Path.Combine(snapshotRoot, "check", SanitizeName(binding.PlcName))))
+                    {
+                        continue;
+                    }
+
+                    var names = StatusDbFamilies.GeneratedFileNames(database.DbCatalog, family);
+                    sourceFiles.RemoveAll(file => names.Contains(Path.GetFileName(file)));
+                    skippedBlocks.Add(blockName);
+                    result.Messages.Add($"{binding.PlcName}: {family.DbName} skipped - {blockName} is not in the PLC.");
+                }
+
                 if (sourceFiles.Count == 0)
                 {
                     result.Warnings.Add($"No TIA source files were generated for '{binding.PlcName}'.");
@@ -175,7 +193,7 @@ public sealed class TiaLiveSyncService(ITiaSessionService sessionService)
                         .Where(item => item.BlockKind.Equals(DbDataBlockNameDefaults.ConfigurationKind, StringComparison.OrdinalIgnoreCase))
                         .Where(item => binding.IncludeSequenceInGlobalSync || !IsSequenceDbName(item.DbName))
                         .Select(item => item.DataBlockName)
-                        .Where(name => !string.IsNullOrWhiteSpace(name))
+                        .Where(name => !string.IsNullOrWhiteSpace(name) && !skippedBlocks.Contains(name))
                         .Distinct(StringComparer.OrdinalIgnoreCase)
                         .ToList()
                 });
@@ -902,7 +920,8 @@ public sealed class TiaLiveSyncService(ITiaSessionService sessionService)
         var blockFile = files.FirstOrDefault(file => Path.GetFileNameWithoutExtension(file).Equals(configuration.DataBlockName, StringComparison.OrdinalIgnoreCase));
         if (blockFile is null)
         {
-            result.Warnings.Add($"{binding.PlcName}: {configuration.DataBlockName} not found in TIA - {family.DbName} kept.");
+            // A PLC without sequence (intake) has no such block: nothing to pull, the rows stay as they are.
+            result.Messages.Add($"{binding.PlcName}: {configuration.DataBlockName} is not in the PLC - {family.DbName} not pulled.");
             return 0;
         }
 
@@ -915,6 +934,26 @@ public sealed class TiaLiveSyncService(ITiaSessionService sessionService)
         var changed = StatusDbFamilies.Import(database.DbCatalog, family, files);
         result.Messages.Add($"{binding.PlcName}: {family.DbName} - {configuration.DataBlockName} ({typeName}), {changed} value(s).");
         return changed;
+    }
+
+    /// <summary>The PLC has a block of this name (it can be exported).</summary>
+    private async Task<bool> PlcHasBlockAsync(TiaPlcBinding binding, string blockName, string folder)
+    {
+        try
+        {
+            Directory.CreateDirectory(folder);
+            var export = await sessionService.ExportSourcesAsync([
+                new TiaPlcSourceExportRequest
+                {
+                    PlcName = binding.PlcName, DeviceName = binding.DeviceName, SoftwareName = binding.SoftwareName,
+                    OutputSubfolder = folder, Artifacts = [BlockArtifact(blockName, blockName + ".db")]
+                }], folder);
+            return export.Files.Any(File.Exists);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     /// <summary>Push DB CTRL_STS / DB SEQ_CMD to the active PLC: type, instance DB and string-name DBs (created where missing, e.g. intake).</summary>
