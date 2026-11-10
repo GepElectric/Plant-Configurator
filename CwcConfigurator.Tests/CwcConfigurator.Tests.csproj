@@ -17,5 +17,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\CwcConfigurator\sample.cwcproj" Link="TestData\sample.cwcproj" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="TestData\ControlBlocks\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="TestData\ControlBlocksUnit\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="TestData\StatusDbUnit\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

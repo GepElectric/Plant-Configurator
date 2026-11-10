@@ -1,0 +1,47 @@
+﻿DATA_BLOCK "CTRL_STATUS_STRING_NAMES_ENG"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+"DT_CTRL_STATUS_STRING_NAMES"
+
+BEGIN
+   NUM[0] := 'TRUE';
+   NUM[1] := 'FALSE';
+   NUM[2] := 'HPP Started';
+   NUM[3] := 'HPP Stopped';
+   NUM[4] := 'No Shutdown Active';
+   NUM[5] := 'No Start Interlock Active';
+   NUM[6] := 'Standstill';
+   NUM[7] := 'HPU ON';
+   NUM[8] := 'HPU Start Completed';
+   NUM[9] := 'Lubrication ON';
+   NUM[10] := 'Lubrication Start Completed';
+   NUM[11] := 'Cooling Water System ON';
+   NUM[12] := 'Cooling Water System Start Completed';
+   NUM[13] := 'Bypass Open';
+   NUM[14] := 'Bypass Closed';
+   NUM[15] := 'MIV Open';
+   NUM[16] := 'MIV Closed';
+   NUM[17] := 'Turbine Governor ON';
+   NUM[18] := 'Turbine Valves Closed';
+   NUM[19] := 'Turbine Governor Start Completed';
+   NUM[20] := 'Excitation ON';
+   NUM[21] := 'Excitation Start Completed';
+   NUM[22] := 'Synchronization ON';
+   NUM[23] := 'Synchronization Start Completed';
+   NUM[24] := 'Turbine Below Minimal Power';
+   NUM[25] := 'Regulation ON';
+   NUM[26] := 'Turbine Pressure OK';
+   NUM[27] := 'GCB Open';
+   NUM[28] := 'GCB Closed';
+   NUM[29] := 'Emergency Shutdown Line OK';
+   NUM[30] := 'Quick Shutdown Line OK';
+   NUM[31] := 'Sealing OFF';
+   NUM[32] := 'Sealing ON';
+   NUM[33] := 'Brake Activation';
+   NUM[34] := 'Brake OFF';
+   NUM[35] := 'MIV HPU Start Completed';
+   NUM[36] := 'Synchronization Enabled';
+
+END_DATA_BLOCK
+

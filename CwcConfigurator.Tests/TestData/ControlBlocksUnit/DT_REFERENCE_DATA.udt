@@ -1,0 +1,15 @@
+﻿TYPE "DT_REFERENCE_DATA"
+VERSION : 0.1
+   STRUCT
+      ACTIVE : Bool;
+      CONFIGURED : Bool;
+      MEAS_ERR : Bool;
+      FINAL : Real;
+      ACTUAL : Real;
+      MEAS : Real;
+      INIT_VAL_FOR_PID : Real;
+      CMD_INCREMENT : Int;
+   END_STRUCT;
+
+END_TYPE
+

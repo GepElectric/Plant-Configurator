@@ -83,6 +83,16 @@ public sealed class TiaSourceGenerator
             WriteDbGroupNameFiles(project, selection, result, folders.StringFolder);
         }
 
+        // DB CTRL_STS / DB SEQ_CMD: type, instance DB, string-name type and DBs.
+        foreach (var family in StatusDbFamilies.All.Where(family => family == StatusDbFamilies.ControlStatus ? selection.DbCtrlStsConfiguration : selection.DbSeqCmdConfiguration))
+        {
+            StatusDbFamilies.EnsureDefaults(project.DbCatalog);
+            foreach (var file in StatusDbFamilies.Generate(project.DbCatalog, family, folders.DbFolder, folders.StringFolder, TiaStringFileEncoding))
+            {
+                result.AddFile(file);
+            }
+        }
+
         return result;
     }
 
@@ -1299,6 +1309,8 @@ public sealed class GenerationSelection
     public bool DbMeasGroupNames { get; set; }
     public bool DbAlmGroupNames { get; set; }
     public bool DbParGroupNames { get; set; }
+    public bool DbCtrlStsConfiguration { get; set; }
+    public bool DbSeqCmdConfiguration { get; set; }
 
     public static GenerationSelection All()
     {
@@ -1326,7 +1338,9 @@ public sealed class GenerationSelection
             DbDoGroupNames = true,
             DbMeasGroupNames = true,
             DbAlmGroupNames = true,
-            DbParGroupNames = true
+            DbParGroupNames = true,
+            DbCtrlStsConfiguration = true,
+            DbSeqCmdConfiguration = true
         };
     }
 }

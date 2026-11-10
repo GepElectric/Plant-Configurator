@@ -17,7 +17,7 @@ public partial class MainWindow
     PlantConfigLink? plantConfig;
     Dictionary<string, TagAddress> tagAddresses = new(StringComparer.OrdinalIgnoreCase);
     readonly List<RecorderWindow> recorders = [];
-    internal Func<string, short, short, IPlcReader> CreatePlcReader = (ip, rack, slot) => new S7NetReader(ip, rack, slot);
+    internal Func<PlcConnection, IPlcReader> CreatePlcReader = plc => new S7NetReader(plc.Ip, plc.Rack, plc.Slot, plc.Cpu);
     readonly HashSet<string> expandedKeys = [], collapsedKeys = [];
     bool buildingTree, treeRefreshPending;
     string? selectedSlotId;
@@ -674,11 +674,12 @@ public partial class MainWindow
         var catalogColumn = new DataGridComboBoxColumn { Header = "PLC baza u Plant Configuratoru", SelectedValuePath = nameof(PlcCatalog.Id), DisplayMemberPath = nameof(PlcCatalog.Name), SelectedValueBinding = new Binding(nameof(PlcConnection.CatalogId)), Width = new DataGridLength(1, DataGridLengthUnitType.Star), ItemsSource = link?.Plcs };
         grid.Columns.Add(new DataGridTextColumn { Header = "Naziv PLC-a", Binding = new Binding(nameof(PlcConnection.Name)), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
         grid.Columns.Add(new DataGridTextColumn { Header = "IP adresa", Binding = new Binding(nameof(PlcConnection.Ip)), Width = 130 });
+        grid.Columns.Add(new DataGridComboBoxColumn { Header = "CPU", ItemsSource = Cpus.All, SelectedItemBinding = new Binding(nameof(PlcConnection.Cpu)), Width = 115 });
         grid.Columns.Add(new DataGridTextColumn { Header = "Rack", Binding = BindingFor(nameof(PlcConnection.Rack)), Width = 55 });
         grid.Columns.Add(new DataGridTextColumn { Header = "Slot", Binding = BindingFor(nameof(PlcConnection.Slot)), Width = 55 });
         grid.Columns.Add(catalogColumn);
         grid.Columns.Add(new DataGridTextColumn { Header = "Agregati (npr. 1 ili 1, 2)", Binding = new Binding(nameof(PlcConnection.Units)), Width = 170 });
-        var hint = new TextBlock { Text = "Testovi agregata snimaju s PLC-a kojem je agregat dodijeljen. PLC bez agregata (Common, Intake) koristi se za korisnička snimanja. S7-1500: rack 0, slot 1.", Foreground = Brushes.SlateGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) };
+        var hint = new TextBlock { Text = "Testovi agregata snimaju s PLC-a kojem je agregat dodijeljen. PLC bez agregata (Common, Intake) koristi se za korisnička snimanja. S7-1200/1500: rack 0, slot 1 · S7-300: rack 0, slot 2 · S7-400: rack 0, slot 3 (ili slot CPU-a). Stari PLC-ovi (S7-300/400) nemaju bazu Plant Configuratora: adrese (DB, M, I, Q) se upisuju ručno.", Foreground = Brushes.SlateGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) };
         DockPanel.SetDock(hint, Dock.Bottom);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
         DockPanel.SetDock(buttons, Dock.Bottom); layout.Children.Add(buttons); layout.Children.Add(hint); layout.Children.Add(grid);
@@ -813,7 +814,7 @@ public partial class MainWindow
         var search = new StackPanel(); DockPanel.SetDock(search, Dock.Top); right.Children.Add(search);
         search.Children.Add(new TextBlock { Text = "Baza Plant Configuratora", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 6) });
         var plcPicker = new ComboBox { ItemsSource = plant.Plcs, DisplayMemberPath = nameof(PlcConnection.Name), SelectedItem = defaultPlc };
-        var kindPicker = new ComboBox { ItemsSource = new[] { "Sve", "Mjerenja (MEAS)", "Digitalni ulazi (DI)", "Digitalni izlazi (DO)", "Regulator interface (REG_INTF)" }, SelectedIndex = 0 };
+        var kindPicker = new ComboBox { ItemsSource = new[] { "Sve", "Mjerenja (MEAS)", "Digitalni ulazi (DI)", "Digitalni izlazi (DO)", "Regulator interface (REG_INTF)", "Reference (REFERENCES)", "Statusi (CTRL_STATUS)", "Naredbe sekvence (SEQ_CMDs)" }, SelectedIndex = 0 };
         var filter = new TextBox { ToolTip = "Pretraži po ID-u, sustavu, PLC nazivu ili nazivu" };
         var pickerRow = new Grid(); pickerRow.ColumnDefinitions.Add(new()); pickerRow.ColumnDefinitions.Add(new() { Width = new GridLength(8) }); pickerRow.ColumnDefinitions.Add(new());
         Grid.SetColumn(kindPicker, 2); pickerRow.Children.Add(plcPicker); pickerRow.Children.Add(kindPicker); search.Children.Add(pickerRow);
@@ -826,11 +827,12 @@ public partial class MainWindow
         {
             var source = CatalogOf(plcPicker.SelectedItem as PlcConnection);
             string q = filter.Text.Trim();
-            string? kind = kindPicker.SelectedIndex switch { 1 => "MEAS", 2 => "DI", 3 => "DO", 4 => "REG", _ => null };
-            var items = source?.AllItems.Where(m => (kind == null || m.Kind == kind)
+            string? kind = kindPicker.SelectedIndex switch { 1 => "MEAS", 2 => "DI", 3 => "DO", 4 => "REG", 5 => "REF", 6 => "STS", 7 => "CMD", _ => null };
+            // Only what is mapped in Plant Configurator (USED), plus the regulator interface and the references.
+            var items = source?.SearchItems.Where(m => (kind == null || m.Kind == kind)
                 && q.Split(' ', StringSplitOptions.RemoveEmptyEntries).All(w => m.Display.Contains(w, StringComparison.CurrentCultureIgnoreCase) || m.Tag.Contains(w, StringComparison.OrdinalIgnoreCase))).ToList();
             results.ItemsSource = items;
-            info.Text = source == null ? "PLC nije povezan s bazom Plant Configuratora (PLC-ovi i Plant Configurator). Mjerenja možeš dodati ručno ispod." : $"{items!.Count} od {source.AllItems.Count()} · dvoklik ili Dodaj ←";
+            info.Text = source == null ? "PLC nije povezan s bazom Plant Configuratora (PLC-ovi i Plant Configurator). Mjerenja možeš dodati ručno ispod." : $"{items!.Count} od {source.SearchItems.Count()} (samo mapirano u Plant Configuratoru) · dvoklik ili Dodaj ←";
         }
         void AddSelected()
         {
@@ -842,18 +844,27 @@ public partial class MainWindow
         plcPicker.SelectionChanged += (_, _) => Fill(); kindPicker.SelectionChanged += (_, _) => Fill(); filter.TextChanged += (_, _) => Fill();
         results.MouseDoubleClick += (_, _) => AddSelected();
         var addRow = new WrapPanel(); Action(addRow, "←  Dodaj odabrana", (_, _) => AddSelected(), true); manual.Children.Add(addRow); manual.Children.Add(info);
-        manual.Children.Add(new TextBlock { Text = "Bilo koja adresa (DB i offset)", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 4) });
-        var adr = new Grid(); foreach (var w in new[] { 1.6, 0.1, 0.8, 0.1, 0.8, 0.1, 0.5, 0.1, 1.0 }) adr.ColumnDefinitions.Add(new() { Width = new GridLength(w, GridUnitType.Star) });
+        manual.Children.Add(new TextBlock { Text = "Bilo koja adresa (DB, M, I, Q) – i za stare PLC-ove S7-300/400", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 4) });
+        var adr = new Grid(); foreach (var w in new[] { 1.5, 0.1, 0.8, 0.1, 0.7, 0.1, 0.8, 0.1, 0.5, 0.1, 0.9 }) adr.ColumnDefinitions.Add(new() { Width = new GridLength(w, GridUnitType.Star) });
         TextBox Box(string label, int column, string text = "") { var panel = new StackPanel(); panel.Children.Add(new TextBlock { Text = label }); var box = new TextBox { Text = text }; panel.Children.Add(box); Grid.SetColumn(panel, column); adr.Children.Add(panel); return box; }
-        var nameBox = Box("Naziv / tag", 0); var dbBox = Box("DB", 2, "1003"); var offsetBox = Box("Offset", 4); var bitBox = Box("Bit", 6, "0");
-        var typePanel = new StackPanel(); typePanel.Children.Add(new TextBlock { Text = "Tip" }); var typeBox = new ComboBox { ItemsSource = S7Address.Types, SelectedItem = "REAL" }; typePanel.Children.Add(typeBox); Grid.SetColumn(typePanel, 8); adr.Children.Add(typePanel);
+        var nameBox = Box("Naziv / tag", 0);
+        var areaPanel = new StackPanel(); areaPanel.Children.Add(new TextBlock { Text = "Područje" });
+        var areaBox = new ComboBox { ItemsSource = new[] { "DB", "M (memorija)", "I (ulazi)", "Q (izlazi)" }, SelectedIndex = 0 }; areaPanel.Children.Add(areaBox); Grid.SetColumn(areaPanel, 2); adr.Children.Add(areaPanel);
+        var dbBox = Box("DB", 4, "1003"); var offsetBox = Box("Bajt (offset)", 6); var bitBox = Box("Bit", 8, "0");
+        var typePanel = new StackPanel(); typePanel.Children.Add(new TextBlock { Text = "Tip" }); var typeBox = new ComboBox { ItemsSource = S7Address.Types, SelectedItem = "REAL" }; typePanel.Children.Add(typeBox); Grid.SetColumn(typePanel, 10); adr.Children.Add(typePanel);
+        areaBox.SelectionChanged += (_, _) => dbBox.IsEnabled = areaBox.SelectedIndex == 0;
+        typeBox.SelectionChanged += (_, _) => bitBox.IsEnabled = typeBox.SelectedItem as string == "BOOL";
+        bitBox.IsEnabled = false;
         manual.Children.Add(adr);
+        manual.Children.Add(new TextBlock { Text = "Primjeri: DB5 · bajt 12 · REAL = %DB5.DBD12; M · bajt 20 · INT = %MW20; I · bajt 0 · bit 3 · BOOL = %I0.3; Q · bajt 4 · BYTE = %QB4.", Foreground = Brushes.SlateGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0) });
         Action(manual, "←  Dodaj adresu", (_, _) => Guard(() =>
         {
-            if (!int.TryParse(dbBox.Text, out int db) || !int.TryParse(offsetBox.Text, out int offset) || !int.TryParse(bitBox.Text, out int bit) || db < 1 || offset < 0 || bit is < 0 or > 7)
-                throw new InvalidDataException("DB, offset i bit su cijeli brojevi (bit 0–7).");
+            var area = areaBox.SelectedIndex switch { 1 => S7Area.Memory, 2 => S7Area.Input, 3 => S7Area.Output, _ => S7Area.DataBlock };
+            int db = 0;
+            if ((area == S7Area.DataBlock && (!int.TryParse(dbBox.Text, out db) || db < 1)) || !int.TryParse(offsetBox.Text, out int offset) || !int.TryParse(bitBox.Text, out int bit) || offset < 0 || bit is < 0 or > 7)
+                throw new InvalidDataException("DB, bajt i bit su cijeli brojevi (DB ≥ 1, bit 0–7).");
             string type = typeBox.SelectedItem as string ?? "REAL";
-            var address = new S7Address(S7Area.DataBlock, db, offset, type == "BOOL" ? bit : 0, type);
+            var address = new S7Address(area, db, offset, type == "BOOL" ? bit : 0, type);
             string tag = string.IsNullOrWhiteSpace(nameBox.Text) ? address.ToString() : nameBox.Text.Trim();
             tagAddresses[TagMatcher.Normalize(tag)] = new TagAddress { Address = address.ToString(), Type = type };
             list.Add(new ChannelRow { PlcId = (plcPicker.SelectedItem as PlcConnection ?? defaultPlc)?.Id ?? "", Tag = tag, Name = nameBox.Text.Trim(), Address = address.ToString(), Origin = "ručno" });

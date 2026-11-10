@@ -63,8 +63,15 @@ internal static partial class Program
                   {"Id":909,"PlcStructure":"PID_PELTON_NOZZLE_1","PlcName":"TI","ParameterType":"2","TimeValue":"T#1M_10S"}],
                 "DiRows":[{"Id":23,"PlcStructure":"CTRL_AND_SYNC","PlcName":"GCB_ON","NameEnglish":"Generator CB on"},{"Id":24,"PlcStructure":"CTRL_AND_SYNC","PlcName":"GCB_OFF","NameEnglish":"Generator CB off"}],
                 "DoRows":[{"Id":5,"PlcStructure":"TURBINE","PlcName":"NOZZLE_1_OPEN","NameEnglish":"Nozzle 1 open command"}]}},
-              {"Id":"in","Name":"Intake","DbCatalog":{"DataBlockNames":[{"DbName":"DB MEAS","BlockKind":"Configuration","Number":4}],"MeasRows":[
-                {"Id":0,"PlcStructure":"INTAKE","PlcName":"INTAKE_LEVEL","NameEnglish":"Intake level","Unit":"20"}]}}]}
+              {"Id":"in","Name":"Intake","ControlSignals":[
+                {"Block":"REFERENCES","Db":9,"Element":"GATE_1","Member":"DATA.FINAL","DataType":"Real","ByteOffset":66,"Description":"Gate 1 regulation","Unit":"%"},
+                {"Block":"REG_INTF","Db":31,"Element":"GATE_1","Member":"VALUES.OUT","DataType":"Real","ByteOffset":44,"Description":"Gate 1 regulation","Unit":"%"}],
+               "DbCatalog":{"DataBlockNames":[{"DbName":"DB MEAS","BlockKind":"Configuration","Number":4}],
+                "Sequence":{"ControlStatusRows":[{"Id":2,"PlcName":"HPP_STARTED","StringNameEnglish":"HPP Started","NameEnglish":"x"},{"Id":37,"PlcName":"SPARE_37"}],
+                  "CommandRows":[{"Id":1,"PlcName":"INTAKE","NameEnglish":"Intake"}]},
+                "MeasRows":[
+                {"Id":0,"PlcStructure":"INTAKE","PlcName":"INTAKE_LEVEL","NameEnglish":"Intake level","Unit":"20","TrueText":"TRUE"},
+                {"Id":1,"PlcStructure":"INTAKE","PlcName":"SPARE_LEVEL","NameEnglish":"Spare","Unit":"20"}]}}]}
             """;
         string plantcfg = Path.Combine(output, "Test.plantcfg");
         using (var aes = Aes.Create())
@@ -90,6 +97,17 @@ internal static partial class Program
             && (string)typeof(MainWindow).GetMethod("TimeText", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, ["T#1M_10S"])! == "70 s",
             "Controller parameters (PID_*) are read from Plant Configurator: on/off, gain, times (T#1M_10S = 70 s)");
         Check(link.Plcs.Count == 2 && intake.Db == 4 && intake.AddressOf(intake.Items[0]).ToString() == "%DB1003.DBD44" && intake.Items[0].Unit == "m", "Every PLC database keeps its own measurements and MEAS block number");
+        var final = intake.Find("REFERENCES.GATE_1.DATA.FINAL")!; var gateOut = intake.Find("REG_INTF.GATE_1.VALUES.OUT")!;
+        Check(intake.AddressOf(final).ToString() == "%DB1009.DBD66" && intake.AddressOf(gateOut).ToString() == "%DB31.DBD44" && final.Name == "Gate 1 regulation – konačna referenca"
+            && !intake.SearchItems.Any(m => m.IsRegulator && m.System == "PELTON_NOZZLE[1]"),
+            "REFERENCES (read from REFERENCES_INDIRECT, DB9 + 1000) and REG_INTF pulled by Plant Configurator: element names and addresses of this PLC (intake gates)");
+        Check(intake.SearchItems.Where(m => m.Kind == "MEAS").Select(m => m.Id).SequenceEqual([0]) && intake.Find("MEAS#1") != null && map.SearchItems.Count(m => m.Kind == "MEAS") == 3,
+            "Signal search offers only signals mapped in Plant Configurator (USED); older projects without the column keep all");
+        var started = intake.Find("CTRL_STATUS.HPP_STARTED.DATA.VAL")!; var intakeCmd = intake.Find("STS#2")!;
+        Check(intake.AddressOf(started).ToString() == "%DB1006.DBX44.0" && started.Name == "HPP Started" && intakeCmd == started
+            && intake.AddressOf(intake.Find("SEQ_CMDs.INTAKE.DATA.VAL")!).ToString() == "%DB1007.DBX22.0" && !intake.Items.Any(m => m.PlcName == "SPARE_37")
+            && intake.SearchItems.Count(m => m.Kind is "STS" or "CMD") == 2,
+            "Control status (DB CTRL_STS) and sequence commands (DB SEQ_CMD) from Plant Configurator: DB1006 / DB1007, ID × 22, bit 0; spares left out");
         string realConfig = @"C:\Users\Mazda\OneDrive - Geppert Electric d.o.o\3000_Aplikacije\01_Plant_Configurator\01_Source_Code\PlantConfigurator.plantcfg";
         if (File.Exists(realConfig))
         {
@@ -101,6 +119,11 @@ internal static partial class Program
 
         bool tooFast = false; try { _ = new PlcRecorder(new FakePlc(), [new("A", real)], TimeSpan.FromMilliseconds(50), Path.Combine(output, "fast.csv")); } catch (InvalidDataException) { tooFast = true; }
         Check(tooFast, "Sampling faster than 100 ms is refused");
+        var oldPlc = ProjectStore.Deserialize<PlcConnection>("{\"Name\":\"Stari\",\"Ip\":\"10.0.0.5\"}");
+        Check(oldPlc.Cpu == Cpus.S71500 && S7NetReader.TypeOf(Cpus.S7300).ToString() == "S7300" && S7NetReader.TypeOf(Cpus.S7400).ToString() == "S7400" && Cpus.DefaultSlot(Cpus.S7300) == 2 && Cpus.DefaultSlot(Cpus.S7400) == 3
+            && new S7Address(S7Area.Memory, 0, 20, 0, "INT").ToString() == "%MW20" && new S7Address(S7Area.Input, 0, 0, 3, "BOOL").ToString() == "%I0.3" && new S7Address(S7Area.Output, 0, 4, 0, "BYTE").ToString() == "%QB4"
+            && S7Address.Parse("%MD8").Area == S7Area.Memory && S7Address.Parse("%Q1.2").Area == S7Area.Output,
+            "S7-300 / S7-400 driver (slot 2 / 3), older PLC entries stay S7-1200/1500; manual M, I and Q addresses");
 
         var fake = new FakePlc { FailAt = 5 };
         BinaryPrimitives.WriteInt16BigEndian(fake.Memory[(S7Area.DataBlock, 31)].AsSpan(430), 77);
@@ -131,7 +154,7 @@ internal static partial class Program
         // Keep recordings inside the check output instead of the user's Documents folder.
         typeof(MainWindow).GetField("workspacePath", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(window, Path.Combine(output, "Recorder.tracestudio"));
         var gui = new FakePlc();
-        typeof(MainWindow).GetField("CreatePlcReader", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(window, (Func<string, short, short, IPlcReader>)((_, _, _) => { var plc = new FakePlc(); plc.Memory[(S7Area.DataBlock, 1001)][506] = 1; return plc; }));
+        typeof(MainWindow).GetField("CreatePlcReader", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(window, (Func<PlcConnection, IPlcReader>)(_ => { var plc = new FakePlc(); plc.Memory[(S7Area.DataBlock, 1001)][506] = 1; return plc; }));
         var slots = (List<TestSlot>)Get(window, "slots");
         var slot = slots.First(s => s.Kind == "NOZZLE_STEP" && s.Index == 1);
         Invoke(window, "OpenRecorder", slot);

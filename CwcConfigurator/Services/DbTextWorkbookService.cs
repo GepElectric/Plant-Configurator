@@ -21,7 +21,78 @@ public sealed class DbTextWorkbookService
     private const string AoPlcHeader = "AO PLC NAME";
     private const string SequenceControlStatusSheet = "SEQUENCE_CONTROL_STATUS";
     private const string SequenceCommandsSheet = "SEQUENCE_COMMANDS";
-    private static readonly string[] DbNames = ["DB DI", "DB DO", "DB MEAS", "DB AO", "DB ALM", "DB PAR", "DB SEQUENCE"];
+    private static readonly string[] DbNames = ["DB DI", "DB DO", "DB MEAS", "DB AO", "DB ALM", "DB PAR", "DB SEQUENCE", "DB CTRL_STS", "DB SEQ_CMD"];
+
+    /// <summary>DB CTRL_STS / DB SEQ_CMD sheet: string names and text-list names (PLC name for reference only).</summary>
+    private static readonly (string Header, Func<DbStringRow, string> Get, Action<DbStringRow, string>? Set)[] StatusDbColumns =
+    [
+        ("ID", row => row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), null),
+        ("PLC NAME", row => row.PlcName, null),
+        ("NAME ENG", row => row.StringNameEnglish, (row, value) => row.StringNameEnglish = value),
+        ("NAME OTHER", row => row.StringNameOther, (row, value) => row.StringNameOther = value),
+        ("TEXT LIST NAME ENG", row => row.NameEnglish, (row, value) => row.NameEnglish = value),
+        ("TEXT LIST NAME OTHER", row => row.NameOther, (row, value) => row.NameOther = value)
+    ];
+
+    private static void WriteStatusDbSheet(XLWorkbook workbook, CwcProject project, StatusDbFamilies.Family family)
+    {
+        var worksheet = workbook.Worksheets.Add(SanitizeWorksheetName(family.DbName));
+        for (var column = 0; column < StatusDbColumns.Length; column++)
+        {
+            worksheet.Cell(1, column + 1).Value = StatusDbColumns[column].Header;
+        }
+
+        var rowNumber = 2;
+        foreach (var row in family.Rows(project.DbCatalog).OrderBy(row => row.Id))
+        {
+            for (var column = 0; column < StatusDbColumns.Length; column++)
+            {
+                worksheet.Cell(rowNumber, column + 1).Value = StatusDbColumns[column].Get(row);
+            }
+
+            rowNumber++;
+        }
+
+        worksheet.Range(1, 1, Math.Max(1, rowNumber - 1), StatusDbColumns.Length).CreateTable(SanitizeTableName(family.DbName) + "_TEXT");
+        worksheet.SheetView.FreezeRows(1);
+        worksheet.Columns().AdjustToContents();
+    }
+
+    private static int ImportStatusDbSheet(CwcProject project, StatusDbFamilies.Family family, IXLWorksheet worksheet)
+    {
+        var headers = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var cell in worksheet.Row(1).CellsUsed())
+        {
+            headers[cell.GetString().Trim()] = cell.Address.ColumnNumber;
+        }
+
+        if (!headers.TryGetValue("ID", out var idColumn))
+        {
+            throw new InvalidOperationException("Excel file does not contain required 'ID' column.");
+        }
+
+        var rows = family.Rows(project.DbCatalog).ToDictionary(row => row.Id);
+        var changed = 0;
+        var lastRow = worksheet.LastRowUsed()?.RowNumber() ?? 1;
+        for (var rowNumber = 2; rowNumber <= lastRow; rowNumber++)
+        {
+            if (!int.TryParse(worksheet.Cell(rowNumber, idColumn).GetString().Trim(), out var id) || !rows.TryGetValue(id, out var target))
+            {
+                continue;
+            }
+
+            foreach (var (header, get, set) in StatusDbColumns.Where(column => column.Set is not null))
+            {
+                if (headers.TryGetValue(header, out var column) && worksheet.Cell(rowNumber, column).GetString() is var value && get(target) != value)
+                {
+                    set!(target, value);
+                    changed++;
+                }
+            }
+        }
+
+        return changed;
+    }
     private readonly DescriptionTemplateService _descriptionTemplateService = new();
 
     public void ExportAll(CwcProject project, string path)
@@ -99,6 +170,12 @@ public sealed class DbTextWorkbookService
 
     private void WriteDbSheet(XLWorkbook workbook, CwcProject project, string dbName)
     {
+        if (StatusDbFamilies.Find(dbName) is { } statusFamily)
+        {
+            WriteStatusDbSheet(workbook, project, statusFamily);
+            return;
+        }
+
         if (NormalizeDbName(dbName) == "DB SEQUENCE")
         {
             WriteSequenceSheet(workbook, SequenceControlStatusSheet, project.DbCatalog.Sequence.ControlStatusRows);
@@ -132,6 +209,11 @@ public sealed class DbTextWorkbookService
 
     private int ImportWorksheet(CwcProject project, string dbName, IXLWorksheet worksheet)
     {
+        if (StatusDbFamilies.Find(dbName) is { } statusFamily)
+        {
+            return ImportStatusDbSheet(project, statusFamily, worksheet);
+        }
+
         if (NormalizeDbName(dbName) == "DB SEQUENCE")
         {
             var sequenceChanged = 0;

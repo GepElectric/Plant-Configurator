@@ -24,7 +24,7 @@ public sealed class ChannelRow : Observable
 
 public sealed record RecorderSetup(
     TestSlot Slot, IReadOnlyList<PlcConnection> Plcs, PlcConnection DefaultPlc, IReadOnlyList<ChannelRow> Channels,
-    Func<PlcConnection, PlcCatalog?> CatalogOf, string Folder, Func<string, short, short, IPlcReader> CreateReader,
+    Func<PlcConnection, PlcCatalog?> CatalogOf, string Folder, Func<PlcConnection, IPlcReader> CreateReader,
     Action<string, TagAddress> RememberAddress, Action<IReadOnlyList<SlotChannel>> ChannelsUsed, Action<TraceData> Save);
 
 /// <summary>
@@ -38,6 +38,7 @@ public sealed class RecorderWindow : Window
     readonly RecorderSetup setup;
     readonly ObservableCollection<ChannelRow> rows;
     readonly TextBox ip = new() { Width = 140 }, rack = new() { Width = 40 }, slotBox = new() { Width = 40 };
+    readonly ComboBox cpu = new() { Width = 115, ItemsSource = Cpus.All };
     readonly ComboBox interval = new() { Width = 110, ItemsSource = Intervals.Select(i => i < 1000 ? $"{i} ms" : $"{i / 1000} s").ToArray() };
     readonly ComboBox connectionPlc = new() { Width = 200, DisplayMemberPath = nameof(PlcConnection.Name) };
     readonly DataGrid grid = new() { AutoGenerateColumns = false, CanUserAddRows = true, Height = 220, HeadersVisibility = DataGridHeadersVisibility.Column };
@@ -67,6 +68,9 @@ public sealed class RecorderWindow : Window
         connectionPlc.ItemsSource = setup.Plcs; connectionPlc.SelectedItem = setup.DefaultPlc;
         connectionPlc.SelectionChanged += (_, _) => { StoreConnection(); ShowConnection(); };
         connection.Children.Add(Label("PLC")); connection.Children.Add(connectionPlc);
+        connection.Children.Add(Label("CPU")); connection.Children.Add(cpu);
+        // Another CPU family usually sits in another slot (S7-300: 2, S7-400: 3).
+        cpu.SelectionChanged += (_, e) => { if (e.RemovedItems.Count > 0 && cpu.SelectedItem is string family) slotBox.Text = Cpus.DefaultSlot(family).ToString(); };
         connection.Children.Add(Label("IP")); connection.Children.Add(ip);
         connection.Children.Add(Label("Rack")); connection.Children.Add(rack);
         connection.Children.Add(Label("Slot")); connection.Children.Add(slotBox);
@@ -74,7 +78,7 @@ public sealed class RecorderWindow : Window
         test = Button("Provjeri vezu i adrese", Test);
         connection.Children.Add(test);
         head.Children.Add(connection);
-        head.Children.Add(new TextBlock { Text = "S7 komunikacija (PUT/GET) na neoptimizirane blokove; mjerenja iz DB1003. Čitaju se samo mjerenja s popisa. Mjerenja s više PLC-ova snimaju se istodobno, s jednom vremenskom osi. Vrijeme uzorka je s PC sata.", Foreground = Brushes.SlateGray, TextWrapping = TextWrapping.Wrap });
+        head.Children.Add(new TextBlock { Text = "S7 komunikacija (PUT/GET): S7-1200/1500, S7-300 i S7-400; neoptimizirani DB-ovi, M, I i Q; mjerenja Plant Configuratora iz DB1003. Čitaju se samo mjerenja s popisa. Mjerenja s više PLC-ova snimaju se istodobno, s jednom vremenskom osi. Vrijeme uzorka je s PC sata.", Foreground = Brushes.SlateGray, TextWrapping = TextWrapping.Wrap });
         DockPanel.SetDock(head, Dock.Top); layout.Children.Add(head);
 
         var bottom = new DockPanel { Margin = new Thickness(0, 10, 0, 0) };
@@ -103,7 +107,7 @@ public sealed class RecorderWindow : Window
         add.Children.Add(Label("Dodaj mjerenje · PLC")); add.Children.Add(pickerPlc); add.Children.Add(measurementPicker);
         add.Children.Add(Button("Dodaj", AddMeasurement));
         add.Children.Add(Button("Ukloni odabrani red", () => { if (grid.SelectedItem is ChannelRow row) rows.Remove(row); }));
-        add.Children.Add(new TextBlock { Text = "Ručni tag: upiši tag i adresu u zadnji red tablice.", Foreground = Brushes.SlateGray, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 6) });
+        add.Children.Add(new TextBlock { Text = "Ručni tag: upiši tag i adresu u zadnji red tablice (npr. %DB5.DBD12, %MW20, %I0.3, %QB4).", Foreground = Brushes.SlateGray, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 6) });
         Grid.SetRow(add, 1); body.Children.Add(add);
         var chart = new DockPanel(); var chartBar = new StackPanel { Orientation = Orientation.Horizontal }; chartBar.Children.Add(wholeRecording);
         DockPanel.SetDock(chartBar, Dock.Top); chart.Children.Add(chartBar); chart.Children.Add(plot);
@@ -137,17 +141,18 @@ public sealed class RecorderWindow : Window
     void ShowConnection()
     {
         shownPlc = connectionPlc.SelectedItem as PlcConnection;
+        cpu.SelectedItem = shownPlc?.Cpu ?? Cpus.S71500;
         ip.Text = shownPlc?.Ip ?? ""; rack.Text = (shownPlc?.Rack ?? 0).ToString(); slotBox.Text = (shownPlc?.Slot ?? 1).ToString();
     }
     void StoreConnection()
     {
         if (shownPlc == null) return;
-        shownPlc.Ip = ip.Text.Trim();
+        shownPlc.Ip = ip.Text.Trim(); shownPlc.Cpu = cpu.SelectedItem as string ?? Cpus.S71500;
         if (short.TryParse(rack.Text, out short r)) shownPlc.Rack = r;
         if (short.TryParse(slotBox.Text, out short s)) shownPlc.Slot = s;
     }
 
-    void FillPicker() => measurementPicker.ItemsSource = pickerPlc.SelectedItem is PlcConnection plc ? setup.CatalogOf(plc)?.AllItems.ToList() : null;
+    void FillPicker() => measurementPicker.ItemsSource = pickerPlc.SelectedItem is PlcConnection plc ? setup.CatalogOf(plc)?.SearchItems.ToList() : null;
 
     void AddMeasurement()
     {
@@ -214,7 +219,7 @@ public sealed class RecorderWindow : Window
             {
                 try
                 {
-                    using var reader = setup.CreateReader(g.Plc.Ip, g.Plc.Rack, g.Plc.Slot);
+                    using var reader = setup.CreateReader(g.Plc);
                     reader.Connect();
                     return g.Channels.Select(c => { try { var data = reader.Read(c.Address.Area, c.Address.Db, c.Address.Byte, c.Address.Size); double v = c.Address.Decode(data); return double.IsNaN(v) ? "= NaN (neispravno)" : "= " + v.ToString("G6", CultureInfo.CurrentCulture); } catch (Exception ex) { return "greška: " + ex.Message; } }).ToList();
                 }
@@ -244,7 +249,7 @@ public sealed class RecorderWindow : Window
             string stamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
             string safe = string.Concat(setup.Slot.ChartTitle.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
             string path = Path.Combine(setup.Folder, $"{stamp} {safe}.csv");
-            var sources = groups.Select(g => new PlcSource(g.Plc.Name, setup.CreateReader(g.Plc.Ip, g.Plc.Rack, g.Plc.Slot), g.Channels)).ToList();
+            var sources = groups.Select(g => new PlcSource(g.Plc.Name, setup.CreateReader(g.Plc), g.Channels)).ToList();
             recorder = new PlcRecorder(sources, TimeSpan.FromMilliseconds(Intervals[Math.Max(0, interval.SelectedIndex)]), path);
             cancel = new CancellationTokenSource(); var token = cancel.Token; var active = recorder;
             running = Task.Factory.StartNew(() => active.Run(token), token, TaskCreationOptions.LongRunning, TaskScheduler.Default);

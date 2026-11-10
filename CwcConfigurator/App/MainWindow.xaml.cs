@@ -775,6 +775,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        InitializeStatusDbTabs();
         RestoreUiState();
         InitializeGridSafetyHandlers();
         InitializeTiaTabIndicators();
@@ -858,7 +859,8 @@ public partial class MainWindow : Window
             SequenceControlStatusGrid, SequenceCommandGrid,
             ScadaVariablesGrid, ScadaNavigationGrid, ScadaScreensGrid, ScadaTagsGrid, ScadaLocationsGrid, ScadaHeaderGrid, ScadaMainNavGrid,
             TextListAlmBlockingClassGrid, TextListCabinetsGrid, TextListPortConfigurationGrid, TextListSeqCmdGrid, TextListSeqConfigGrid,
-            DevicesGrid
+            DevicesGrid,
+            .. StatusDbGrids
         ];
     }
 
@@ -1586,6 +1588,7 @@ public partial class MainWindow : Window
             "DB ALM" => DbAlmTiaStatusText,
             "DB PAR" => DbParTiaStatusText,
             "DB SEQUENCE" => DbSequenceTiaStatusText,
+            _ when StatusDbTabFor(dbName) is { } statusTab => statusTab.StatusText,
             _ => throw new NotSupportedException($"DB family '{dbName}' is not supported.")
         };
     }
@@ -2315,6 +2318,19 @@ public partial class MainWindow : Window
         }
 
         await RunWholeDatabaseTiaOperationAsync(database, service => service.PullActiveDatabaseAsync(_project), $"Pulling {database.Name} from TIA...");
+    }
+
+    /// <summary>Only REFERENCES / REG_INTF of the database (element names and addresses), nothing else is pulled.</summary>
+    private async void PullSelectedPlcControlBlocksFromTia_Click(object sender, RoutedEventArgs e)
+    {
+        var database = GetSelectedPlcDatabase();
+        if (database is null)
+        {
+            ShowMessage("Select PLC database first.");
+            return;
+        }
+
+        await RunWholeDatabaseTiaOperationAsync(database, service => service.PullControlBlocksAsync(_project), $"Pulling REFERENCES / REG_INTF of {database.Name} from TIA...");
     }
 
     private async void PushSelectedPlcDatabaseToTia_Click(object sender, RoutedEventArgs e)
@@ -3365,6 +3381,8 @@ public partial class MainWindow : Window
                 "DB AO",
                 "DB ALM",
                 "DB PAR",
+                "DB CTRL_STS",
+                "DB SEQ_CMD",
                 "Sequence",
                 "Text lists"
             };
@@ -3438,7 +3456,7 @@ public partial class MainWindow : Window
         GetFromConfigurationButton.Visibility = activeHeader is "DB DI" or "DB DO" or "DB MEAS" or "DB AO"
             ? Visibility.Visible
             : Visibility.Collapsed;
-        var activeDb = activeHeader is "DB DI" or "DB DO" or "DB MEAS" or "DB AO" or "DB ALM" or "DB PAR" or "Sequence";
+        var activeDb = activeHeader is "DB DI" or "DB DO" or "DB MEAS" or "DB AO" or "DB ALM" or "DB PAR" or "Sequence" || StatusDbFamilies.IsFamily(activeHeader);
         TabGroupNamesButton.Visibility = activeHeader is "DB DI" or "DB DO" or "DB MEAS" or "DB ALM" or "DB PAR"
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -4853,6 +4871,8 @@ public partial class MainWindow : Window
             case nameof(DbStringRow.PlcName): row.PlcName = value; break;
             case nameof(DbStringRow.NameEnglish): row.NameEnglish = value; break;
             case nameof(DbStringRow.NameOther): row.NameOther = value; break;
+            case nameof(DbStringRow.StringNameEnglish): row.StringNameEnglish = value; break;
+            case nameof(DbStringRow.StringNameOther): row.StringNameOther = value; break;
             case nameof(DbStringRow.SystemNameEnglish): row.SystemNameEnglish = value; break;
             case nameof(DbStringRow.ParameterType): row.ParameterType = value; break;
             case nameof(DbStringRow.SystemNameOther): row.SystemNameOther = value; break;
@@ -5250,7 +5270,8 @@ public partial class MainWindow : Window
                || ReferenceEquals(grid, DbAlmGrid)
                || ReferenceEquals(grid, DbParGrid)
                || ReferenceEquals(grid, SequenceControlStatusGrid)
-               || ReferenceEquals(grid, SequenceCommandGrid);
+               || ReferenceEquals(grid, SequenceCommandGrid)
+               || IsStatusDbGrid(grid);
     }
 
     private bool IsTextListGrid(DataGrid grid)
@@ -7918,6 +7939,7 @@ public partial class MainWindow : Window
         LoadDbParFilterItems();
         DbParGrid.ItemsSource = _dbParView;
         BindSequenceViews();
+        BindStatusDbTabs();
         BindTextListViews();
         BindScadaViews();
         DevicesGrid.ItemsSource = _project.Devices;
@@ -9757,6 +9779,11 @@ public partial class MainWindow : Window
     private async Task RunDbPullFromActiveToolbarAsync()
     {
         var dbName = NormalizeDbName(GetActiveTabKey());
+        if (await RunStatusDbToolbarAsync(dbName, push: false))
+        {
+            return;
+        }
+
         if (dbName == "DB DI")
         {
             DbDiTiaPull_Click(this, new RoutedEventArgs());
@@ -9775,6 +9802,11 @@ public partial class MainWindow : Window
     private async Task RunDbPushFromActiveToolbarAsync()
     {
         var dbName = NormalizeDbName(GetActiveTabKey());
+        if (await RunStatusDbToolbarAsync(dbName, push: true))
+        {
+            return;
+        }
+
         if (dbName == "DB DI")
         {
             DbDiTiaPush_Click(this, new RoutedEventArgs());
@@ -9928,6 +9960,11 @@ public partial class MainWindow : Window
                 SequenceCommandGrid.Items.Refresh();
                 UpdateSequenceControlStatusFilterItems();
                 UpdateSequenceCommandFilterItems();
+                RefreshStatusDbTabs();
+                break;
+            case var key when StatusDbTabFor(key) is { } statusTab:
+                AfterStatusDbEdit(statusTab);
+                statusTab.Grid.Items.Refresh();
                 break;
         }
     }
@@ -9975,6 +10012,7 @@ public partial class MainWindow : Window
     {
         SequenceParDbParser.RefreshReferenceCounts(_project.DbCatalog.Sequence);
         BindSequenceViews();
+        BindStatusDbTabs();
         _sequenceControlStatusView?.Refresh();
         _sequenceCommandView?.Refresh();
         SequenceControlStatusGrid.Items.Refresh();
@@ -10098,6 +10136,13 @@ public partial class MainWindow : Window
 
     private string GetSequenceReferenceDataBlockName(bool isCommand)
     {
+        // The block names of DB CTRL_STS / DB SEQ_CMD (Settings → DB Names and Numbers) come first.
+        var family = isCommand ? StatusDbFamilies.SequenceCommand : StatusDbFamilies.ControlStatus;
+        if (_project.DbCatalog.DataBlockNames.Any(item => StatusDbFamilies.Find(item.DbName) == family))
+        {
+            return StatusDbFamilies.Settings(_project.DbCatalog, family).Configuration.DataBlockName;
+        }
+
         var number = isCommand ? 7 : 6;
         var fallbackName = isCommand ? "SEQ_CMDs" : "CTRL_STATUS";
         var fallbackTokens = isCommand ? new[] { "SEQ_CMDS", "SEQ_CMD" } : new[] { "CTRL_STATUS", "CTRL_STS" };
@@ -12188,6 +12233,12 @@ public partial class MainWindow : Window
         _project.DbCatalog.ConditionalColors ??= DbConditionalColorSettings.CreateDefaults();
         _project.DbCatalog.Sequence ??= SequenceCatalog.CreateDefault();
         _project.DbCatalog.Sequence.EnsureDefaults();
+        StatusDbFamilies.EnsureDefaults(_project.DbCatalog);
+        foreach (var database in _project.PlcDatabases.Where(database => database.DbCatalog is not null))
+        {
+            StatusDbFamilies.EnsureDefaults(database.DbCatalog);
+        }
+
         _project.DbCatalog.TextLists ??= TextListCatalog.CreateDefault();
         _project.DbCatalog.TextLists.EnsureDefaults();
         foreach (var defaultList in DbValidationDefaults.Create())

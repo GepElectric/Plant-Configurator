@@ -894,6 +894,22 @@ public sealed class ScadaSectionSummary
     public int TagWrites { get; set; }
 }
 
+/// <summary>A value of a controller block (REFERENCES / REG_INTF): GATE_1 · DATA.FINAL at DB9.DBD26.</summary>
+public sealed class ControlBlockSignal
+{
+    public string Block { get; set; } = "";
+    public int Db { get; set; }
+    /// <summary>Element of the block ("GATE_1", "WATER_LEVEL").</summary>
+    public string Element { get; set; } = "";
+    /// <summary>Path inside the element ("DATA.FINAL", "VALUES.OUT").</summary>
+    public string Member { get; set; } = "";
+    public string DataType { get; set; } = "Real";
+    public int ByteOffset { get; set; }
+    /// <summary>Name of the regulation from the REFERENCES start values ("Gate 1 regulation").</summary>
+    public string Description { get; set; } = "";
+    public string Unit { get; set; } = "";
+}
+
 public sealed class PlcDatabase
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
@@ -907,6 +923,12 @@ public sealed class PlcDatabase
 
     /// <summary>All interfaces of the PLC from TIA: "interface name|IPv4".</summary>
     public List<string> IpAddresses { get; set; } = [];
+
+    /// <summary>
+    /// REAL values of the controller blocks REFERENCES and REG_INTF with their addresses, read from TIA on pull
+    /// (element names differ per PLC: unit, intake…); used by TIA Trace Studio.
+    /// </summary>
+    public List<ControlBlockSignal> ControlSignals { get; set; } = [];
     [JsonIgnore]
     public bool IsActive { get; set; }
     [JsonIgnore]
@@ -1334,6 +1356,8 @@ public sealed class SequenceCatalog
     public List<DbStringRow> ControlStatusRows { get; set; } = [];
     public List<DbStringRow> CommandRows { get; set; } = [];
     public List<SequenceDefinition> Sequences { get; set; } = [];
+    /// <summary>The string names of DB CTRL_STS / DB SEQ_CMD were taken over once from the text-list names.</summary>
+    public bool StringNamesTakenFromTextLists { get; set; }
 
     public static SequenceCatalog CreateDefault()
     {
@@ -1775,7 +1799,10 @@ public static class DbDataBlockNameDefaults
             CreateGroupNames(2102, "DB DO", "GROUP_DO.db", "DO_GROUP_NAMES"),
             CreateGroupNames(2103, "DB MEAS", "GROUP_MEAS.db", "MEAS_GROUP_NAMES"),
             CreateGroupNames(2105, "DB ALM", "GROUP_ALM.db", "ALM_GROUP_NAMES"),
-            CreateGroupNames(2108, "DB PAR", "GROUP_PAR.db", "PAR_GROUP_NAMES")
+            CreateGroupNames(2108, "DB PAR", "GROUP_PAR.db", "PAR_GROUP_NAMES"),
+
+            // DB CTRL_STS (CTRL_STATUS) and DB SEQ_CMD (SEQ_CMDs): own configuration and string-name blocks.
+            .. CwcConfigurator.Services.StatusDbFamilies.DefaultDataBlockNames()
         ];
     }
 
@@ -2101,6 +2128,10 @@ public sealed class DbStringRow : IValidationState
     public string NameEnglish { get; set; } = "";
     public string SystemNameOther { get; set; } = "";
     public string NameOther { get; set; } = "";
+    /// <summary>DB CTRL_STS / DB SEQ_CMD: name in the string-name DB (NAME ENG); NameEnglish is the text-list name there.</summary>
+    public string StringNameEnglish { get; set; } = "";
+    /// <summary>DB CTRL_STS / DB SEQ_CMD: name in the other-language string-name DB (NAME OTHER).</summary>
+    public string StringNameOther { get; set; } = "";
     public string Unit { get; set; } = "";
     public string TrueText { get; set; } = "";
     public string ModuleName { get; set; } = "";

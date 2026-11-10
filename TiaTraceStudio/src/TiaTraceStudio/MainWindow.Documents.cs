@@ -230,6 +230,13 @@ public partial class MainWindow
         nameLibrary = ProjectStore.Clone(next.NameLibrary);
         plant = next.Plant; slots = next.Slots ?? []; catalog = next.Catalog ?? TestCatalog.LoadGlobal();
         plantConfig = next.PlantConfig; tagAddresses = new(next.TagAddresses ?? [], StringComparer.OrdinalIgnoreCase);
+        // The project keeps a snapshot of the Plant Configurator databases; when the .plantcfg is reachable its current
+        // content applies (mapped signals = USED, REFERENCES / REG_INTF, control status…), older snapshots knew less.
+        if (plantConfig?.SourceFile is { Length: > 0 } source && File.Exists(source))
+        {
+            try { plantConfig = PlantConfigLink.Load(source); }
+            catch (Exception) { /* keep the snapshot when the file cannot be read */ }
+        }
         selectedSlotId = null; expandedKeys.Clear(); collapsedKeys.Clear();
         bool recovering = path != null && string.Equals(System.IO.Path.GetFullPath(path), System.IO.Path.GetFullPath(SessionRecoveryPath), StringComparison.OrdinalIgnoreCase);
         workspacePath = path?.EndsWith(".tracestudio", StringComparison.OrdinalIgnoreCase) == true && !recovering ? path : null;

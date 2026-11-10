@@ -1,0 +1,71 @@
+﻿TYPE "DT_CONTROL_STATUS_ALL"
+VERSION : 0.1
+   STRUCT
+      "FALSE" { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 0), ((), (), ()), ((), (), ()), ((), (), ()));
+      "TRUE" { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 1), ((), (), ()), ((), (), ()), ((), (), ()));
+      HPP_STARTED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 2), ((), (), ()), ((), (), ()), ((), (), ()));
+      HPP_STOPPED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 3), ((), (), ()), ((), (), ()), ((), (), ()));
+      NO_SHUTDOWN_ACTIVE { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 4), ((), (), ()), ((), (), ()), ((), (), ()));
+      NO_START_INTERLOCK_ACTIVE { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 5), ((), (), ()), ((), (), ()), ((), (), ()));
+      STANDSTILL { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 6), ((), (), ()), ((), (), ()), ((), (), ()));
+      HPU_ON : "DT_STATUS_SOLO";
+      HPU_READY { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 7), ((), (), ()), ((), (), ()), ((), (), ()));
+      LOU_ON : "DT_STATUS_SOLO";
+      LOU_READY { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 8), ((), (), ()), ((), (), ()), ((), (), ()));
+      CWS_ON : "DT_STATUS_SOLO";
+      CWS_READY { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 9), ((), (), ()), ((), (), ()), ((), (), ()));
+      BYPASS_OPEN { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 10), ((), (), ()), ((), (), ()), ((), (), ()));
+      BYPASS_CLOSED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 11), ((), (), ()), ((), (), ()), ((), (), ()));
+      MIV_OPEN { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 12), ((), (), ()), ((), (), ()), ((), (), ()));
+      MIV_CLOSED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 13), ((), (), ()), ((), (), ()), ((), (), ()));
+      TURBINE_ON : "DT_STATUS_SOLO";
+      TURBINE_CLOSED { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 14), ((), (), ()), ((), (), ()), ((), (), ()));
+      TURBINE_READY { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 15), ((), (), ()), ((), (), ()), ((), (), ()));
+      EXC_ON : "DT_STATUS_SOLO";
+      EXC_READY { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 16), ((), (), ()), ((), (), ()), ((), (), ()));
+      SYNC_ON : "DT_STATUS_SOLO";
+      SYNC_READY { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 17), ((), (), ()), ((), (), ()), ((), (), ()));
+      TURBINE_ON_MIN_POWER { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 18), ((), (), ()), ((), (), ()), ((), (), ()));
+      REGULATION_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 19), ((), (), ()), ((), (), ()), ((), (), ()));
+      TURBINE_PRESSURE_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 20), ((), (), ()), ((), (), ()), ((), (), ()));
+      GCB_OFF { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 21), ((), (), ()), ((), (), ()), ((), (), ()));
+      GCB_ON { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 22), ((), (), ()), ((), (), ()), ((), (), ()));
+      ESD_LINE_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 29), ((), (), ()), ((), (), ()), ((), (), ()));
+      QSD_LINE_OK { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 30), ((), (), ()), ((), (), ()), ((), (), ()));
+      SEALING_OFF { S7_SetPoint := 'False'} : "DT_STATUS_SOLO" := ((FALSE, 1, 31), ((), (), ()), ((), (), ()), ((), (), ()));
+      SEALING_ON : "DT_STATUS_SOLO";
+      BRAKE_ACTIVATION : "DT_STATUS_SOLO";
+      BRAKE_OFF : "DT_STATUS_SOLO";
+      MIV_PUMP_READY : "DT_STATUS_SOLO";
+      SYNC_ENB : "DT_STATUS_SOLO";
+      SPARE_38 : "DT_STATUS_SOLO";
+      SPARE_39 : "DT_STATUS_SOLO";
+      SPARE_40 : "DT_STATUS_SOLO";
+      SPARE_41 : "DT_STATUS_SOLO";
+      SPARE_42 : "DT_STATUS_SOLO";
+      SPARE_43 : "DT_STATUS_SOLO";
+      SPARE_44 : "DT_STATUS_SOLO";
+      SPARE_45 : "DT_STATUS_SOLO";
+      SPARE_46 : "DT_STATUS_SOLO";
+      SPARE_47 : "DT_STATUS_SOLO";
+      SPARE_48 : "DT_STATUS_SOLO";
+      SPARE_49 : "DT_STATUS_SOLO";
+      SPARE_50 : "DT_STATUS_SOLO";
+      SPARE_51 : "DT_STATUS_SOLO";
+      SPARE_52 : "DT_STATUS_SOLO";
+      SPARE_53 : "DT_STATUS_SOLO";
+      SPARE_54 : "DT_STATUS_SOLO";
+      SPARE_55 : "DT_STATUS_SOLO";
+      SPARE_56 : "DT_STATUS_SOLO";
+      SPARE_57 : "DT_STATUS_SOLO";
+      SPARE_58 : "DT_STATUS_SOLO";
+      SPARE_59 : "DT_STATUS_SOLO";
+      SPARE_60 : "DT_STATUS_SOLO";
+      SPARE_61 : "DT_STATUS_SOLO";
+      SPARE_62 : "DT_STATUS_SOLO";
+      SPARE_63 : "DT_STATUS_SOLO";
+      SPARE_64 : "DT_STATUS_SOLO";
+   END_STRUCT;
+
+END_TYPE
+
