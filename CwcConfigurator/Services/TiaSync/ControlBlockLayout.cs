@@ -145,19 +145,35 @@ public static class ControlBlockLayout
         string Start(string element, string path) => referenceValues.TryGetValue($"{element}.{path}", out var value) ? value : "";
         foreach (var (blockName, db) in new[] { (References, ReferencesDb), (RegulatorInterface, RegulatorInterfaceDb) })
         {
-            foreach (var value in Layout(source, blockName).Where(value => value.Type.Equals("Real", StringComparison.OrdinalIgnoreCase)))
+            var layout = Layout(source, blockName);
+            // Recording reads the indirect block (DB + 1000): REFERENCES_INDIRECT (DB1009) is Array[0..31] of
+            // DT_REFERENCE_SOLO, the element at its ID. REG_INTF has no indirect block and is read directly (DB31).
+            var starts = layout.GroupBy(value => value.Element).ToDictionary(group => group.Key, group => group.Min(value => value.ByteOffset));
+            var ordered = starts.Values.Order().ToList();
+            var elementSize = ordered.Count > 1 ? ordered[1] - ordered[0] : 0;
+            var indirect = blockName == References && elementSize > 0;
+            foreach (var value in layout.Where(value => value.Type.Equals("Real", StringComparison.OrdinalIgnoreCase)))
             {
                 // Spares and unnamed elements ("Element_25") are not regulations.
                 if (value.Element.StartsWith("SPARE", StringComparison.OrdinalIgnoreCase) || value.Element.StartsWith("Element_", StringComparison.OrdinalIgnoreCase)) continue;
                 if (Start(value.Element, "DATA.CONFIGURED").Equals("FALSE", StringComparison.OrdinalIgnoreCase)) continue;
+                var offset = value.ByteOffset;
+                var block = db;
+                if (indirect)
+                {
+                    var id = int.TryParse(Start(value.Element, "ID"), out var number) ? number : (starts[value.Element] - ordered[0]) / elementSize;
+                    offset = id * elementSize + value.ByteOffset - starts[value.Element];
+                    block = db + 1000;
+                }
+
                 signals.Add(new ControlBlockSignal
                 {
                     Block = blockName,
-                    Db = db,
+                    Db = block,
                     Element = value.Element,
                     Member = value.Path,
                     DataType = "Real",
-                    ByteOffset = value.ByteOffset,
+                    ByteOffset = offset,
                     Description = Start(value.Element, "NAME"),
                     Unit = blockName == RegulatorInterface ? "%" : Start(value.Element, "S_UNIT")
                 });

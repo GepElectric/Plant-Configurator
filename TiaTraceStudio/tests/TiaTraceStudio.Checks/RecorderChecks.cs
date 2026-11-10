@@ -98,9 +98,9 @@ internal static partial class Program
             "Controller parameters (PID_*) are read from Plant Configurator: on/off, gain, times (T#1M_10S = 70 s)");
         Check(link.Plcs.Count == 2 && intake.Db == 4 && intake.AddressOf(intake.Items[0]).ToString() == "%DB1003.DBD44" && intake.Items[0].Unit == "m", "Every PLC database keeps its own measurements and MEAS block number");
         var final = intake.Find("REFERENCES.GATE_1.DATA.FINAL")!; var gateOut = intake.Find("REG_INTF.GATE_1.VALUES.OUT")!;
-        Check(intake.AddressOf(final).ToString() == "%DB9.DBD66" && intake.AddressOf(gateOut).ToString() == "%DB31.DBD44" && final.Name == "Gate 1 regulation – konačna referenca"
+        Check(intake.AddressOf(final).ToString() == "%DB1009.DBD66" && intake.AddressOf(gateOut).ToString() == "%DB31.DBD44" && final.Name == "Gate 1 regulation – konačna referenca"
             && !intake.SearchItems.Any(m => m.IsRegulator && m.System == "PELTON_NOZZLE[1]"),
-            "REFERENCES and REG_INTF pulled by Plant Configurator: element names and addresses of this PLC (intake gates), not the fixed unit layout");
+            "REFERENCES (read from REFERENCES_INDIRECT, DB9 + 1000) and REG_INTF pulled by Plant Configurator: element names and addresses of this PLC (intake gates)");
         Check(intake.SearchItems.Where(m => m.Kind == "MEAS").Select(m => m.Id).SequenceEqual([0]) && intake.Find("MEAS#1") != null && map.SearchItems.Count(m => m.Kind == "MEAS") == 3,
             "Signal search offers only signals mapped in Plant Configurator (USED); older projects without the column keep all");
         var started = intake.Find("CTRL_STATUS.HPP_STARTED.DATA.VAL")!; var intakeCmd = intake.Find("STS#2")!;

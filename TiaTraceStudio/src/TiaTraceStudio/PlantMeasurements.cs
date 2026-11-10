@@ -71,8 +71,8 @@ public static class PlantLayout
         return Regulators.FirstOrDefault(r => string.Equals(r.Tag, normalized, StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>References of the regulations (REFERENCES), DB9.</summary>
-    public const int RefDb = 9;
+    /// <summary>References of the regulations: REFERENCES_INDIRECT, DB1009 (REFERENCES DB9 + 1000).</summary>
+    public const int RefDb = 1009;   // REFERENCES_INDIRECT (DB9 + 1000): recording always reads the indirect block
     public static S7Address Address(string kind, int id, int? db = null) => kind switch
     {
         "REF" => new(S7Area.DataBlock, db ?? RefDb, id, 0, "REAL"),
@@ -118,7 +118,7 @@ public sealed class PlcCatalog
     /// <summary>Regulator interface block (REG_INTF), DB31.</summary>
     public int RegDb { get => regDb > 0 ? regDb : PlantLayout.RegDb; set => regDb = value; }
     int refDb;
-    /// <summary>References of the regulations (REFERENCES), DB9.</summary>
+    /// <summary>References of the regulations: read from REFERENCES_INDIRECT, DB1009.</summary>
     public int RefDb { get => refDb > 0 ? refDb : PlantLayout.RefDb; set => refDb = value; }
 
     /// <summary>
@@ -302,7 +302,7 @@ public sealed class PlantConfigLink
             else if (block == "REFERENCES")
             {
                 plc.ControlItems.Add(new(offset, element, member, label + ValueNames.GetValueOrDefault(member, member), UnitText(Text(signal, "Unit")), "REF"));
-                if (db > 0) plc.RefDb = db;
+                if (db > 0) plc.RefDb = db < 1000 ? db + 1000 : db;   // the indirect block (DB + 1000), also for projects pulled before
             }
         }
     }

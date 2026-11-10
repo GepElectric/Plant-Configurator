@@ -63,7 +63,7 @@ public sealed class ControlBlockLayoutTests
 
         Assert.DoesNotContain(signals, s => s.Element.StartsWith("SPARE") || s.Element == "GATE_3");   // CONFIGURED := FALSE
         var final = signals.Single(s => s.Block == "REFERENCES" && s.Element == "GATE_1" && s.Member == "DATA.FINAL");
-        Assert.Equal((9, 66, "Gate 1 regulation", "%"), (final.Db, final.ByteOffset, final.Description, final.Unit));
+        Assert.Equal((1009, 66, "Gate 1 regulation", "%"), (final.Db, final.ByteOffset, final.Description, final.Unit));   // REFERENCES_INDIRECT: ID 1 × 62 + 4
         var output = signals.Single(s => s.Block == "REG_INTF" && s.Element == "GATE_1" && s.Member == "VALUES.OUT");
         Assert.Equal((31, 44, "Gate 1 regulation"), (output.Db, output.ByteOffset, output.Description));
         Assert.Contains(signals, s => s.Block == "REFERENCES" && s.Element == "WATER_LEVEL" && s.Unit == "m");
