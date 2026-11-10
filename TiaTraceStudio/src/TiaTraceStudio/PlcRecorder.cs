@@ -15,15 +15,19 @@ public interface IPlcReader : IDisposable
     void Disconnect();
 }
 
-/// <summary>S7 (PUT/GET) access to absolute addresses of non-optimized blocks.</summary>
-public sealed class S7NetReader(string ip, short rack, short slot) : IPlcReader
+/// <summary>
+/// S7 (PUT/GET) access to absolute addresses: non-optimized blocks, M, I and Q. S7-1200/1500 as well as the older
+/// S7-300 and S7-400 (their PDU is smaller; the driver splits long reads).
+/// </summary>
+public sealed class S7NetReader(string ip, short rack, short slot, string cpu = Cpus.S71500) : IPlcReader
 {
     Plc? plc;
     public bool IsConnected => plc?.IsConnected == true;
+    public static CpuType TypeOf(string cpu) => cpu switch { Cpus.S7300 => CpuType.S7300, Cpus.S7400 => CpuType.S7400, _ => CpuType.S71500 };
     public void Connect()
     {
         Disconnect();
-        plc = new Plc(CpuType.S71500, ip.Trim(), rack, slot) { ReadTimeout = 2000, WriteTimeout = 2000 };
+        plc = new Plc(TypeOf(cpu), ip.Trim(), rack, slot) { ReadTimeout = 2000, WriteTimeout = 2000 };
         plc.Open();
     }
     public byte[] Read(S7Area area, int db, int start, int count) =>

@@ -110,6 +110,12 @@ public partial class MainWindow
         TestSlot slot;
         if (group == null)
         {
+            if (plant.Plcs.Count == 0)
+            {
+                string? none = null; var first = new PlcConnection { Name = "PLC" };
+                if (!PlcDialog("PLC za snimanje (npr. stari S7-300/400)", ref none, first)) return;
+                plant.Plcs.Add(first);
+            }
             var plc = plant.Plcs.FirstOrDefault(p => p.UnitNumbers().Length == 0) ?? plant.Plcs.First();
             slot = PlantPlanner.NewUserSlot(title, plc.Id);
         }
@@ -326,11 +332,14 @@ public partial class MainWindow
         var database = new ComboBox { ItemsSource = plantConfig?.Plcs, DisplayMemberPath = nameof(PlcCatalog.Name), SelectedValuePath = nameof(PlcCatalog.Id), SelectedValue = plc.CatalogId, IsEnabled = plantConfig != null, Margin = new Thickness(0, 3, 0, 4) };
         panel.Children.Add(database);
         panel.Children.Add(new TextBlock { Text = plantConfig == null ? "Plant Configurator nije povezan (Projekt ▾ → PLC-ovi i Plant Configurator)." : "Nazivi, jedinice i adrese mjerenja dolaze iz ove baze.", Foreground = Brushes.SlateGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 9) });
+        panel.Children.Add(new TextBlock { Text = "CPU" });
+        var cpuBox = new ComboBox { ItemsSource = Cpus.All, SelectedItem = plc.Cpu, Margin = new Thickness(0, 3, 0, 9) }; panel.Children.Add(cpuBox);
         var ip = Field("IP adresa PLC-a", plc.Ip);
         var row = new Grid(); row.ColumnDefinitions.Add(new()); row.ColumnDefinitions.Add(new() { Width = new GridLength(12) }); row.ColumnDefinitions.Add(new());
         var rackPanel = new StackPanel(); rackPanel.Children.Add(new TextBlock { Text = "Rack" }); var rack = new TextBox { Text = plc.Rack.ToString(), Margin = new Thickness(0, 3, 0, 9) }; rackPanel.Children.Add(rack);
-        var slotPanel = new StackPanel(); slotPanel.Children.Add(new TextBlock { Text = "Slot (S7-1500: 1)" }); var slotBox = new TextBox { Text = plc.Slot.ToString(), Margin = new Thickness(0, 3, 0, 9) }; slotPanel.Children.Add(slotBox); Grid.SetColumn(slotPanel, 2);
+        var slotPanel = new StackPanel(); slotPanel.Children.Add(new TextBlock { Text = "Slot (S7-1500: 1 · S7-300: 2 · S7-400: 3)" }); var slotBox = new TextBox { Text = plc.Slot.ToString(), Margin = new Thickness(0, 3, 0, 9) }; slotPanel.Children.Add(slotBox); Grid.SetColumn(slotPanel, 2);
         row.Children.Add(rackPanel); row.Children.Add(slotPanel); panel.Children.Add(row);
+        cpuBox.SelectionChanged += (_, _) => { if (cpuBox.SelectedItem is string family) slotBox.Text = Cpus.DefaultSlot(family).ToString(); };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right }; panel.Children.Add(buttons);
         var dialog = new Window { Owner = this, Title = title, Content = panel, Width = 560, SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = Brushes.White, ResizeMode = ResizeMode.NoResize };
         dialog.Resources.MergedDictionaries.Add(Resources);
@@ -341,7 +350,7 @@ public partial class MainWindow
             if (nameBox != null && string.IsNullOrWhiteSpace(nameBox.Text)) throw new InvalidDataException("Upiši naziv grupe.");
             if (ip.Text.Trim().Length > 0 && !System.Net.IPAddress.TryParse(ip.Text.Trim(), out _)) throw new InvalidDataException($"Neispravna IP adresa '{ip.Text}'.");
             if (!short.TryParse(rack.Text, out short r) || !short.TryParse(slotBox.Text, out short sl)) throw new InvalidDataException("Rack i slot su cijeli brojevi.");
-            plc.Ip = ip.Text.Trim(); plc.Rack = r; plc.Slot = sl; plc.CatalogId = database.SelectedValue as string ?? plc.CatalogId;
+            plc.Ip = ip.Text.Trim(); plc.Rack = r; plc.Slot = sl; plc.Cpu = cpuBox.SelectedItem as string ?? Cpus.S71500; plc.CatalogId = database.SelectedValue as string ?? plc.CatalogId;
             newName = nameBox?.Text.Trim();
             saved = true; dialog.Close();
         }), true);

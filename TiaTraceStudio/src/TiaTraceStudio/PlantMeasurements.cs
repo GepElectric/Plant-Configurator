@@ -304,13 +304,24 @@ public sealed class PlantConfigLink
     }
 }
 
+/// <summary>CPU families the S7 driver talks to (S7 communication, PUT/GET).</summary>
+public static class Cpus
+{
+    public const string S71500 = "S7-1200/1500", S7300 = "S7-300", S7400 = "S7-400";
+    public static readonly string[] All = [S71500, S7300, S7400];
+    /// <summary>Usual slot of the CPU: S7-1200/1500 1, S7-300 2, S7-400 3 (rack 0; an S7-400 in another slot must be set).</summary>
+    public static short DefaultSlot(string cpu) => cpu switch { S7300 => 2, S7400 => 3, _ => 1 };
+}
+
 /// <summary>A PLC the app can record from, linked to a Plant Configurator PLC database and to the units it serves.</summary>
 public sealed class PlcConnection : Observable
 {
-    string name = "", ip = "", catalogId = "", units = ""; short rack, slot = 1;
+    string name = "", ip = "", catalogId = "", units = "", cpu = Cpus.S71500; short rack, slot = 1;
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get => name; set => Set(ref name, value); }
     public string Ip { get => ip; set => Set(ref ip, value); }
+    /// <summary>CPU family (S7 driver): S7-1200/1500, or an older S7-300 / S7-400 recorded with manually entered addresses.</summary>
+    public string Cpu { get => cpu; set => Set(ref cpu, Cpus.All.Contains(value) ? value : Cpus.S71500); }
     public short Rack { get => rack; set => Set(ref rack, value); }
     public short Slot { get => slot; set => Set(ref slot, value); }
     /// <summary>Id of the Plant Configurator PLC database whose names, units and addresses apply.</summary>

@@ -111,6 +111,11 @@ internal static partial class Program
 
         bool tooFast = false; try { _ = new PlcRecorder(new FakePlc(), [new("A", real)], TimeSpan.FromMilliseconds(50), Path.Combine(output, "fast.csv")); } catch (InvalidDataException) { tooFast = true; }
         Check(tooFast, "Sampling faster than 100 ms is refused");
+        var oldPlc = ProjectStore.Deserialize<PlcConnection>("{\"Name\":\"Stari\",\"Ip\":\"10.0.0.5\"}");
+        Check(oldPlc.Cpu == Cpus.S71500 && S7NetReader.TypeOf(Cpus.S7300).ToString() == "S7300" && S7NetReader.TypeOf(Cpus.S7400).ToString() == "S7400" && Cpus.DefaultSlot(Cpus.S7300) == 2 && Cpus.DefaultSlot(Cpus.S7400) == 3
+            && new S7Address(S7Area.Memory, 0, 20, 0, "INT").ToString() == "%MW20" && new S7Address(S7Area.Input, 0, 0, 3, "BOOL").ToString() == "%I0.3" && new S7Address(S7Area.Output, 0, 4, 0, "BYTE").ToString() == "%QB4"
+            && S7Address.Parse("%MD8").Area == S7Area.Memory && S7Address.Parse("%Q1.2").Area == S7Area.Output,
+            "S7-300 / S7-400 driver (slot 2 / 3), older PLC entries stay S7-1200/1500; manual M, I and Q addresses");
 
         var fake = new FakePlc { FailAt = 5 };
         BinaryPrimitives.WriteInt16BigEndian(fake.Memory[(S7Area.DataBlock, 31)].AsSpan(430), 77);
@@ -141,7 +146,7 @@ internal static partial class Program
         // Keep recordings inside the check output instead of the user's Documents folder.
         typeof(MainWindow).GetField("workspacePath", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(window, Path.Combine(output, "Recorder.tracestudio"));
         var gui = new FakePlc();
-        typeof(MainWindow).GetField("CreatePlcReader", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(window, (Func<string, short, short, IPlcReader>)((_, _, _) => { var plc = new FakePlc(); plc.Memory[(S7Area.DataBlock, 1001)][506] = 1; return plc; }));
+        typeof(MainWindow).GetField("CreatePlcReader", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(window, (Func<PlcConnection, IPlcReader>)(_ => { var plc = new FakePlc(); plc.Memory[(S7Area.DataBlock, 1001)][506] = 1; return plc; }));
         var slots = (List<TestSlot>)Get(window, "slots");
         var slot = slots.First(s => s.Kind == "NOZZLE_STEP" && s.Index == 1);
         Invoke(window, "OpenRecorder", slot);
