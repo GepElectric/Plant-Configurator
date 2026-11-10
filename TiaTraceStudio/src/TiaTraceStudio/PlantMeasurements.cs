@@ -8,20 +8,25 @@ using System.Text.RegularExpressions;
 namespace TiaTraceStudio;
 
 /// <summary>An analog measurement (MEAS, REAL), digital input (DI, BOOL) or digital output (DO, BOOL) of a Plant Configurator PLC database.</summary>
+/// <param name="Used">Mapped in Plant Configurator (column USED); only mapped signals are offered in the search.</param>
 public sealed record PlantMeasurement(int Id, string System, string PlcName, string Name, string Unit, string Kind = "MEAS",
-    double? RangeLow = null, double? RangeHigh = null, string RangeSource = "")
+    double? RangeLow = null, double? RangeHigh = null, string RangeSource = "", bool Used = true)
 {
     /// <summary>0 % / 100 % of the measurement from its Plant Configurator parameters (ParVal1Id / ParVal2Id).</summary>
     [JsonIgnore] public bool HasRange => RangeLow is double low && RangeHigh is double high && high > low;
     [JsonIgnore] public bool IsDigital => Kind is "DI" or "DO";
     [JsonIgnore] public bool IsRegulator => Kind == "REG";
+    /// <summary>Value of a regulation reference (REFERENCES, DB9): Id is its byte offset, PlcName the path ("DATA.FINAL").</summary>
+    [JsonIgnore] public bool IsReference => Kind == "REF";
     [JsonIgnore] public string Tag => Kind switch
     {
         "DI" or "DO" => $"{Kind}.{System}.{PlcName}.DATA.VAL",
         "REG" => $"REG_INTF.{System}.VALUES.{PlcName}",
+        "REF" => $"REFERENCES.{System}.{PlcName}",
         _ => $"MEAS.{System}.{PlcName}.VAL"
     };
-    [JsonIgnore] public string Display => IsRegulator ? $"REG · {System}.{PlcName} · {Name}" : $"{Kind} {Id,3} · {System}.{PlcName} · {Name}" + (Unit.Length > 0 ? $" [{Unit}]" : "");
+    [JsonIgnore] public string Display => IsRegulator || IsReference ? $"{Kind} · {System}.{PlcName} · {Name}" + (IsReference && Unit.Length > 0 ? $" [{Unit}]" : "")
+        : $"{Kind} {Id,3} · {System}.{PlcName} · {Name}" + (Unit.Length > 0 ? $" [{Unit}]" : "");
 }
 
 /// <summary>Fixed layout of the indirect blocks, valid in every PLC (verified on PLCSIM Advanced).</summary>
@@ -62,8 +67,11 @@ public static class PlantLayout
         return Regulators.FirstOrDefault(r => string.Equals(r.Tag, normalized, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>References of the regulations (REFERENCES), DB9.</summary>
+    public const int RefDb = 9;
     public static S7Address Address(string kind, int id, int? db = null) => kind switch
     {
+        "REF" => new(S7Area.DataBlock, db ?? RefDb, id, 0, "REAL"),
         "DI" => new(S7Area.DataBlock, db ?? DiDb, id * DiSize, 0, "BOOL"),
         "DO" => new(S7Area.DataBlock, db ?? DoDb, id * DiSize, 0, "BOOL"),
         "REG" => new(S7Area.DataBlock, db ?? RegDb, id, 0, "REAL"),
@@ -103,20 +111,34 @@ public sealed class PlcCatalog
     int regDb;
     /// <summary>Regulator interface block (REG_INTF), DB31.</summary>
     public int RegDb { get => regDb > 0 ? regDb : PlantLayout.RegDb; set => regDb = value; }
-    /// <summary>Plant Configurator signals plus the fixed regulator interface.</summary>
-    [JsonIgnore] public IEnumerable<PlantMeasurement> AllItems => Items.Concat(PlantLayout.Regulators);
+    int refDb;
+    /// <summary>References of the regulations (REFERENCES), DB9.</summary>
+    public int RefDb { get => refDb > 0 ? refDb : PlantLayout.RefDb; set => refDb = value; }
+
+    /// <summary>
+    /// Regulator interface (REG) and references (REF) as pulled from TIA by Plant Configurator: element names of this
+    /// PLC (unit, intake…); empty for an older project, then the fixed regulator interface applies.
+    /// </summary>
+    public List<PlantMeasurement> ControlItems { get; set; } = [];
+    [JsonIgnore] IEnumerable<PlantMeasurement> Regulators => ControlItems.Any(m => m.IsRegulator) ? ControlItems.Where(m => m.IsRegulator) : PlantLayout.Regulators;
+    /// <summary>Plant Configurator signals plus the regulator interface and the references.</summary>
+    [JsonIgnore] public IEnumerable<PlantMeasurement> AllItems => Items.Concat(Regulators).Concat(ControlItems.Where(m => m.IsReference));
+    /// <summary>What the signal search offers: mapped measurements, statuses (DI) and digital outputs, regulators and references.</summary>
+    /// A database where nothing is marked USED yet (not mapped at all) still offers everything.
+    [JsonIgnore] public IEnumerable<PlantMeasurement> SearchItems => (Items.Any(m => m.Used) ? Items.Where(m => m.Used) : Items).Concat(Regulators).Concat(ControlItems.Where(m => m.IsReference));
 
     public PlantMeasurement? Find(string tag)
     {
         if (PlantLayout.ParseIdTag(tag) is var (kind, id)) return Items.FirstOrDefault(m => m.Kind == kind && m.Id == id);
         string normalized = TagMatcher.Normalize(tag);
-        return Items.FirstOrDefault(m => string.Equals(m.Tag, normalized, StringComparison.OrdinalIgnoreCase)) ?? PlantLayout.FindRegulator(tag);
+        return Items.Concat(ControlItems).FirstOrDefault(m => string.Equals(m.Tag, normalized, StringComparison.OrdinalIgnoreCase)) ?? PlantLayout.FindRegulator(tag);
     }
     public S7Address AddressOf(PlantMeasurement measurement) => measurement.Kind switch
     {
         "DI" => PlantLayout.Address("DI", measurement.Id, DiReadDb),
         "DO" => PlantLayout.Address("DO", measurement.Id),
         "REG" => PlantLayout.Address("REG", measurement.Id, RegDb),
+        "REF" => PlantLayout.Address("REF", measurement.Id, RefDb),
         _ => new(S7Area.DataBlock, ReadDb, measurement.Id * StructSize + ValueOffset, 0, "REAL")
     };
     public void Validate()
@@ -175,6 +197,7 @@ public sealed class PlantConfigLink
                     {
                         var plc = ReadCatalog(catalog, Text(database, "Id"), Text(database, "Name"));
                         plc.Ip = Text(database, "IpAddress").Trim();
+                        ReadControlSignals(database, plc);
                         link.Plcs.Add(plc);
                     }
             // Projects saved before multi-PLC support keep a single catalogue at the root.
@@ -217,7 +240,7 @@ public sealed class PlantConfigLink
                 var low = Parameter(row, "ParVal1Id"); var high = Parameter(row, "ParVal2Id");
                 bool range = low.Value.HasValue && high.Value.HasValue && high.Value > low.Value;
                 plc.Items.Add(new(number, Text(row, "PlcStructure"), Text(row, "PlcName"), Text(row, "NameEnglish"), UnitText(Text(row, "Unit")), "MEAS",
-                    range ? low.Value : null, range ? high.Value : null, range ? string.Join(" / ", new[] { low.Name, high.Name }.Where(n => n.Length > 0)) : ""));
+                    range ? low.Value : null, range ? high.Value : null, range ? string.Join(" / ", new[] { low.Name, high.Name }.Where(n => n.Length > 0)) : "", IsUsed(row)));
             }
         foreach (var (rowsName, kind) in new[] { ("DiRows", "DI"), ("DoRows", "DO") })
             if (TryGet(catalog, rowsName, out var digital) && digital.ValueKind == JsonValueKind.Array)
@@ -225,10 +248,43 @@ public sealed class PlantConfigLink
                 {
                     if (!TryGet(row, "Id", out var idValue) || !idValue.TryGetInt32(out int number)) continue;
                     if (Text(row, "PlcName").Length == 0 || Text(row, "PlcStructure").Length == 0) continue;
-                    plc.Items.Add(new(number, Text(row, "PlcStructure"), Text(row, "PlcName"), Text(row, "NameEnglish"), "", kind));
+                    plc.Items.Add(new(number, Text(row, "PlcStructure"), Text(row, "PlcName"), Text(row, "NameEnglish"), "", kind, Used: IsUsed(row)));
                 }
         plc.Items = plc.Items.OrderBy(i => i.Kind == "MEAS" ? 0 : i.Kind == "DI" ? 1 : 2).ThenBy(i => i.Id).ToList();
         return plc;
+    }
+
+    /// <summary>Column USED of Plant Configurator (stored as TrueText): the signal is mapped (hardware or program).</summary>
+    static bool IsUsed(JsonElement row) => Text(row, "TrueText") is var used && (used.Equals("TRUE", StringComparison.OrdinalIgnoreCase) || used == "1");
+
+    static readonly Dictionary<string, string> ValueNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["DATA.FINAL"] = "konačna referenca", ["DATA.ACTUAL"] = "trenutna referenca", ["DATA.MEAS"] = "mjerenje", ["DATA.INIT_VAL_FOR_PID"] = "početna vrijednost za PID",
+        ["SCALED_REFERENCE"] = "referenca", ["OUT"] = "izlaz regulatora", ["SCALED_MEAS"] = "mjerenje"
+    };
+
+    /// <summary>REFERENCES / REG_INTF values pulled from TIA by Plant Configurator (PlcDatabase.ControlSignals).</summary>
+    static void ReadControlSignals(JsonElement database, PlcCatalog plc)
+    {
+        if (!TryGet(database, "ControlSignals", out var signals) || signals.ValueKind != JsonValueKind.Array) return;
+        foreach (var signal in signals.EnumerateArray())
+        {
+            string block = Text(signal, "Block"), element = Text(signal, "Element"), member = Text(signal, "Member"), description = Text(signal, "Description");
+            if (!TryGet(signal, "ByteOffset", out var offsetValue) || !offsetValue.TryGetInt32(out int offset) || element.Length == 0) continue;
+            int db = TryGet(signal, "Db", out var dbValue) && dbValue.TryGetInt32(out int number) ? number : 0;
+            string label = (description.Length > 0 ? description : element) + " – ";
+            if (block == "REG_INTF" && member.StartsWith("VALUES.", StringComparison.OrdinalIgnoreCase))
+            {
+                string value = member["VALUES.".Length..];
+                plc.ControlItems.Add(new(offset, element, value, label + ValueNames.GetValueOrDefault(value, value), "%", "REG"));
+                if (db > 0) plc.RegDb = db;
+            }
+            else if (block == "REFERENCES")
+            {
+                plc.ControlItems.Add(new(offset, element, member, label + ValueNames.GetValueOrDefault(member, member), UnitText(Text(signal, "Unit")), "REF"));
+                if (db > 0) plc.RefDb = db;
+            }
+        }
     }
 
     /// <summary>Unit number of a Plant Configurator PLC database named like "Unit 2", "U2" or "Agregat 2".</summary>

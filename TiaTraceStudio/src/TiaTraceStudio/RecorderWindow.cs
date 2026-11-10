@@ -147,7 +147,7 @@ public sealed class RecorderWindow : Window
         if (short.TryParse(slotBox.Text, out short s)) shownPlc.Slot = s;
     }
 
-    void FillPicker() => measurementPicker.ItemsSource = pickerPlc.SelectedItem is PlcConnection plc ? setup.CatalogOf(plc)?.AllItems.ToList() : null;
+    void FillPicker() => measurementPicker.ItemsSource = pickerPlc.SelectedItem is PlcConnection plc ? setup.CatalogOf(plc)?.SearchItems.ToList() : null;
 
     void AddMeasurement()
     {

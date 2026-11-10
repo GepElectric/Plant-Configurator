@@ -1,0 +1,11 @@
+﻿TYPE "DT_REFERENCE_SOLO"
+VERSION : 0.1
+   STRUCT
+      ID { S7_SetPoint := 'True'} : Int;
+      DATA : "DT_REFERENCE_DATA";
+      "NAME" { S7_SetPoint := 'True'} : String[32];
+      S_UNIT { S7_SetPoint := 'True'} : String[4];
+   END_STRUCT;
+
+END_TYPE
+

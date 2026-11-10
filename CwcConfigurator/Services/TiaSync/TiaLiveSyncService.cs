@@ -91,6 +91,14 @@ public sealed class TiaLiveSyncService(ITiaSessionService sessionService)
             RestoreActiveDatabase(project, originalActiveId);
         }
 
+        foreach (var binding in project.TiaSync.PlcBindings.OrderBy(item => item.PlcName, StringComparer.OrdinalIgnoreCase))
+        {
+            if (project.PlcDatabases.FirstOrDefault(item => item.Id == binding.PlcDatabaseId) is { } pulled)
+            {
+                await ReadControlBlocksAsync(binding, pulled, Path.Combine(remoteRoot, SanitizeName(binding.PlcName), "control_blocks"), result);
+            }
+        }
+
         result.Message = $"Pull completed: {result.ImportedRows} row(s), {result.FileCount} file(s).";
         return result;
     }
@@ -722,6 +730,7 @@ public sealed class TiaLiveSyncService(ITiaSessionService sessionService)
             RestoreActiveDatabase(project, originalActiveId);
         }
 
+        await ReadControlBlocksAsync(binding, database, Path.Combine(plcFolder, "control_blocks"), result);
         result.Message = $"{database.Name} pull completed: {result.ImportedRows} row(s), {result.FileCount} file(s).";
         return result;
     }
@@ -803,6 +812,50 @@ public sealed class TiaLiveSyncService(ITiaSessionService sessionService)
         }
 
         return (database, binding);
+    }
+
+    /// <summary>
+    /// Element names and addresses of REFERENCES and REG_INTF (the controller blocks): the blocks and, round by round,
+    /// the PLC types they use are exported as sources. A PLC without these blocks keeps what it had.
+    /// </summary>
+    private async Task ReadControlBlocksAsync(TiaPlcBinding binding, PlcDatabase database, string folder, TiaLiveSyncResult result)
+    {
+        try
+        {
+            Directory.CreateDirectory(folder);
+            var source = new ControlBlockLayout.Source();
+            var artifacts = ControlBlockLayout.Blocks.Select(name => BlockArtifact(name, name + ".db")).ToList();
+            var requested = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (var round = 0; round < 6 && artifacts.Count > 0; round++)
+            {
+                var export = await sessionService.ExportSourcesAsync([
+                    new TiaPlcSourceExportRequest
+                    {
+                        PlcName = binding.PlcName, DeviceName = binding.DeviceName, SoftwareName = binding.SoftwareName,
+                        OutputSubfolder = folder, Artifacts = artifacts
+                    }], folder);
+                foreach (var file in export.Files.Where(File.Exists))
+                {
+                    source.Read(File.ReadAllText(file));
+                }
+
+                artifacts = source.MissingTypes().Where(requested.Add)
+                    .Select(name => new TiaSourceArtifactRequest { TargetName = name, FileName = SanitizeName(name) + ".udt", Kind = "PlcType" }).ToList();
+            }
+
+            if (source.Blocks.Count == 0)
+            {
+                return;
+            }
+
+            var signals = ControlBlockLayout.Signals(source);
+            database.ControlSignals = signals;
+            result.Messages.Add($"{binding.PlcName}: REFERENCES / REG_INTF - {signals.Select(signal => signal.Block + "." + signal.Element).Distinct().Count()} element(s), {signals.Count} value(s).");
+        }
+        catch (Exception ex)
+        {
+            result.Warnings.Add($"{binding.PlcName}: REFERENCES / REG_INTF not read - {ex.Message}");
+        }
     }
 
     private static TiaPlcSourceExportRequest CreateHwExportRequest(TiaPlcBinding binding, string plcFolder)

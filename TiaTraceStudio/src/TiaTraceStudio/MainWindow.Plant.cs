@@ -813,7 +813,7 @@ public partial class MainWindow
         var search = new StackPanel(); DockPanel.SetDock(search, Dock.Top); right.Children.Add(search);
         search.Children.Add(new TextBlock { Text = "Baza Plant Configuratora", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 6) });
         var plcPicker = new ComboBox { ItemsSource = plant.Plcs, DisplayMemberPath = nameof(PlcConnection.Name), SelectedItem = defaultPlc };
-        var kindPicker = new ComboBox { ItemsSource = new[] { "Sve", "Mjerenja (MEAS)", "Digitalni ulazi (DI)", "Digitalni izlazi (DO)", "Regulator interface (REG_INTF)" }, SelectedIndex = 0 };
+        var kindPicker = new ComboBox { ItemsSource = new[] { "Sve", "Mjerenja (MEAS)", "Digitalni ulazi (DI)", "Digitalni izlazi (DO)", "Regulator interface (REG_INTF)", "Reference (REFERENCES)" }, SelectedIndex = 0 };
         var filter = new TextBox { ToolTip = "Pretraži po ID-u, sustavu, PLC nazivu ili nazivu" };
         var pickerRow = new Grid(); pickerRow.ColumnDefinitions.Add(new()); pickerRow.ColumnDefinitions.Add(new() { Width = new GridLength(8) }); pickerRow.ColumnDefinitions.Add(new());
         Grid.SetColumn(kindPicker, 2); pickerRow.Children.Add(plcPicker); pickerRow.Children.Add(kindPicker); search.Children.Add(pickerRow);
@@ -826,11 +826,12 @@ public partial class MainWindow
         {
             var source = CatalogOf(plcPicker.SelectedItem as PlcConnection);
             string q = filter.Text.Trim();
-            string? kind = kindPicker.SelectedIndex switch { 1 => "MEAS", 2 => "DI", 3 => "DO", 4 => "REG", _ => null };
-            var items = source?.AllItems.Where(m => (kind == null || m.Kind == kind)
+            string? kind = kindPicker.SelectedIndex switch { 1 => "MEAS", 2 => "DI", 3 => "DO", 4 => "REG", 5 => "REF", _ => null };
+            // Only what is mapped in Plant Configurator (USED), plus the regulator interface and the references.
+            var items = source?.SearchItems.Where(m => (kind == null || m.Kind == kind)
                 && q.Split(' ', StringSplitOptions.RemoveEmptyEntries).All(w => m.Display.Contains(w, StringComparison.CurrentCultureIgnoreCase) || m.Tag.Contains(w, StringComparison.OrdinalIgnoreCase))).ToList();
             results.ItemsSource = items;
-            info.Text = source == null ? "PLC nije povezan s bazom Plant Configuratora (PLC-ovi i Plant Configurator). Mjerenja možeš dodati ručno ispod." : $"{items!.Count} od {source.AllItems.Count()} · dvoklik ili Dodaj ←";
+            info.Text = source == null ? "PLC nije povezan s bazom Plant Configuratora (PLC-ovi i Plant Configurator). Mjerenja možeš dodati ručno ispod." : $"{items!.Count} od {source.SearchItems.Count()} (samo mapirano u Plant Configuratoru) · dvoklik ili Dodaj ←";
         }
         void AddSelected()
         {

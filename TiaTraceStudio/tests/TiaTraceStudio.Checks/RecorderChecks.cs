@@ -63,8 +63,12 @@ internal static partial class Program
                   {"Id":909,"PlcStructure":"PID_PELTON_NOZZLE_1","PlcName":"TI","ParameterType":"2","TimeValue":"T#1M_10S"}],
                 "DiRows":[{"Id":23,"PlcStructure":"CTRL_AND_SYNC","PlcName":"GCB_ON","NameEnglish":"Generator CB on"},{"Id":24,"PlcStructure":"CTRL_AND_SYNC","PlcName":"GCB_OFF","NameEnglish":"Generator CB off"}],
                 "DoRows":[{"Id":5,"PlcStructure":"TURBINE","PlcName":"NOZZLE_1_OPEN","NameEnglish":"Nozzle 1 open command"}]}},
-              {"Id":"in","Name":"Intake","DbCatalog":{"DataBlockNames":[{"DbName":"DB MEAS","BlockKind":"Configuration","Number":4}],"MeasRows":[
-                {"Id":0,"PlcStructure":"INTAKE","PlcName":"INTAKE_LEVEL","NameEnglish":"Intake level","Unit":"20"}]}}]}
+              {"Id":"in","Name":"Intake","ControlSignals":[
+                {"Block":"REFERENCES","Db":9,"Element":"GATE_1","Member":"DATA.FINAL","DataType":"Real","ByteOffset":66,"Description":"Gate 1 regulation","Unit":"%"},
+                {"Block":"REG_INTF","Db":31,"Element":"GATE_1","Member":"VALUES.OUT","DataType":"Real","ByteOffset":44,"Description":"Gate 1 regulation","Unit":"%"}],
+               "DbCatalog":{"DataBlockNames":[{"DbName":"DB MEAS","BlockKind":"Configuration","Number":4}],"MeasRows":[
+                {"Id":0,"PlcStructure":"INTAKE","PlcName":"INTAKE_LEVEL","NameEnglish":"Intake level","Unit":"20","TrueText":"TRUE"},
+                {"Id":1,"PlcStructure":"INTAKE","PlcName":"SPARE_LEVEL","NameEnglish":"Spare","Unit":"20"}]}}]}
             """;
         string plantcfg = Path.Combine(output, "Test.plantcfg");
         using (var aes = Aes.Create())
@@ -90,6 +94,12 @@ internal static partial class Program
             && (string)typeof(MainWindow).GetMethod("TimeText", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, ["T#1M_10S"])! == "70 s",
             "Controller parameters (PID_*) are read from Plant Configurator: on/off, gain, times (T#1M_10S = 70 s)");
         Check(link.Plcs.Count == 2 && intake.Db == 4 && intake.AddressOf(intake.Items[0]).ToString() == "%DB1003.DBD44" && intake.Items[0].Unit == "m", "Every PLC database keeps its own measurements and MEAS block number");
+        var final = intake.Find("REFERENCES.GATE_1.DATA.FINAL")!; var gateOut = intake.Find("REG_INTF.GATE_1.VALUES.OUT")!;
+        Check(intake.AddressOf(final).ToString() == "%DB9.DBD66" && intake.AddressOf(gateOut).ToString() == "%DB31.DBD44" && final.Name == "Gate 1 regulation – konačna referenca"
+            && !intake.SearchItems.Any(m => m.IsRegulator && m.System == "PELTON_NOZZLE[1]"),
+            "REFERENCES and REG_INTF pulled by Plant Configurator: element names and addresses of this PLC (intake gates), not the fixed unit layout");
+        Check(intake.SearchItems.Where(m => m.Kind == "MEAS").Select(m => m.Id).SequenceEqual([0]) && intake.Find("MEAS#1") != null && map.SearchItems.Count(m => m.Kind == "MEAS") == 3,
+            "Signal search offers only signals mapped in Plant Configurator (USED); older projects without the column keep all");
         string realConfig = @"C:\Users\Mazda\OneDrive - Geppert Electric d.o.o\3000_Aplikacije\01_Plant_Configurator\01_Source_Code\PlantConfigurator.plantcfg";
         if (File.Exists(realConfig))
         {

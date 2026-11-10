@@ -894,6 +894,22 @@ public sealed class ScadaSectionSummary
     public int TagWrites { get; set; }
 }
 
+/// <summary>A value of a controller block (REFERENCES / REG_INTF): GATE_1 · DATA.FINAL at DB9.DBD26.</summary>
+public sealed class ControlBlockSignal
+{
+    public string Block { get; set; } = "";
+    public int Db { get; set; }
+    /// <summary>Element of the block ("GATE_1", "WATER_LEVEL").</summary>
+    public string Element { get; set; } = "";
+    /// <summary>Path inside the element ("DATA.FINAL", "VALUES.OUT").</summary>
+    public string Member { get; set; } = "";
+    public string DataType { get; set; } = "Real";
+    public int ByteOffset { get; set; }
+    /// <summary>Name of the regulation from the REFERENCES start values ("Gate 1 regulation").</summary>
+    public string Description { get; set; } = "";
+    public string Unit { get; set; } = "";
+}
+
 public sealed class PlcDatabase
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
@@ -907,6 +923,12 @@ public sealed class PlcDatabase
 
     /// <summary>All interfaces of the PLC from TIA: "interface name|IPv4".</summary>
     public List<string> IpAddresses { get; set; } = [];
+
+    /// <summary>
+    /// REAL values of the controller blocks REFERENCES and REG_INTF with their addresses, read from TIA on pull
+    /// (element names differ per PLC: unit, intake…); used by TIA Trace Studio.
+    /// </summary>
+    public List<ControlBlockSignal> ControlSignals { get; set; } = [];
     [JsonIgnore]
     public bool IsActive { get; set; }
     [JsonIgnore]
