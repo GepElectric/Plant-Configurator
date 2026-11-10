@@ -66,7 +66,17 @@ public partial class MainWindow
                 Binding = new Binding(path) { Mode = readOnly ? BindingMode.OneWay : BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged }
             };
             grid.Columns.Add(Column("ID", nameof(DbStringRow.Id), 70, readOnly: true));
-            grid.Columns.Add(Column("PLC NAME", nameof(DbStringRow.PlcName), 220));
+            // PLC NAME is protected as in the other DBs: changed only through the PLC-definition button (gear).
+            var plcButton = new FrameworkElementFactory(typeof(Button));
+            plcButton.SetValue(ContentControl.ContentProperty, "");
+            plcButton.SetValue(Control.FontFamilyProperty, new FontFamily("Segoe MDL2 Assets"));
+            plcButton.SetValue(FrameworkElement.WidthProperty, 32.0);
+            plcButton.SetValue(FrameworkElement.HeightProperty, 26.0);
+            plcButton.SetValue(Control.PaddingProperty, new Thickness(0));
+            plcButton.SetValue(FrameworkElement.ToolTipProperty, "Configure PLC variable name");
+            plcButton.AddHandler(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, new RoutedEventHandler(ConfigureStatusDbPlcName_Click));
+            grid.Columns.Add(new DataGridTemplateColumn { Header = "", Width = 52, IsReadOnly = true, CellTemplate = new DataTemplate { VisualTree = plcButton } });
+            grid.Columns.Add(Column("PLC NAME", nameof(DbStringRow.PlcName), 220, readOnly: true));
             grid.Columns.Add(Column("NAME ENG", nameof(DbStringRow.StringNameEnglish), 240));
             grid.Columns.Add(Column("NAME OTHER", nameof(DbStringRow.StringNameOther), 240));
             grid.Columns.Add(Column("TEXT LIST NAME ENG", nameof(DbStringRow.NameEnglish), 240));
@@ -75,7 +85,8 @@ public partial class MainWindow
             grid.Columns.Add(Column("XREF VAL", nameof(DbStringRow.CrossReferenceValCount), 90, readOnly: true));
             layout.Children.Add(grid);
 
-            var tab = new TabItem { Header = family.DbName, Tag = family.DbName, Content = layout };
+            // A TextBlock header: in a plain string header WPF takes "_" as the access key ("DB CTRLSTS").
+            var tab = new TabItem { Header = new TextBlock { Text = family.DbName }, Tag = family.DbName, Content = layout };
             var entry = new StatusDbTab { Family = family, Tab = tab, Grid = grid, Filter = filter, StatusText = status, BlockInfo = info };
             _statusDbTabs.Add(entry);
 
@@ -92,6 +103,36 @@ public partial class MainWindow
             var index = MainTabs.Items.OfType<TabItem>().ToList().FindIndex(item => GetTabKey(item).Equals("DB PAR", StringComparison.OrdinalIgnoreCase));
             MainTabs.Items.Insert(index < 0 ? MainTabs.Items.Count : index + 1 + _statusDbTabs.Count - 1, tab);
         }
+    }
+
+    /// <summary>The PLC element name of a control status / sequence command, edited in the PLC-name dialog.</summary>
+    private void ConfigureStatusDbPlcName_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: DbStringRow row } button
+            || _statusDbTabs.FirstOrDefault(tab => ReferenceEquals(tab.Grid, FindParent<DataGrid>(button))) is not { } entry)
+        {
+            return;
+        }
+
+        var fields = new[] { Field(nameof(DbStringRow.PlcName), "PLC NAME", row.PlcName) };
+        if (!ShowDbStringRowDialog($"{entry.Family.Title} PLC name", row, fields, DbTextLengthSettings.CreateParameterDefaults(), "DB SEQUENCE"))
+        {
+            return;
+        }
+
+        row.PlcStructure = "";
+        AfterStatusDbEdit(entry);
+        entry.Grid.Items.Refresh();
+    }
+
+    private static T? FindParent<T>(DependencyObject child) where T : DependencyObject
+    {
+        for (var current = VisualTreeHelper.GetParent(child); current is not null; current = VisualTreeHelper.GetParent(current))
+        {
+            if (current is T found) return found;
+        }
+
+        return null;
     }
 
     private StatusDbTab? StatusDbTabFor(string dbName) =>
