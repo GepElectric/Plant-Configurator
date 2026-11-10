@@ -757,6 +757,8 @@
                                                     <MenuItem Header="TIA go offline" Click="PlcDatabaseGoOffline_Click"/>
                                                     <Separator/>
                                                     <MenuItem Header="TIA pull whole database" Click="PullSelectedPlcDatabaseFromTia_Click"/>
+                                                    <MenuItem Header="TIA pull REFERENCES / REG_INTF" Click="PullSelectedPlcControlBlocksFromTia_Click"
+                                                              ToolTip="Reads only the element names and addresses of REFERENCES (DB9) and REG_INTF (DB31) for TIA Trace Studio; the DB tables are not changed."/>
                                                     <MenuItem Header="TIA push whole database" Click="PushSelectedPlcDatabaseToTia_Click"/>
                                                     <Separator/>
                                                     <MenuItem Header="Validate" Click="ValidateProject_Click"/>

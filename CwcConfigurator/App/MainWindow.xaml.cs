@@ -2320,6 +2320,19 @@ public partial class MainWindow : Window
         await RunWholeDatabaseTiaOperationAsync(database, service => service.PullActiveDatabaseAsync(_project), $"Pulling {database.Name} from TIA...");
     }
 
+    /// <summary>Only REFERENCES / REG_INTF of the database (element names and addresses), nothing else is pulled.</summary>
+    private async void PullSelectedPlcControlBlocksFromTia_Click(object sender, RoutedEventArgs e)
+    {
+        var database = GetSelectedPlcDatabase();
+        if (database is null)
+        {
+            ShowMessage("Select PLC database first.");
+            return;
+        }
+
+        await RunWholeDatabaseTiaOperationAsync(database, service => service.PullControlBlocksAsync(_project), $"Pulling REFERENCES / REG_INTF of {database.Name} from TIA...");
+    }
+
     private async void PushSelectedPlcDatabaseToTia_Click(object sender, RoutedEventArgs e)
     {
         var database = GetSelectedPlcDatabase();

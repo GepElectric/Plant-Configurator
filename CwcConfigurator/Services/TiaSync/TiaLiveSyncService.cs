@@ -887,6 +887,20 @@ public sealed class TiaLiveSyncService(ITiaSessionService sessionService)
         }
     }
 
+    /// <summary>Only REFERENCES / REG_INTF of the active PLC database (for TIA Trace Studio); the DB tables stay as they are.</summary>
+    public async Task<TiaLiveSyncResult> PullControlBlocksAsync(CwcProject project)
+    {
+        var session = RequireSession();
+        var (database, binding) = RequireActiveMappedBinding(project, session);
+        var snapshotRoot = CreateSnapshotFolder(project, "pull_control_blocks_" + SanitizeName(database.Name));
+        var result = new TiaLiveSyncResult { SnapshotFolder = snapshotRoot };
+        await ReadControlBlocksAsync(binding, database, Path.Combine(snapshotRoot, "control_blocks"), result);
+        result.Message = database.ControlSignals.Count > 0
+            ? $"{database.Name}: REFERENCES / REG_INTF pulled - {database.ControlSignals.Select(signal => signal.Block + "." + signal.Element).Distinct().Count()} element(s), {database.ControlSignals.Count} value(s). Save the project for TIA Trace Studio."
+            : $"{database.Name}: REFERENCES / REG_INTF not found in TIA.";
+        return result;
+    }
+
     /// <summary>Pull DB CTRL_STS / DB SEQ_CMD of the active PLC database: element names and string names.</summary>
     public async Task<TiaLiveSyncResult> PullStatusDbAsync(CwcProject project, StatusDbFamilies.Family family)
     {
