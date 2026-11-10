@@ -449,6 +449,7 @@ public partial class MainWindow
             "DB AO" => DbAoGrid,
             "DB ALM" => DbAlmGrid,
             "DB PAR" => DbParGrid,
+            var key when StatusDbTabFor(key) is { } statusTab => statusTab.Grid,
             _ => null
         };
     }

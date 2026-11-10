@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text;
+using ClosedXML.Excel;
 using CwcConfigurator.Domain;
 using CwcConfigurator.Services;
 using Xunit;
@@ -76,5 +77,36 @@ public sealed class StatusDbFamiliesTests
         Assert.Equal("HPU ON", catalog.Sequence.ControlStatusRows[7].StringNameEnglish);
         Assert.Equal("BYPASS", catalog.Sequence.CommandRows[5].PlcName);
         Assert.Equal("SPARE_64", catalog.Sequence.ControlStatusRows[63].PlcName);
+    }
+
+    [Fact]
+    public void TextExport_ThenImport_ChangesNamesAndTextListNames()
+    {
+        var project = CwcProject.CreateEmpty();
+        StatusDbFamilies.EnsureDefaults(project.DbCatalog);
+        var path = Path.Combine(Path.GetTempPath(), $"status_text_{Guid.NewGuid():N}.xlsx");
+        try
+        {
+            var service = new DbTextWorkbookService();
+            service.Export(project, "DB CTRL_STS", path);
+            using (var workbook = new XLWorkbook(path))
+            {
+                var sheet = workbook.Worksheet("DB CTRL_STS");
+                Assert.Equal(new[] { "ID", "PLC NAME", "NAME ENG", "NAME OTHER", "TEXT LIST NAME ENG", "TEXT LIST NAME OTHER" },
+                    Enumerable.Range(1, 6).Select(column => sheet.Cell(1, column).GetString()));
+                Assert.Equal("HPP_STARTED", sheet.Cell(4, 2).GetString());
+                sheet.Cell(4, 4).Value = "HPP gestartet";
+                sheet.Cell(4, 6).Value = "Kraftwerk gestartet";
+                workbook.Save();
+            }
+
+            Assert.Equal(2, service.Import(project, "DB CTRL_STS", path));
+            var row = project.DbCatalog.Sequence.ControlStatusRows[2];
+            Assert.Equal(("HPP gestartet", "Kraftwerk gestartet", "HPP_STARTED"), (row.StringNameOther, row.NameOther, row.PlcName));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 }

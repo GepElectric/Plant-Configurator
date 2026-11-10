@@ -372,6 +372,9 @@ public partial class MainWindow
                 UpdateFilterVisualIndicators(GetDbParFilterSpecs().Select(s => s.Filter), DbParTextFilter);
                 UpdateGridStatus("DB PAR", _dbParView, _project.DbCatalog.ParameterRows.Count);
                 break;
+            case var key when StatusDbTabFor(key) is { } statusTab:
+                UpdateStatusDbGridStatus(statusTab);
+                break;
         }
     }
 

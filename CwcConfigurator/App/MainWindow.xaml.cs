@@ -775,13 +775,13 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        InitializeStatusDbTabs();
         RestoreUiState();
         InitializeGridSafetyHandlers();
         InitializeTiaTabIndicators();
         InitializeColumnFilterSync();
         PreviewKeyDown += MainWindow_PreviewKeyDown;
         _tiaStatusTimer.Tick += TiaStatusTimer_Tick;
-        InitializeStatusDbTabs();
         _allMainTabs = MainTabs.Items.OfType<TabItem>().ToList();
         ArrangeMainTabs();
         LoadProjectDatabase();
@@ -859,7 +859,8 @@ public partial class MainWindow : Window
             SequenceControlStatusGrid, SequenceCommandGrid,
             ScadaVariablesGrid, ScadaNavigationGrid, ScadaScreensGrid, ScadaTagsGrid, ScadaLocationsGrid, ScadaHeaderGrid, ScadaMainNavGrid,
             TextListAlmBlockingClassGrid, TextListCabinetsGrid, TextListPortConfigurationGrid, TextListSeqCmdGrid, TextListSeqConfigGrid,
-            DevicesGrid
+            DevicesGrid,
+            .. StatusDbGrids
         ];
     }
 
@@ -4857,6 +4858,8 @@ public partial class MainWindow : Window
             case nameof(DbStringRow.PlcName): row.PlcName = value; break;
             case nameof(DbStringRow.NameEnglish): row.NameEnglish = value; break;
             case nameof(DbStringRow.NameOther): row.NameOther = value; break;
+            case nameof(DbStringRow.StringNameEnglish): row.StringNameEnglish = value; break;
+            case nameof(DbStringRow.StringNameOther): row.StringNameOther = value; break;
             case nameof(DbStringRow.SystemNameEnglish): row.SystemNameEnglish = value; break;
             case nameof(DbStringRow.ParameterType): row.ParameterType = value; break;
             case nameof(DbStringRow.SystemNameOther): row.SystemNameOther = value; break;
@@ -5254,7 +5257,8 @@ public partial class MainWindow : Window
                || ReferenceEquals(grid, DbAlmGrid)
                || ReferenceEquals(grid, DbParGrid)
                || ReferenceEquals(grid, SequenceControlStatusGrid)
-               || ReferenceEquals(grid, SequenceCommandGrid);
+               || ReferenceEquals(grid, SequenceCommandGrid)
+               || IsStatusDbGrid(grid);
     }
 
     private bool IsTextListGrid(DataGrid grid)
@@ -9943,6 +9947,11 @@ public partial class MainWindow : Window
                 SequenceCommandGrid.Items.Refresh();
                 UpdateSequenceControlStatusFilterItems();
                 UpdateSequenceCommandFilterItems();
+                RefreshStatusDbTabs();
+                break;
+            case var key when StatusDbTabFor(key) is { } statusTab:
+                AfterStatusDbEdit(statusTab);
+                statusTab.Grid.Items.Refresh();
                 break;
         }
     }
