@@ -52,6 +52,7 @@
       <Button Content="Primijeni" Click="Apply_Click"/>
       <Button Content="Cijela snimka" Click="Fit_Click"/>
       <Button Content="Koristi pogled" Click="UseView_Click"/>
+      <Button Content="Paneli…" Click="Panels_Click" ToolTip="Prikaži snimku kao više grafova jedan ispod drugog, s istom vremenskom osi (raspored signala po panelima)."/>
      </WrapPanel>
     </StackPanel></Border>
     <Border Grid.Row="1" Background="White" CornerRadius="8" Padding="10" BorderBrush="#DFE7F0" BorderThickness="1"><Grid><Grid x:Name="PlotHost"/><StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="∿" FontSize="86" Foreground="#2787F5" HorizontalAlignment="Center"/><TextBlock Text="Od CSV-a do gotovog grafa" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="Povuci TIA trace ovdje ili otvori datoteku." Foreground="#64748B" Margin="0,12,0,20" HorizontalAlignment="Center"/><Button Content="Otvori CSV" Style="{StaticResource Primary}" Click="OpenCsv_Click" HorizontalAlignment="Center"/></StackPanel></Grid></Border>

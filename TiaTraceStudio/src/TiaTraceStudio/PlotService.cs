@@ -55,7 +55,8 @@ public static class PlotService
         if (axes.Count < 2) plot.Axes.Right.Label.Text = "";
         plot.Axes.Bottom.Label.FontSize = o.FontSize;
         plot.Axes.Bottom.TickLabelStyle.FontSize = o.FontSize - 2;
-        plot.Title(Panels(project).Length > 1 ? $"{o.Title} · {panel}" : o.Title);
+        // One title over the column of panels; every panel keeps its own time axis.
+        plot.Title(panel == Panels(project).FirstOrDefault() ? o.Title : "");
         plot.Axes.Title.Label.FontSize = o.FontSize + 3;
         plot.Axes.Title.Label.ForeColor = ScottPlot.Colors.Black;
         // Shared margins keep panel time axes aligned; allocate space for every unit axis.

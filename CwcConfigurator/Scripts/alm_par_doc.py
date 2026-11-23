@@ -297,9 +297,8 @@ def _set_row_height(row, height_twips: int, exact: bool = False):
 
 def _set_repeat_table_header(row):
     tr_pr = row._tr.get_or_add_trPr()
-    header = OxmlElement("w:tblHeader")
-    header.set(qn("w:val"), "true")
-    tr_pr.append(header)
+    # <w:tblHeader/> without a value means "on" (val="true" is rejected by strict validators).
+    tr_pr.append(OxmlElement("w:tblHeader"))
 
 
 def _set_table_grid(table: Table, widths):
@@ -345,7 +344,9 @@ def _append_bookmark(paragraph: Paragraph, bookmark_id: int, bookmark_name: str)
     start.set(qn("w:name"), bookmark_name)
     end = OxmlElement("w:bookmarkEnd")
     end.set(qn("w:id"), str(bookmark_id))
-    paragraph._p.insert(0, start)
+    # After the paragraph properties: <w:pPr> must stay the first child of <w:p>.
+    p_pr = paragraph._p.find(qn("w:pPr"))
+    paragraph._p.insert(0 if p_pr is None else 1, start)
     paragraph._p.append(end)
 
 
@@ -431,7 +432,18 @@ def _set_update_fields_on_open(document: Document):
     existing = settings.find(qn("w:updateFields"))
     if existing is None:
         existing = OxmlElement("w:updateFields")
-        settings.append(existing)
+        # Schema order: updateFields comes before these settings (appending it at the end makes the file invalid).
+        later = {qn("w:" + name) for name in (
+            "hdrShapeDefaults", "footnotePr", "endnotePr", "compat", "docVars", "rsids", "attachedSchema", "themeFontLang",
+            "clrSchemeMapping", "doNotIncludeSubdocsInStats", "doNotAutoCompressPictures", "forceUpgrade", "captions",
+            "readModeInkLockDown", "smartTagType", "schemaLibrary", "shapeDefaults", "doNotEmbedSmartTags", "decimalSymbol",
+            "listSeparator")}
+        later.add("{http://schemas.openxmlformats.org/officeDocument/2006/math}mathPr")
+        anchor = next((child for child in settings if child.tag in later), None)
+        if anchor is None:
+            settings.append(existing)
+        else:
+            anchor.addprevious(existing)
     existing.set(qn("w:val"), "true")
 
 
