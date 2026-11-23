@@ -9089,6 +9089,8 @@ public partial class MainWindow : Window
         ConfigureValidationColumn(DbMeasLoggingEnableColumn, DbValidationDefaults.DbMeasLoggingEnable);
         ConfigureValidationColumn(DbMeasLoggingTimeColumn, DbValidationDefaults.DbMeasLoggingTime);
         ConfigureValidationColumn(DbAoUnitColumn, DbValidationDefaults.DbMeasUnit);
+        // DB PAR uses the same unit list: the column shows the unit text (20 → m), the row keeps the code.
+        ConfigureValidationColumn(DbParUnitColumn, DbValidationDefaults.DbMeasUnit);
 
         ConfigureValidationColumn(DbAlmControlColumn, DbValidationDefaults.DbAlmEnableDisable);
         ConfigureValidationColumn(DbAlmClassColumn, DbValidationDefaults.DbAlmAlarmClass);
