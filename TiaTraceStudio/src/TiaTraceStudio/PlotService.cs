@@ -11,7 +11,7 @@ public static class PlotService
 {
     /// <summary>Texts drawn on the graph in English (Word report).</summary>
     public static bool English { get; set; }
-    public static int[] Panels(StudioProject project) => project.Data.Signals.Where(s => s.Visible).Select(s => s.Panel).Distinct().Order().ToArray();
+    public static int[] Panels(StudioProject project) => project.Data.Signals.Where(s => s.Visible).SelectMany(s => s.AllPanels).Distinct().Order().ToArray();
     public static void Configure(Plot plot, StudioProject project, int panel)
     {
         plot.Clear();
@@ -19,7 +19,7 @@ public static class PlotService
         var o = project.Options;
         bool percent = o.DisplayMode == ChartOptions.PercentMode;
         var x = project.Data.Time.Select(o.ToAxisTime).ToArray();
-        var visible = project.Data.Signals.Select((s, i) => (Signal: s, Index: i)).Where(s => s.Signal.Visible && s.Signal.Panel == panel).ToArray();
+        var visible = project.Data.Signals.Select((s, i) => (Signal: s, Index: i)).Where(s => s.Signal.Visible && s.Signal.InPanel(panel)).ToArray();
         var axes = new Dictionary<string, IYAxis>();
         var extrema = new List<ExtremaSeries>();
         var named = new List<ScottPlot.Plottables.Scatter>();
@@ -46,29 +46,36 @@ public static class PlotService
             scatter.LinePattern = signal.Style == "Crtkana" ? LinePattern.Dashed : signal.Style == "Točkasta" ? LinePattern.Dotted : LinePattern.Solid;
             scatter.Axes.YAxis = axis;
             named.Add(scatter);
-            AddInvalid(plot, x, y, axis, (float)signal.Width);
             extrema.Add(new(name, signal.Unit, signal.Color, x, y, signal.Scaled(), axis, signal));
         }
         plot.XLabel(string.IsNullOrWhiteSpace(o.TimeAxisLabel) ? $"[{o.TimeUnit}]" : $"{o.TimeAxisLabel.Trim()} [{o.TimeUnit}]");
         plot.Axes.Left.IsVisible = true;
-        plot.Axes.Right.IsVisible = axes.Count > 1;
-        if (axes.Count < 2) plot.Axes.Right.Label.Text = "";
+        // The right axis stays on for its frame line (closed border); without a second unit it has no ticks or labels.
+        plot.Axes.Right.IsVisible = true;
+        if (axes.Count < 2)
+        {
+            plot.Axes.Right.Label.Text = "";
+            plot.Axes.Right.TickLabelStyle.IsVisible = false;
+            plot.Axes.Right.MajorTickStyle.Length = 0;
+            plot.Axes.Right.MinorTickStyle.Length = 0;
+        }
         plot.Axes.Bottom.Label.FontSize = o.FontSize;
         plot.Axes.Bottom.TickLabelStyle.FontSize = o.FontSize - 2;
-        plot.Title(Panels(project).Length > 1 ? $"{o.Title} · {panel}" : o.Title);
-        plot.Axes.Title.Label.FontSize = o.FontSize + 3;
+        // Several panels: the graph title is drawn once over the column (Render / main window), each panel shows its own name.
+        bool split = Panels(project).Length > 1;
+        plot.Title(split ? o.PanelName(panel) : o.Title);
+        plot.Axes.Title.Label.FontSize = split ? o.FontSize + 1 : o.FontSize + 3;
         plot.Axes.Title.Label.ForeColor = ScottPlot.Colors.Black;
         // Shared margins keep panel time axes aligned; allocate space for every unit axis.
-        int maxAxes = Panels(project).Select(p => project.Data.Signals.Select((s, i) => (s, i)).Where(a => a.s.Visible && a.s.Panel == p).Select(a => SignalDisplay.AxisKey(a.s, a.i)).Distinct().Count()).DefaultIfEmpty(1).Max();
+        int maxAxes = Panels(project).Select(p => project.Data.Signals.Select((s, i) => (s, i)).Where(a => a.s.Visible && a.s.InPanel(p)).Select(a => SignalDisplay.AxisKey(a.s, a.i)).Distinct().Count()).DefaultIfEmpty(1).Max();
         if (percent) maxAxes = 1;
         float margin = Math.Max(70, o.FontSize * 5.5f);
         var plotPadding = new PixelPadding(margin * ((maxAxes + 1) / 2), maxAxes > 1 ? margin * (maxAxes / 2) : 20, 45 + o.FontSize * 1.2f, 55);
         plot.Grid.IsVisible = o.Grid;
         plot.Legend.FontSize = o.FontSize - 1;
-        // Min/max cards and cursor tables replace the signal legend; the recording-error key stays on every graph.
+        // Min/max cards and cursor tables replace the signal legend. Invalid (NaN) samples are left as gaps in the curve.
         bool replaced = o.ShowExtrema || o.Cursors;
         if (replaced) foreach (var scatter in named) scatter.LegendText = "";
-        AddInvalidLegend(plot);
         // The legend sits below the time axis so it never covers the curves; the bottom margin grows with its rows.
         plot.Legend.IsVisible = false;
         BottomLegend.Attach(plot, o.Legend ? new BottomLegend(o.FontSize - 1, 45 + o.FontSize * 0.6f) : null);
@@ -78,11 +85,8 @@ public static class PlotService
         foreach (var axis in axes.Values)
         {
             var values = extrema.Where(s => s.YAxis == axis).SelectMany(s => s.Y.Where((v, i) => project.Data.Time[i] >= o.Start && project.Data.Time[i] <= o.End && double.IsFinite(v))).ToArray();
-            // Invalid samples are drawn at 0, so 0 must stay visible on that axis.
-            bool invalid = extrema.Where(s => s.YAxis == axis).Any(s => s.Y.Where((v, i) => project.Data.Time[i] >= o.Start && project.Data.Time[i] <= o.End).Any(double.IsNaN));
-            if (values.Length == 0) { if (invalid) { axis.Min = -1; axis.Max = 1; } continue; }
+            if (values.Length == 0) continue;
             double min = values.Min(), max = values.Max();
-            if (invalid) { min = Math.Min(0, min); max = Math.Max(0, max); }
             if (percent) { min = Math.Min(0, min); max = Math.Max(100, max); }
             double padding = max > min ? (max - min) * .08 : Math.Max(1, Math.Abs(min) * .08);
             axis.Min = min - padding; axis.Max = max + padding;
@@ -111,7 +115,15 @@ public static class PlotService
             dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, o.ExportWidth, o.ExportHeight));
             double scale = o.ExportWidth / 1400.0;
             int footer = string.IsNullOrWhiteSpace(o.Subtitle) ? 0 : (int)(64 * scale);
-            int height = (o.ExportHeight - footer) / panels.Length;
+            // Several panels: one title over the whole column, the panels below it with their own names.
+            int header = panels.Length > 1 && !string.IsNullOrWhiteSpace(o.Title) ? (int)((o.FontSize + 3) * 2.4 * scale) : 0;
+            if (header > 0)
+            {
+                var title = new FormattedText(o.Title, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
+                    (o.FontSize + 3) * scale, Brushes.Black, 1) { MaxTextWidth = o.ExportWidth - 40 * scale, TextAlignment = TextAlignment.Center, MaxLineCount = 1, Trimming = TextTrimming.CharacterEllipsis };
+                dc.DrawText(title, new System.Windows.Point(20 * scale, (header - title.Height) / 2));
+            }
+            int height = (o.ExportHeight - footer - header) / panels.Length;
             for (int i = 0; i < panels.Length; i++)
             {
                 using var plot = new Plot();
@@ -122,7 +134,7 @@ public static class PlotService
                     throw new InvalidDataException("Povećaj visinu izvoza ili rasporedi signale u više panela: tablica kursora mora prikazati sve signale.");
                 using var stream = new MemoryStream(bytes);
                 var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.StreamSource = stream; bitmap.EndInit(); bitmap.Freeze();
-                dc.DrawImage(bitmap, new Rect(0, i * height, o.ExportWidth, height));
+                dc.DrawImage(bitmap, new Rect(0, header + i * height, o.ExportWidth, height));
             }
             if (footer > 0)
             {
@@ -182,7 +194,7 @@ public static class PlotService
             foreach (var label in new[] { s.MinimumLabel, s.MaximumLabel, s.ConstantLabel })
                 if (label == null || label.X.HasValue != label.Y.HasValue || label.X.HasValue && (!double.IsFinite(label.X.Value) || !double.IsFinite(label.Y!.Value) || label.X < 0 || label.X > 1 || label.Y < 0 || label.Y > 1))
                     throw new InvalidDataException("Neispravna spremljena pozicija min/max oblačića.");
-            if (s.Panel < 1 || s.Panel > 4 || !double.IsFinite(s.Width) || s.Width < 0.5 || s.Width > 10 || !double.IsFinite(s.Factor) || !double.IsFinite(s.Offset)) throw new InvalidDataException($"Neispravne postavke signala {s.Name}. Panel: 1–4, debljina: 0,5–10.");
+            if (s.AllPanels.Any(p => p < 1 || p > 4) || !double.IsFinite(s.Width) || s.Width < 0.5 || s.Width > 10 || !double.IsFinite(s.Factor) || !double.IsFinite(s.Offset)) throw new InvalidDataException($"Neispravne postavke signala {s.Name}. Panel: 1–4, debljina: 0,5–10.");
             if (!System.Text.RegularExpressions.Regex.IsMatch(s.Color, "^#[0-9a-fA-F]{6}$")) throw new InvalidDataException($"Boja signala {s.Name} mora biti #RRGGBB.");
             if (s.Values.Any(double.IsInfinity) || s.Scaled().Any(double.IsInfinity)) throw new InvalidDataException($"Prevelike vrijednosti signala {s.Name}.");
         }

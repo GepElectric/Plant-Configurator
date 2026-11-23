@@ -37,6 +37,10 @@ public class Signal : Observable
     public double Offset { get => offset; set => Set(ref offset, value); }
     public double Width { get => width; set => Set(ref width, value); }
     public int Panel { get => panel; set => Set(ref panel, value); }
+    /// <summary>Further panels the signal is drawn in besides <see cref="Panel"/> (the same curve in several graphs of the column).</summary>
+    public List<int> AlsoInPanels { get; set; } = [];
+    public bool InPanel(int number) => Panel == number || (AlsoInPanels?.Contains(number) ?? false);
+    [JsonIgnore] public IEnumerable<int> AllPanels => new[] { Panel }.Concat(AlsoInPanels ?? []).Distinct();
     public string Axis { get => axis; set => Set(ref axis, value); }
     public string Style { get => style; set => Set(ref style, value); }
     [JsonIgnore] public string Label => string.IsNullOrWhiteSpace(Unit) ? DisplayName : $"{DisplayName} [{Unit}]";
@@ -64,6 +68,9 @@ public class ChartOptions : Observable
     public string DisplayMode { get; set; } = UnitsMode;
     public bool ShowExtrema { get; set; }
     public string Title { get; set; } = "Trace · Commissioning";
+    /// <summary>Names of the panels (graphs in one column) by panel number; the title stays over the whole column.</summary>
+    public Dictionary<int, string> PanelNames { get; set; } = [];
+    public string PanelName(int panel) => PanelNames != null && PanelNames.TryGetValue(panel, out var name) ? name.Trim() : "";
     public string Subtitle { get; set; } = "";
     public string LeftLabel { get; set; } = "Vrijednost";
     public string RightLabel { get; set; } = "Vrijednost";

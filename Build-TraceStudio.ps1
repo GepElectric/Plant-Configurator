@@ -55,7 +55,8 @@ Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'TiaTraceStudio\third-party'
 
 function Install-To([string]$appFolder) {
     $target = Join-Path $appFolder 'Tools\TiaTraceStudio'
-    if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Recurse -Force }
+    # Empty the folder instead of deleting it: an open Explorer window or shell can hold the folder itself.
+    if (Test-Path -LiteralPath $target) { Get-ChildItem -LiteralPath $target -Force | Remove-Item -Recurse -Force }
     New-Item -ItemType Directory -Path $target -Force | Out-Null
     Copy-Item -Path (Join-Path $staging '*') -Destination $target -Recurse -Force
     Write-Host "  TIA Trace Studio: $target\TiaTraceStudio.exe"

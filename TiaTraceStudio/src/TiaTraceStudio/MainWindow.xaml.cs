@@ -320,6 +320,15 @@ public partial class MainWindow : Window
         EmptyState.Visibility = project.Data.Time.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (project.Data.Time.Length == 0) return;
         int row = 0;
+        // Every panel keeps a readable height; when they do not fit, the column scrolls.
+        PlotHost.MinHeight = PlotService.Panels(project).Length * MinPanelHeight;
+        // Several panels: the graph title once over the column, each panel with its own name.
+        if (PlotService.Panels(project).Length > 1 && !string.IsNullOrWhiteSpace(project.Options.Title))
+        {
+            PlotHost.RowDefinitions.Add(new() { Height = GridLength.Auto });
+            var heading = new TextBlock { Text = project.Options.Title, FontWeight = FontWeights.Bold, FontSize = (project.Options.FontSize + 3), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 2), TextTrimming = TextTrimming.CharacterEllipsis };
+            Grid.SetRow(heading, row++); PlotHost.Children.Add(heading);
+        }
         foreach (int panel in PlotService.Panels(project))
         {
             PlotHost.RowDefinitions.Add(new());
@@ -336,7 +345,7 @@ public partial class MainWindow : Window
                     foreach (var p in plots) p.Refresh();
                     Status("Kursori ažurirani · vrijednosti na grafu ulaze u kopiranje i izvoz.");
                 }));
-            if (project.Options.HCursors && row == 0)
+            if (project.Options.HCursors && panel == PlotService.Panels(project)[0])
                 _ = new HorizontalCursorInteraction(plot, project.Options, () => { foreach (var p in plots) p.Refresh(); },
                     () => Guard(() => { RememberState(); Status($"Horizontalni kursori: ΔY = {project.Options.HCursorB - project.Options.HCursorA:G6}"); }));
             if (project.Options.ZeroCursorVisible)
@@ -358,7 +367,8 @@ public partial class MainWindow : Window
                 project.Options.Cursors = true; e.Handled = true; RebindOptions(); Guard(Commit);
             };
             plot.MouseUp += (_, _) => SyncPlotViews(plot);
-            plot.MouseWheel += (_, _) => Dispatcher.BeginInvoke(() => SyncPlotViews(plot));
+            // The mouse wheel never zooms the graph: it scrolls the column of panels (zoom with drag / toolbar).
+            plot.PreviewMouseWheel += (_, e) => { e.Handled = true; PlotScroll.ScrollToVerticalOffset(PlotScroll.VerticalOffset - e.Delta); };
             plot.Refresh();
         }
         foreach (var p in plots) foreach (var other in plots.Where(q => q != p)) p.Plot.Axes.Link(other, x: true, y: false);
@@ -372,6 +382,7 @@ public partial class MainWindow : Window
         WarningsText.Text = $"Izvorno vrijeme: {project.Data.TimeHeader}\n\n" + (project.Data.Warnings.Count > 0 ? string.Join("\n", project.Data.Warnings) : "Uvoz bez pronađenih nepravilnosti.") + "\n\nStatistika: konačne vrijednosti u potvrđenom intervalu; σ je populacijska standardna devijacija. Kursori koriste linearnu interpolaciju bez ekstrapolacije. Izvedeni signali čuvaju rezultat iz trenutka izračuna.";
         Title = "TIA Trace Studio · " + project.Data.FileName;
     }
+    const double MinPanelHeight = 420;
     void SyncPlotViews(WpfPlot source)
     {
         if (synchronizing || !plots.Contains(source)) return;

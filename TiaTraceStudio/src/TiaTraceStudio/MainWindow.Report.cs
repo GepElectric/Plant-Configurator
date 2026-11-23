@@ -288,7 +288,7 @@ public partial class MainWindow
             }).ToList();
             if (rows.Count == 0) return;
             blocks.Add(new ReportTable(["Signal", "Unit", "Min", "Max", "Mean", "Start", "End"], rows,
-                Caption: $"Statistics · {recording.Options.Title} · interval {o.ToAxisTime(o.Start).ToString("0.###", En)} – {o.ToAxisTime(o.End).ToString("0.###", En)} {o.TimeUnit}"));
+                Caption: $"Statistics · {recording.Options.Title}"));
         }
 
         // Controller tests (valve position controllers and unit controllers): the PID structure in Plant Configurator.

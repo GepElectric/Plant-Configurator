@@ -1296,6 +1296,8 @@ public sealed class DbCatalog
     public string ParameterStructTypePrefix { get; set; } = "DT_PAR_";
     public DbTextLengthSettings ParameterTextLengths { get; set; } = DbTextLengthSettings.CreateParameterDefaults();
     public List<DbValidationListSetting> ValidationLists { get; set; } = DbValidationDefaults.Create();
+    /// <summary>True once the units of DB MEAS / AO / PAR are stored as the PLC text instead of a DB_MEAS.Unit code.</summary>
+    public bool UnitsAreText { get; set; }
     public DbConditionalColorSettings ConditionalColors { get; set; } = DbConditionalColorSettings.CreateDefaults();
     public List<DbDataBlockNameSetting> DataBlockNames { get; set; } = DbDataBlockNameDefaults.Create();
     public SequenceCatalog Sequence { get; set; } = SequenceCatalog.CreateDefault();

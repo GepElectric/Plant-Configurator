@@ -42,7 +42,7 @@ public sealed class ZeroCursorOverlay(StudioProject project, int panel) : IPlott
     {
         var rows = new List<(SKColor Color, string Text)>();
         var time = project.Data.Time;
-        foreach (var (signal, index) in project.Data.Signals.Select((s, i) => (s, i)).Where(p => p.s.Visible && p.s.Panel == panel))
+        foreach (var (signal, index) in project.Data.Signals.Select((s, i) => (s, i)).Where(p => p.s.Visible && p.s.InPanel(panel)))
         {
             var value = AnalysisService.ValueAt(time, signal.Scaled(), options.ZeroCursor);
             string number = value is double v ? v.ToString("G6", System.Globalization.CultureInfo.CurrentCulture) + (string.IsNullOrWhiteSpace(signal.Unit) ? "" : " " + signal.Unit.Trim()) : "NaN (greška)";

@@ -38,7 +38,7 @@ public static class ProjectStore
             var s = preset.Signals.FirstOrDefault(s => s.Source == signal.Source);
             if (s == null) continue;
             signal.Name = s.Name; signal.Color = s.Color; signal.Unit = s.Unit; signal.Visible = s.Visible;
-            signal.Factor = s.Factor; signal.Offset = s.Offset; signal.Width = s.Width; signal.Panel = s.Panel; signal.Axis = s.Axis; signal.Style = s.Style; count++;
+            signal.Factor = s.Factor; signal.Offset = s.Offset; signal.Width = s.Width; signal.Panel = s.Panel; signal.AlsoInPanels.Remove(s.Panel); signal.Axis = s.Axis; signal.Style = s.Style; count++;
             signal.PercentMin = s.PercentMin; signal.PercentMax = s.PercentMax;
         }
         return count;

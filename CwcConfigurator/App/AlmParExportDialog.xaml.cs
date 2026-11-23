@@ -237,7 +237,8 @@ public partial class AlmParExportDialog : Window
                         ["name"] = useEnglish ? row.NameEnglish : row.NameOther,
                         ["description"] = ResolveDescription(textMapping?.ParDescriptionsList, row.Id, languageCode, row, "PAR"),
                         ["value"] = GetParameterDisplayValue(row),
-                        ["unit"] = string.IsNullOrWhiteSpace(row.Unit) ? "-" : row.Unit
+                        // A time parameter is written as seconds with the unit "s" (T#30S → 30 | s).
+                        ["unit"] = TimeSeconds(row) is null ? UnitText(database.DbCatalog, row.Unit) : "s"
                     })
                     .ToList()
                 : [];
@@ -329,6 +330,32 @@ public partial class AlmParExportDialog : Window
         return string.IsNullOrWhiteSpace(docNumber) ? plantName + " " + category : docNumber + " - " + plantName + " " + category;
     }
 
+    /// <summary>
+    /// The PAR unit is a code of the unit list (DB MEAS / DB AO - UNIT, as the DB PAR grid shows it): 15 → "%",
+    /// 0 or empty → "-". A value that is already text stays as it is.
+    /// </summary>
+    public static string UnitText(DbCatalog catalog, string? code)
+    {
+        if (catalog.UnitsAreText)
+        {
+            var plain = (code ?? "").Trim();
+            return plain.Length == 0 ? "-" : plain;
+        }
+
+        var raw = (code ?? "").Trim();
+        if (raw.Length == 0)
+        {
+            return "-";
+        }
+
+        var list = catalog.ValidationLists?.FirstOrDefault(item => item.Key.Equals(DbValidationDefaults.DbMeasUnit, StringComparison.OrdinalIgnoreCase))
+                   ?? DbValidationDefaults.Create().First(item => item.Key == DbValidationDefaults.DbMeasUnit);
+        var option = DbValidationListSetting.SplitOptions(list.ValuesText)
+            .FirstOrDefault(item => item.Value.Equals(raw, StringComparison.OrdinalIgnoreCase) || item.DisplayText.Equals(raw, StringComparison.OrdinalIgnoreCase));
+        var text = (option?.Text ?? raw).Trim();
+        return text.Length == 0 ? "-" : text;
+    }
+
     private static string GetTemplateFileName(string languageCode) => languageCode.StartsWith("nb", StringComparison.OrdinalIgnoreCase)
         ? "alm_par_template_nb.docx"
         : "alm_par_template.docx";
@@ -343,12 +370,47 @@ public partial class AlmParExportDialog : Window
 
     private static string GetParameterDisplayValue(DbStringRow row)
     {
+        if (TimeSeconds(row) is double seconds)
+        {
+            return seconds.ToString("0.###", CultureInfo.InvariantCulture);
+        }
+
         return (row.ParameterType ?? "").Trim() switch
         {
             "1" => row.IntegerValue,
             "2" => row.TimeValue,
             _ => row.RealValue
         };
+    }
+
+    /// <summary>
+    /// Seconds of a time parameter (PARAMETER TYPE 2, TIA literal such as T#1M_10S or T#500MS); null for other
+    /// parameters. Only the type decides: real and integer parameters also carry a TimeValue (T#0MS by default).
+    /// </summary>
+    public static double? TimeSeconds(DbStringRow row) =>
+        (row.ParameterType ?? "").Trim() == "2" ? ParseTiaTime(row.TimeValue) : null;
+
+    /// <summary>TIA time literal (T#2D_3H_4M_5S_600MS, also TIME#, negative and lowercase) in seconds.</summary>
+    public static double? ParseTiaTime(string? text)
+    {
+        var raw = (text ?? "").Trim().Replace("_", "", StringComparison.Ordinal);
+        var match = System.Text.RegularExpressions.Regex.Match(raw, @"^(?:T|TIME)#(-)?((?:\d+(?:\.\d+)?(?:MS|D|H|M|S))+)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        var seconds = 0.0;
+        foreach (System.Text.RegularExpressions.Match part in System.Text.RegularExpressions.Regex.Matches(match.Groups[2].Value, @"(\d+(?:\.\d+)?)(MS|D|H|M|S)", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+        {
+            var value = double.Parse(part.Groups[1].Value, CultureInfo.InvariantCulture);
+            seconds += part.Groups[2].Value.ToUpperInvariant() switch
+            {
+                "D" => value * 86400, "H" => value * 3600, "M" => value * 60, "MS" => value / 1000, _ => value
+            };
+        }
+
+        return match.Groups[1].Success ? -seconds : seconds;
     }
 
     private static bool IsTruthy(string value)
