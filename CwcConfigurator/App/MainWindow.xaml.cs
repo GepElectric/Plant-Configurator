@@ -9153,6 +9153,8 @@ public partial class MainWindow : Window
             .Where(row => prefixesOrKeys.Any(prefixOrKey =>
                 row.Key.Equals(prefixOrKey, StringComparison.OrdinalIgnoreCase)
                 || row.Key.StartsWith(prefixOrKey, StringComparison.OrdinalIgnoreCase)))
+            // Units are typed as plain text now; the old unit code list is only kept for converting old projects.
+            .Where(row => !(_project.DbCatalog.UnitsAreText && row.Key.Equals(DbValidationDefaults.DbMeasUnit, StringComparison.OrdinalIgnoreCase)))
             .Select(row => row.Clone())
             .ToList();
     }
