@@ -27,6 +27,17 @@ internal static partial class Program
             bool missingNamesRejected = false;
             try { SignalDisplay.RequireNames(MainWindow.NewProject(data)); } catch (InvalidDataException) { missingNamesRejected = true; }
             Check(missingNamesRejected, "Export requires user-entered names");
+            var split = MainWindow.NewProject(data);
+            for (int i = 0; i < split.Data.Signals.Count; i++) { split.Data.Signals[i].Name = $"S{i}"; split.Data.Signals[i].Panel = i == 0 ? 1 : 2; }
+            split.Options.Title = "Gate 1 · ramp"; split.Options.PanelNames = new() { [1] = "Position", [2] = "Commands" };
+            using (var first = new ScottPlot.Plot()) using (var second = new ScottPlot.Plot())
+            {
+                PlotService.Configure(first, split, 1); PlotService.Configure(second, split, 2);
+                var image = PlotService.Render(split);
+                Check(PlotService.Panels(split).SequenceEqual([1, 2]) && first.Axes.Title.Label.Text == "Position" && second.Axes.Title.Label.Text == "Commands"
+                    && !string.IsNullOrEmpty(first.Axes.Bottom.Label.Text) && first.Axes.Bottom.Label.Text == second.Axes.Bottom.Label.Text && image.PixelHeight == split.Options.ExportHeight,
+                    "Panels: one graph title over the column, every panel with its own name and time axis");
+            }
             string fixture = Path.Combine(output, "semicolon.csv");
             File.WriteAllText(fixture, "Siemens trace\nSample;X(ms);\"Signal; A\";B\n0;1000,1;1,5;true\n1;1250,1;;false\n2;1500,1;3,5;true\n3;1500,1;9;false\n4;2250,1;4,5;false\nbad;time;row\n");
             var semicolon = TraceCsv.Read(fixture);
@@ -93,7 +104,7 @@ internal static partial class Program
             window.Show();
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             window.UpdateLayout();
-            Check(((Grid)window.FindName("PlotHost")).Children.Count == 2, "WPF window builds with two live plot panels");
+            Check(((Grid)window.FindName("PlotHost")).Children.OfType<ScottPlot.WPF.WpfPlot>().Count() == 2, "WPF window builds with two live plot panels");
             var copyButton = (Button)window.FindName("CopyImageButton");
             var buttonRow = (StackPanel)copyButton.Parent;
             Check(copyButton.IsVisible && buttonRow.Children[buttonRow.Children.IndexOf(copyButton) + 1] is Button export && export.Content.ToString()!.StartsWith("Izvezi"), "Copy image is directly beside Export");

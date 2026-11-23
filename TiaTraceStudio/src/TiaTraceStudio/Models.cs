@@ -64,6 +64,9 @@ public class ChartOptions : Observable
     public string DisplayMode { get; set; } = UnitsMode;
     public bool ShowExtrema { get; set; }
     public string Title { get; set; } = "Trace · Commissioning";
+    /// <summary>Names of the panels (graphs in one column) by panel number; the title stays over the whole column.</summary>
+    public Dictionary<int, string> PanelNames { get; set; } = [];
+    public string PanelName(int panel) => PanelNames != null && PanelNames.TryGetValue(panel, out var name) ? name.Trim() : "";
     public string Subtitle { get; set; } = "";
     public string LeftLabel { get; set; } = "Vrijednost";
     public string RightLabel { get; set; } = "Vrijednost";

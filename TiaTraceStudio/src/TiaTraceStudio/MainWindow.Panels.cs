@@ -27,6 +27,21 @@ public partial class MainWindow
         };
         DockPanel.SetDock(hint, Dock.Top); layout.Children.Add(hint);
 
+        // Names: the whole graph and every panel.
+        var names = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+        names.ColumnDefinitions.Add(new() { Width = new GridLength(150) }); names.ColumnDefinitions.Add(new());
+        TextBox NameRow(string label, string value)
+        {
+            int r = names.RowDefinitions.Count; names.RowDefinitions.Add(new() { Height = GridLength.Auto });
+            var text = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
+            var box = new TextBox { Text = value, Margin = new Thickness(0, 2, 0, 2) };
+            Grid.SetRow(text, r); Grid.SetRow(box, r); Grid.SetColumn(box, 1);
+            names.Children.Add(text); names.Children.Add(box); return box;
+        }
+        var titleBox = NameRow("Naziv grafa", project.Options.Title);
+        var panelBoxes = Enumerable.Range(1, 4).Select(p => NameRow($"Naziv panela {p}", project.Options.PanelName(p))).ToArray();
+        DockPanel.SetDock(names, Dock.Top); layout.Children.Add(names);
+
         var quick = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
         DockPanel.SetDock(quick, Dock.Top); layout.Children.Add(quick);
         var grid = new DataGrid { ItemsSource = rows, AutoGenerateColumns = false, CanUserAddRows = false, CanUserDeleteRows = false, HeadersVisibility = DataGridHeadersVisibility.Column };
@@ -49,7 +64,7 @@ public partial class MainWindow
 
         var dialog = new Window
         {
-            Owner = this, Title = "Paneli · više grafova s istom vremenskom osi", Content = layout, Width = Dialogs.Width(720), Height = Dialogs.Height(620),
+            Owner = this, Title = "Paneli · više grafova s istom vremenskom osi", Content = layout, Width = Dialogs.Width(760), Height = Dialogs.Height(760),
             WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = Brushes.White
         };
         dialog.Resources.MergedDictionaries.Add(Resources);
@@ -58,7 +73,10 @@ public partial class MainWindow
         {
             grid.CommitEdit(DataGridEditingUnit.Cell, true); grid.CommitEdit(DataGridEditingUnit.Row, true);
             foreach (var row in rows) row.Signal.Panel = row.Panel;
+            project.Options.Title = titleBox.Text.Trim();
+            project.Options.PanelNames = Enumerable.Range(1, 4).Where(p => panelBoxes[p - 1].Text.Trim().Length > 0).ToDictionary(p => p, p => panelBoxes[p - 1].Text.Trim());
             dialog.Close();
+            RebindOptions();   // the options editor shows the new title (Commit reads the editors back)
             Commit();
             int count = PlotService.Panels(project).Length;
             Status(count > 1 ? $"Graf je podijeljen u {count} panela s istom vremenskom osi." : "Svi signali su u jednom grafu.");

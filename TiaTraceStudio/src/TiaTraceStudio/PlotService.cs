@@ -55,9 +55,10 @@ public static class PlotService
         if (axes.Count < 2) plot.Axes.Right.Label.Text = "";
         plot.Axes.Bottom.Label.FontSize = o.FontSize;
         plot.Axes.Bottom.TickLabelStyle.FontSize = o.FontSize - 2;
-        // One title over the column of panels; every panel keeps its own time axis.
-        plot.Title(panel == Panels(project).FirstOrDefault() ? o.Title : "");
-        plot.Axes.Title.Label.FontSize = o.FontSize + 3;
+        // Several panels: the graph title is drawn once over the column (Render / main window), each panel shows its own name.
+        bool split = Panels(project).Length > 1;
+        plot.Title(split ? o.PanelName(panel) : o.Title);
+        plot.Axes.Title.Label.FontSize = split ? o.FontSize + 1 : o.FontSize + 3;
         plot.Axes.Title.Label.ForeColor = ScottPlot.Colors.Black;
         // Shared margins keep panel time axes aligned; allocate space for every unit axis.
         int maxAxes = Panels(project).Select(p => project.Data.Signals.Select((s, i) => (s, i)).Where(a => a.s.Visible && a.s.Panel == p).Select(a => SignalDisplay.AxisKey(a.s, a.i)).Distinct().Count()).DefaultIfEmpty(1).Max();
@@ -112,7 +113,15 @@ public static class PlotService
             dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, o.ExportWidth, o.ExportHeight));
             double scale = o.ExportWidth / 1400.0;
             int footer = string.IsNullOrWhiteSpace(o.Subtitle) ? 0 : (int)(64 * scale);
-            int height = (o.ExportHeight - footer) / panels.Length;
+            // Several panels: one title over the whole column, the panels below it with their own names.
+            int header = panels.Length > 1 && !string.IsNullOrWhiteSpace(o.Title) ? (int)((o.FontSize + 3) * 2.4 * scale) : 0;
+            if (header > 0)
+            {
+                var title = new FormattedText(o.Title, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
+                    (o.FontSize + 3) * scale, Brushes.Black, 1) { MaxTextWidth = o.ExportWidth - 40 * scale, TextAlignment = TextAlignment.Center, MaxLineCount = 1, Trimming = TextTrimming.CharacterEllipsis };
+                dc.DrawText(title, new System.Windows.Point(20 * scale, (header - title.Height) / 2));
+            }
+            int height = (o.ExportHeight - footer - header) / panels.Length;
             for (int i = 0; i < panels.Length; i++)
             {
                 using var plot = new Plot();
@@ -123,7 +132,7 @@ public static class PlotService
                     throw new InvalidDataException("Povećaj visinu izvoza ili rasporedi signale u više panela: tablica kursora mora prikazati sve signale.");
                 using var stream = new MemoryStream(bytes);
                 var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.StreamSource = stream; bitmap.EndInit(); bitmap.Freeze();
-                dc.DrawImage(bitmap, new Rect(0, i * height, o.ExportWidth, height));
+                dc.DrawImage(bitmap, new Rect(0, header + i * height, o.ExportWidth, height));
             }
             if (footer > 0)
             {
