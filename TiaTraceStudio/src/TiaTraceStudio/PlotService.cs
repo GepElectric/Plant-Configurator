@@ -46,13 +46,19 @@ public static class PlotService
             scatter.LinePattern = signal.Style == "Crtkana" ? LinePattern.Dashed : signal.Style == "Točkasta" ? LinePattern.Dotted : LinePattern.Solid;
             scatter.Axes.YAxis = axis;
             named.Add(scatter);
-            AddInvalid(plot, x, y, axis, (float)signal.Width);
             extrema.Add(new(name, signal.Unit, signal.Color, x, y, signal.Scaled(), axis, signal));
         }
         plot.XLabel(string.IsNullOrWhiteSpace(o.TimeAxisLabel) ? $"[{o.TimeUnit}]" : $"{o.TimeAxisLabel.Trim()} [{o.TimeUnit}]");
         plot.Axes.Left.IsVisible = true;
-        plot.Axes.Right.IsVisible = axes.Count > 1;
-        if (axes.Count < 2) plot.Axes.Right.Label.Text = "";
+        // The right axis stays on for its frame line (closed border); without a second unit it has no ticks or labels.
+        plot.Axes.Right.IsVisible = true;
+        if (axes.Count < 2)
+        {
+            plot.Axes.Right.Label.Text = "";
+            plot.Axes.Right.TickLabelStyle.IsVisible = false;
+            plot.Axes.Right.MajorTickStyle.Length = 0;
+            plot.Axes.Right.MinorTickStyle.Length = 0;
+        }
         plot.Axes.Bottom.Label.FontSize = o.FontSize;
         plot.Axes.Bottom.TickLabelStyle.FontSize = o.FontSize - 2;
         // Several panels: the graph title is drawn once over the column (Render / main window), each panel shows its own name.
@@ -67,10 +73,9 @@ public static class PlotService
         var plotPadding = new PixelPadding(margin * ((maxAxes + 1) / 2), maxAxes > 1 ? margin * (maxAxes / 2) : 20, 45 + o.FontSize * 1.2f, 55);
         plot.Grid.IsVisible = o.Grid;
         plot.Legend.FontSize = o.FontSize - 1;
-        // Min/max cards and cursor tables replace the signal legend; the recording-error key stays on every graph.
+        // Min/max cards and cursor tables replace the signal legend. Invalid (NaN) samples are left as gaps in the curve.
         bool replaced = o.ShowExtrema || o.Cursors;
         if (replaced) foreach (var scatter in named) scatter.LegendText = "";
-        AddInvalidLegend(plot);
         // The legend sits below the time axis so it never covers the curves; the bottom margin grows with its rows.
         plot.Legend.IsVisible = false;
         BottomLegend.Attach(plot, o.Legend ? new BottomLegend(o.FontSize - 1, 45 + o.FontSize * 0.6f) : null);
@@ -80,11 +85,8 @@ public static class PlotService
         foreach (var axis in axes.Values)
         {
             var values = extrema.Where(s => s.YAxis == axis).SelectMany(s => s.Y.Where((v, i) => project.Data.Time[i] >= o.Start && project.Data.Time[i] <= o.End && double.IsFinite(v))).ToArray();
-            // Invalid samples are drawn at 0, so 0 must stay visible on that axis.
-            bool invalid = extrema.Where(s => s.YAxis == axis).Any(s => s.Y.Where((v, i) => project.Data.Time[i] >= o.Start && project.Data.Time[i] <= o.End).Any(double.IsNaN));
-            if (values.Length == 0) { if (invalid) { axis.Min = -1; axis.Max = 1; } continue; }
+            if (values.Length == 0) continue;
             double min = values.Min(), max = values.Max();
-            if (invalid) { min = Math.Min(0, min); max = Math.Max(0, max); }
             if (percent) { min = Math.Min(0, min); max = Math.Max(100, max); }
             double padding = max > min ? (max - min) * .08 : Math.Max(1, Math.Abs(min) * .08);
             axis.Min = min - padding; axis.Max = max + padding;

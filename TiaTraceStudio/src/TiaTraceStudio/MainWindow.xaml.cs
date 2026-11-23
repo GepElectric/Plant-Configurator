@@ -320,6 +320,8 @@ public partial class MainWindow : Window
         EmptyState.Visibility = project.Data.Time.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (project.Data.Time.Length == 0) return;
         int row = 0;
+        // Every panel keeps a readable height; when they do not fit, the column scrolls.
+        PlotHost.MinHeight = PlotService.Panels(project).Length * MinPanelHeight;
         // Several panels: the graph title once over the column, each panel with its own name.
         if (PlotService.Panels(project).Length > 1 && !string.IsNullOrWhiteSpace(project.Options.Title))
         {
@@ -379,6 +381,7 @@ public partial class MainWindow : Window
         WarningsText.Text = $"Izvorno vrijeme: {project.Data.TimeHeader}\n\n" + (project.Data.Warnings.Count > 0 ? string.Join("\n", project.Data.Warnings) : "Uvoz bez pronađenih nepravilnosti.") + "\n\nStatistika: konačne vrijednosti u potvrđenom intervalu; σ je populacijska standardna devijacija. Kursori koriste linearnu interpolaciju bez ekstrapolacije. Izvedeni signali čuvaju rezultat iz trenutka izračuna.";
         Title = "TIA Trace Studio · " + project.Data.FileName;
     }
+    const double MinPanelHeight = 420;
     void SyncPlotViews(WpfPlot source)
     {
         if (synchronizing || !plots.Contains(source)) return;
