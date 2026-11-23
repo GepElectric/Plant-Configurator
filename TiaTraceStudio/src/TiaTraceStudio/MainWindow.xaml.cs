@@ -367,7 +367,8 @@ public partial class MainWindow : Window
                 project.Options.Cursors = true; e.Handled = true; RebindOptions(); Guard(Commit);
             };
             plot.MouseUp += (_, _) => SyncPlotViews(plot);
-            plot.MouseWheel += (_, _) => Dispatcher.BeginInvoke(() => SyncPlotViews(plot));
+            // The mouse wheel never zooms the graph: it scrolls the column of panels (zoom with drag / toolbar).
+            plot.PreviewMouseWheel += (_, e) => { e.Handled = true; PlotScroll.ScrollToVerticalOffset(PlotScroll.VerticalOffset - e.Delta); };
             plot.Refresh();
         }
         foreach (var p in plots) foreach (var other in plots.Where(q => q != p)) p.Plot.Axes.Link(other, x: true, y: false);
