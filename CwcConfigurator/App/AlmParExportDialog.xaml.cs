@@ -336,6 +336,12 @@ public partial class AlmParExportDialog : Window
     /// </summary>
     public static string UnitText(DbCatalog catalog, string? code)
     {
+        if (catalog.UnitsAreText)
+        {
+            var plain = (code ?? "").Trim();
+            return plain.Length == 0 ? "-" : plain;
+        }
+
         var raw = (code ?? "").Trim();
         if (raw.Length == 0)
         {

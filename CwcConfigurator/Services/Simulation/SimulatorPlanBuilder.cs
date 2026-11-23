@@ -201,6 +201,11 @@ public static class SimulatorPlanBuilder
     /// <summary>Unit text of a DB MEAS / DB AO unit code ("16" or "16 - %") from the unit validation list.</summary>
     public static string ResolveUnit(DbCatalog catalog, string? value)
     {
+        if (catalog.UnitsAreText)
+        {
+            return (value ?? "").Trim();
+        }
+
         var raw = (value ?? "").Trim();
         var separator = raw.IndexOf(" - ", StringComparison.Ordinal);
         var text = separator >= 0 ? raw[(separator + 3)..] : raw;

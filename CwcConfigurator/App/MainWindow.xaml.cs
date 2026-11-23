@@ -4571,7 +4571,7 @@ public partial class MainWindow : Window
         {
             Field(nameof(DbStringRow.NameEnglish), "MEAS NAME ENG", row.NameEnglish),
             Field(nameof(DbStringRow.NameOther), "MEAS NAME OTHER", row.NameOther),
-            Field(nameof(DbStringRow.Unit), "UNIT", row.Unit, GetValidationOptions(DbValidationDefaults.DbMeasUnit)),
+            Field(nameof(DbStringRow.Unit), "UNIT", row.Unit),
             Field(nameof(DbStringRow.LoggingEnable), "Logging enable", row.LoggingEnable, GetValidationOptions(DbValidationDefaults.DbMeasLoggingEnable)),
             Field(nameof(DbStringRow.LoggingTime), "Logging time (s)", row.LoggingTime, GetValidationOptions(DbValidationDefaults.DbMeasLoggingTime))
         };
@@ -4604,7 +4604,7 @@ public partial class MainWindow : Window
             Field(nameof(DbAoRow.AoSystemName), "AO SYSTEM NAME", row.AoSystemName),
             Field(nameof(DbAoRow.NameEnglish), "NAME ENGLISH", row.NameEnglish),
             Field(nameof(DbAoRow.NameOther), "NAME OTHER", row.NameOther),
-            Field(nameof(DbAoRow.Unit), "UNIT", row.Unit, GetValidationOptions(DbValidationDefaults.DbMeasUnit))
+            Field(nameof(DbAoRow.Unit), "UNIT", row.Unit)
         };
 
         if (!ShowDbAoRowDialog("DB AO row", row, fields))
@@ -4700,7 +4700,7 @@ public partial class MainWindow : Window
             Field(nameof(DbStringRow.IntegerValue), "I_VAL", row.IntegerValue),
             Field(nameof(DbStringRow.TimeValue), "T_VAL", row.TimeValue),
             Field(nameof(DbStringRow.RealValue), "R_VAL", row.RealValue),
-            Field(nameof(DbStringRow.Unit), "UNIT", row.Unit, GetValidationOptions(DbValidationDefaults.DbMeasUnit)),
+            Field(nameof(DbStringRow.Unit), "UNIT", row.Unit),
             Field(nameof(DbStringRow.MinValue), "MIN VAL", row.MinValue),
             Field(nameof(DbStringRow.MaxValue), "MAX VAL", row.MaxValue),
             Field(nameof(DbStringRow.DescriptionEnglish), "DESCRIPTION ENGLISH", row.DescriptionEnglish),
@@ -6084,7 +6084,7 @@ public partial class MainWindow : Window
             ("ALM_HI", row.AlarmHiId),
             ("ALM_HH", row.AlarmHhId));
         var logging = FormatInfoLines(
-            ("UNIT", DisplayValidation(DbValidationDefaults.DbMeasUnit, row.Unit)),
+            ("UNIT", row.Unit),
             ("LOGGING ENABLE", DisplayValidation(DbValidationDefaults.DbMeasLoggingEnable, row.LoggingEnable)),
             ("LOGGING TIME", DisplayValidation(DbValidationDefaults.DbMeasLoggingTime, row.LoggingTime)));
         var mapping = FormatInfoLines(
@@ -6313,7 +6313,7 @@ public partial class MainWindow : Window
             ("USED", DisplayValidation(DbValidationDefaults.DbParInUse, row.InUse)),
             ("TYPE", type ?? ""),
             valueLine,
-            ("UNIT", DisplayValidation(DbValidationDefaults.DbMeasUnit, row.Unit)),
+            ("UNIT", row.Unit),
             ("MIN VAL", row.MinValue ?? ""),
             ("MAX VAL", row.MaxValue ?? ""));
     }
@@ -6377,7 +6377,7 @@ public partial class MainWindow : Window
     {
         var type = DisplayValidation(DbValidationDefaults.DbParType, row.ParameterType);
         var value = GetParameterValue(row);
-        var unit = DisplayValidation(DbValidationDefaults.DbMeasUnit, row.Unit);
+        var unit = row.Unit;
         return
         [
             InfoRow(("PLC", $"{row.PlcStructure}.{row.PlcName}".TrimEnd('.'))),
@@ -6421,7 +6421,7 @@ public partial class MainWindow : Window
 
         var type = DisplayValidation(DbValidationDefaults.DbParType, row.ParameterType);
         var value = GetParameterValue(row);
-        var unit = DisplayValidation(DbValidationDefaults.DbMeasUnit, row.Unit);
+        var unit = row.Unit;
         var valueWithUnit = JoinNonEmpty(" ", value, unit);
 
         return string.Join(Environment.NewLine, new[]
@@ -9085,12 +9085,9 @@ public partial class MainWindow : Window
         ConfigureValidationColumn(DbDiAlarmConfigColumn, DbValidationDefaults.DbDiAlarmBoolean);
         ConfigureValidationColumn(DbDiAlarmInvertColumn, DbValidationDefaults.DbDiAlarmBoolean);
 
-        ConfigureValidationColumn(DbMeasUnitColumn, DbValidationDefaults.DbMeasUnit);
         ConfigureValidationColumn(DbMeasLoggingEnableColumn, DbValidationDefaults.DbMeasLoggingEnable);
         ConfigureValidationColumn(DbMeasLoggingTimeColumn, DbValidationDefaults.DbMeasLoggingTime);
-        ConfigureValidationColumn(DbAoUnitColumn, DbValidationDefaults.DbMeasUnit);
         // DB PAR uses the same unit list: the column shows the unit text (20 → m), the row keeps the code.
-        ConfigureValidationColumn(DbParUnitColumn, DbValidationDefaults.DbMeasUnit);
 
         ConfigureValidationColumn(DbAlmControlColumn, DbValidationDefaults.DbAlmEnableDisable);
         ConfigureValidationColumn(DbAlmClassColumn, DbValidationDefaults.DbAlmAlarmClass);
@@ -10465,7 +10462,7 @@ public partial class MainWindow : Window
             row.AoNumber.ToString(),
             row.NameEnglish,
             row.NameOther,
-            DisplayValidation(DbValidationDefaults.DbMeasUnit, row.Unit),
+            row.Unit,
             row.TrueText,
             row.ModuleName,
             row.ModulePort?.ToString() ?? string.Empty,
@@ -10914,7 +10911,7 @@ public partial class MainWindow : Window
             new(DbMeasPlcNameFilter, "All PLC names", row => row.PlcName),
             new(DbMeasNameEngFilter, "All name ENG", row => row.NameEnglish),
             new(DbMeasNameOtherFilter, "All name other", row => row.NameOther),
-            new(DbMeasUnitFilter, "All units", row => DisplayValidation(DbValidationDefaults.DbMeasUnit, row.Unit)),
+            new(DbMeasUnitFilter, "All units", row => row.Unit),
             new(DbMeasLoggingEnableFilter, "All logging", row => DisplayValidation(DbValidationDefaults.DbMeasLoggingEnable, row.LoggingEnable)),
             new(DbMeasLoggingTimeFilter, "All times", row => DisplayValidation(DbValidationDefaults.DbMeasLoggingTime, row.LoggingTime)),
             new(DbMeasTrueFilter, "All used", row => row.TrueText),
@@ -10971,7 +10968,7 @@ public partial class MainWindow : Window
             new(DbAoPlcNameFilter, "All PLC names", row => row.AoPlcName),
             new(DbAoNameEnglishFilter, "All name ENG", row => row.NameEnglish),
             new(DbAoNameOtherFilter, "All name other", row => row.NameOther),
-            new(DbAoUnitFilter, "All units", row => DisplayValidation(DbValidationDefaults.DbMeasUnit, row.Unit)),
+            new(DbAoUnitFilter, "All units", row => row.Unit),
             new(DbAoModuleNameFilter, "All modules", row => row.ModuleName),
             new(DbAoModulePortFilter, "All ports", row => row.ModulePort?.ToString() ?? string.Empty, SortAsNumber: true),
             new(DbAoEplanSignalFilter, "All EPLAN signals", row => row.EplanSignal),
@@ -11011,7 +11008,7 @@ public partial class MainWindow : Window
             new(DbParIntegerValueFilter, "All I_VAL", row => row.IntegerValue),
             new(DbParTimeValueFilter, "All T_VAL", row => row.TimeValue),
             new(DbParRealValueFilter, "All R_VAL", row => row.RealValue),
-            new(DbParUnitFilter, "All units", row => DisplayValidation(DbValidationDefaults.DbMeasUnit, row.Unit)),
+            new(DbParUnitFilter, "All units", row => row.Unit),
             new(DbParMinValueFilter, "All min", row => row.MinValue),
             new(DbParMaxValueFilter, "All max", row => row.MaxValue),
             new(DbParDescriptionEnglishFilter, "All desc ENG", row => row.DescriptionEnglish),
@@ -12236,9 +12233,11 @@ public partial class MainWindow : Window
         _project.DbCatalog.Sequence ??= SequenceCatalog.CreateDefault();
         _project.DbCatalog.Sequence.EnsureDefaults();
         StatusDbFamilies.EnsureDefaults(_project.DbCatalog);
+        UnitTexts.Migrate(_project.DbCatalog);
         foreach (var database in _project.PlcDatabases.Where(database => database.DbCatalog is not null))
         {
             StatusDbFamilies.EnsureDefaults(database.DbCatalog);
+            UnitTexts.Migrate(database.DbCatalog);
         }
 
         _project.DbCatalog.TextLists ??= TextListCatalog.CreateDefault();
@@ -12387,7 +12386,6 @@ public partial class MainWindow : Window
 
         foreach (var row in _project.DbCatalog.MeasRows)
         {
-            row.Unit = ValidationValue(DbValidationDefaults.DbMeasUnit, row.Unit);
             row.LoggingEnable = ValidationValue(DbValidationDefaults.DbMeasLoggingEnable, row.LoggingEnable);
             row.LoggingTime = ValidationValue(DbValidationDefaults.DbMeasLoggingTime, row.LoggingTime);
         }
@@ -12399,7 +12397,6 @@ public partial class MainWindow : Window
                 row.AoPlcName = "";
             }
 
-            row.Unit = ValidationValue(DbValidationDefaults.DbMeasUnit, row.Unit);
         }
 
         foreach (var row in _project.DbCatalog.AlarmRows)
@@ -12419,7 +12416,6 @@ public partial class MainWindow : Window
         {
             row.InUse = ValidationValue(DbValidationDefaults.DbParInUse, row.InUse);
             row.ParameterType = ValidationValue(DbValidationDefaults.DbParType, row.ParameterType);
-            row.Unit = ValidationValue(DbValidationDefaults.DbMeasUnit, row.Unit);
         }
     }
 

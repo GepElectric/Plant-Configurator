@@ -313,7 +313,7 @@ public sealed class ProjectValidator
             yield return issue;
         }
 
-        foreach (var issue in ValidateDataValidationValue(catalog, "DB_MEAS", catalog.MeasRows, nameof(DbStringRow.Unit), "UNIT", DbValidationDefaults.DbMeasUnit, row => row.Unit))
+        foreach (var issue in ValidateDataValidationValue(catalog, "DB_MEAS", catalog.UnitsAreText ? [] : catalog.MeasRows, nameof(DbStringRow.Unit), "UNIT", DbValidationDefaults.DbMeasUnit, row => row.Unit))
         {
             yield return issue;
         }
@@ -328,7 +328,7 @@ public sealed class ProjectValidator
             yield return issue;
         }
 
-        foreach (var issue in ValidateAoDataValidationValue(catalog, "DB_AO", catalog.AoRows, "UNIT", DbValidationDefaults.DbMeasUnit, row => row.Unit))
+        foreach (var issue in ValidateAoDataValidationValue(catalog, "DB_AO", catalog.UnitsAreText ? [] : catalog.AoRows, "UNIT", DbValidationDefaults.DbMeasUnit, row => row.Unit))
         {
             yield return issue;
         }
@@ -406,7 +406,7 @@ public sealed class ProjectValidator
             yield return issue;
         }
 
-        foreach (var issue in ValidateDataValidationValue(catalog, "DB_PAR", catalog.ParameterRows, nameof(DbStringRow.Unit), "UNIT", DbValidationDefaults.DbMeasUnit, row => row.Unit))
+        foreach (var issue in ValidateDataValidationValue(catalog, "DB_PAR", catalog.UnitsAreText ? [] : catalog.ParameterRows, nameof(DbStringRow.Unit), "UNIT", DbValidationDefaults.DbMeasUnit, row => row.Unit))
         {
             yield return issue;
         }

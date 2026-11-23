@@ -227,7 +227,7 @@ public sealed class ExcelProjectExporter
             SetCell(rangeRow, 3, source.PlcName);
             SetCell(rangeRow, 4, source.NameEnglish);
             SetCell(rangeRow, 5, source.NameOther);
-            SetCell(rangeRow, 6, ValidationDisplay(catalog, DbValidationDefaults.DbMeasUnit, source.Unit));
+            SetCell(rangeRow, 6, UnitTexts.Text(catalog, source.Unit));
             SetCell(rangeRow, 7, ValidationDisplay(catalog, DbValidationDefaults.DbMeasLoggingEnable, source.LoggingEnable));
             SetCell(rangeRow, 8, ValidationDisplay(catalog, DbValidationDefaults.DbMeasLoggingTime, source.LoggingTime));
             SetCell(rangeRow, 9, source.TrueText);
@@ -236,7 +236,7 @@ public sealed class ExcelProjectExporter
             SetCell(rangeRow, 12, source.ModulePort);
         });
 
-        ApplyListValidation(table, 6, DbValidationDefaults.DbMeasUnit, validationRanges);
+        if (!catalog.UnitsAreText) ApplyListValidation(table, 6, DbValidationDefaults.DbMeasUnit, validationRanges);
         ApplyListValidation(table, 7, DbValidationDefaults.DbMeasLoggingEnable, validationRanges);
         ApplyListValidation(table, 8, DbValidationDefaults.DbMeasLoggingTime, validationRanges);
     }
@@ -253,7 +253,7 @@ public sealed class ExcelProjectExporter
             SetCell(rangeRow, 2, source.AoNumber);
             SetCell(rangeRow, 3, source.NameEnglish);
             SetCell(rangeRow, 4, source.NameOther);
-            SetCell(rangeRow, 5, ValidationDisplay(catalog, DbValidationDefaults.DbMeasUnit, source.Unit));
+            SetCell(rangeRow, 5, UnitTexts.Text(catalog, source.Unit));
             SetCell(rangeRow, 6, source.TrueText);
             SetCell(rangeRow, 7, source.ModuleName);
             SetCell(rangeRow, 8, source.ModulePort);
@@ -263,7 +263,7 @@ public sealed class ExcelProjectExporter
             SetCell(rangeRow, 12, source.HighLimit);
         });
 
-        ApplyListValidation(table, 5, DbValidationDefaults.DbMeasUnit, validationRanges);
+        if (!catalog.UnitsAreText) ApplyListValidation(table, 5, DbValidationDefaults.DbMeasUnit, validationRanges);
     }
 
     private static void WriteDbAlarmRows(
@@ -325,14 +325,14 @@ public sealed class ExcelProjectExporter
             SetCell(rangeRow, 8, source.IntegerValue);
             SetCell(rangeRow, 9, source.TimeValue);
             SetCell(rangeRow, 10, source.RealValue);
-            SetCell(rangeRow, 11, ValidationDisplay(catalog, DbValidationDefaults.DbMeasUnit, source.Unit));
+            SetCell(rangeRow, 11, UnitTexts.Text(catalog, source.Unit));
             SetCell(rangeRow, 12, source.MinValue);
             SetCell(rangeRow, 13, source.MaxValue);
             SetCell(rangeRow, 14, source.Ordinator);
         });
         ApplyListValidation(table, 1, DbValidationDefaults.DbParInUse, validationRanges);
         ApplyListValidation(table, 7, DbValidationDefaults.DbParType, validationRanges);
-        ApplyListValidation(table, 11, DbValidationDefaults.DbMeasUnit, validationRanges);
+        if (!catalog.UnitsAreText) ApplyListValidation(table, 11, DbValidationDefaults.DbMeasUnit, validationRanges);
         WriteDescriptions(workbook, "LIST - PAR", "Tablica98100", sourceRows);
     }
 

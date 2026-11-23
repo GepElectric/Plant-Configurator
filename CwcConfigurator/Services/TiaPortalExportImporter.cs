@@ -175,7 +175,7 @@ public sealed class TiaPortalExportImporter
             row.ParValHighId = TiaValue(fields, "PAR_VAL_HIGH");
             row.ParOffsetId = TiaValue(fields, "PAR_OFFSET_ID");
             row.ParScaleFactorId = TiaValue(fields, "PAR_SCAL_FACTOR_ID");
-            row.Unit = ValidationValueOrAdd(catalog, DbValidationDefaults.DbMeasUnit, Unquote(TiaValue(fields, "S_UNIT")), blankValue: "0");
+            row.Unit = ImportUnit(catalog, Unquote(TiaValue(fields, "S_UNIT")));
             if (!string.IsNullOrWhiteSpace(fields.Structure) && !importedStructures.Contains(fields.Structure, StringComparer.OrdinalIgnoreCase))
             {
                 importedStructures.Add(fields.Structure);
@@ -308,7 +308,7 @@ public sealed class TiaPortalExportImporter
                 row.ParValHighId = values[6].Trim();
                 row.ParOffsetId = values[7].Trim();
                 row.ParScaleFactorId = values[8].Trim();
-                row.Unit = ValidationValueOrAdd(catalog, DbValidationDefaults.DbMeasUnit, Unquote(values[10]), blankValue: "0");
+                row.Unit = ImportUnit(catalog, Unquote(values[10]));
                 if (string.IsNullOrWhiteSpace(row.NameEnglish))
                 {
                     row.NameEnglish = Unquote(values[11]);
@@ -551,7 +551,7 @@ public sealed class TiaPortalExportImporter
         row.ParLoId = TiaValue(fields, "PAR_LO_ID");
         row.ParHiId = TiaValue(fields, "PAR_HI_ID");
         row.ParHhId = TiaValue(fields, "PAR_HH_ID");
-        row.Unit = ValidationValueOrAdd(catalog, DbValidationDefaults.DbMeasUnit, Unquote(TiaValue(fields, "S_UNIT")), blankValue: "0");
+        row.Unit = ImportUnit(catalog, Unquote(TiaValue(fields, "S_UNIT")));
         return row;
     }
 
@@ -588,7 +588,7 @@ public sealed class TiaPortalExportImporter
         row.TimeValue = TiaValue(fields, "T_VAL");
         row.MinValue = TiaValue(fields, "LOW_LIMIT");
         row.MaxValue = TiaValue(fields, "H_LIMIT");
-        row.Unit = ValidationValueOrAdd(catalog, DbValidationDefaults.DbMeasUnit, Unquote(TiaValue(fields, "UNIT")), blankValue: "0");
+        row.Unit = ImportUnit(catalog, Unquote(TiaValue(fields, "UNIT")));
         return row;
     }
 
@@ -1410,6 +1410,10 @@ public sealed class TiaPortalExportImporter
                    || option.DisplayText.Equals(value, StringComparison.OrdinalIgnoreCase))?.Value
                ?? value;
     }
+
+    /// <summary>The PLC unit string as it is (plain text); an old code-based catalogue still gets a list code.</summary>
+    private static string ImportUnit(DbCatalog catalog, string text) =>
+        catalog.UnitsAreText ? text.Trim() : ValidationValueOrAdd(catalog, DbValidationDefaults.DbMeasUnit, text, blankValue: "0");
 
     private static string ValidationValueOrAdd(DbCatalog catalog, string key, string textOrValue, string blankValue = "")
     {

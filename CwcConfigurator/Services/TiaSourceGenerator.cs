@@ -301,7 +301,7 @@ public sealed class TiaSourceGenerator
             {
                 var loggingEnable = ToBooleanText(row.LoggingEnable, trueText: "TRUE", trueNumber: 1);
                 var loggingTime = ResolveLoggingSeconds(row.LoggingTime);
-                var unit = ResolveValidationText(catalog, DbValidationDefaults.DbMeasUnit, row.Unit);
+                var unit = UnitTexts.Text(catalog, row.Unit);
                 var groupInputId = IsTrueValue(row.TrueText) ? 0 : 32000;
                 var inputId1 = ToTiaInputInt(row.ModuleName);
                 var inputId2 = row.ModulePort ?? 32000;
@@ -331,7 +331,7 @@ public sealed class TiaSourceGenerator
                 var groupInputId = IsTrueValue(row.TrueText) ? 0 : 32000;
                 var inputId1 = ToTiaInputInt(row.ModuleName);
                 var inputId2 = row.ModulePort ?? 32000;
-                var unit = ResolveValidationText(catalog, DbValidationDefaults.DbMeasUnit, row.Unit);
+                var unit = UnitTexts.Text(catalog, row.Unit);
                 var plcName = FirstNonEmpty(row.AoPlcName, $"AO_{row.AoNumber.ToString(CultureInfo.InvariantCulture)}");
                 builder.AppendLine($"{TiaName(plcName)} {{ S7_SetPoint := 'False'}} : \"DT_ANA_CTRL_SOLO\" :=  ({row.AoNumber}, {groupInputId}, {inputId1}, {inputId2}, 0, {ToTiaParameterId(row.ParValLowId)}, {ToTiaParameterId(row.ParValHighId)}, {ToTiaParameterId(row.ParOffsetId)}, {ToTiaParameterId(row.ParScaleFactorId)}, 0.0, '{EscapeTiaString(unit)}', '{EscapeTiaString(row.NameEnglish)}');");
             }
@@ -398,7 +398,7 @@ public sealed class TiaSourceGenerator
                 var tVal = FormatTiaTime(row.TimeValue);
                 var lowLimit = ToNumericText(row.MinValue, "0.0");
                 var highLimit = ToNumericText(row.MaxValue, "0.0");
-                var unit = ResolveParameterUnit(catalog, row.Unit);
+                var unit = UnitTexts.Text(catalog, row.Unit, parameter: true);
                 builder.AppendLine($"{TiaName(row.PlcName)} {{ S7_SetPoint := 'False'}} : \"DT_PARAM_SOLO\" :=  ({used}, {row.Id}, {parType}, {rVal}, {iVal}, {tVal}, {lowLimit}, {highLimit}, '{EscapeTiaString(unit)}');");
             }
 
