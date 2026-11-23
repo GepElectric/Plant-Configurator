@@ -377,11 +377,12 @@ public partial class AlmParExportDialog : Window
         };
     }
 
-    /// <summary>Seconds of a time parameter (type 2, TIA literal such as T#1M_10S or T#500MS); null for other parameters.</summary>
+    /// <summary>
+    /// Seconds of a time parameter (PARAMETER TYPE 2, TIA literal such as T#1M_10S or T#500MS); null for other
+    /// parameters. Only the type decides: real and integer parameters also carry a TimeValue (T#0MS by default).
+    /// </summary>
     public static double? TimeSeconds(DbStringRow row) =>
-        (row.ParameterType ?? "").Trim() == "2" || (row.TimeValue ?? "").TrimStart().StartsWith("T#", StringComparison.OrdinalIgnoreCase)
-            ? ParseTiaTime(row.TimeValue)
-            : null;
+        (row.ParameterType ?? "").Trim() == "2" ? ParseTiaTime(row.TimeValue) : null;
 
     /// <summary>TIA time literal (T#2D_3H_4M_5S_600MS, also TIME#, negative and lowercase) in seconds.</summary>
     public static double? ParseTiaTime(string? text)

@@ -32,5 +32,7 @@ public sealed class AlmParUnitTests
         Assert.Null(AlmParExportDialog.ParseTiaTime("12.5"));
         Assert.Equal(30, AlmParExportDialog.TimeSeconds(new DbStringRow { ParameterType = "2", TimeValue = "T#30S" }));
         Assert.Null(AlmParExportDialog.TimeSeconds(new DbStringRow { ParameterType = "0", RealValue = "1.0" }));
+        // A real parameter keeps its value and unit although its TimeValue holds the default T#0MS.
+        Assert.Null(AlmParExportDialog.TimeSeconds(new DbStringRow { ParameterType = "0", RealValue = "100.0", TimeValue = "T#0MS", Unit = "15" }));
     }
 }
