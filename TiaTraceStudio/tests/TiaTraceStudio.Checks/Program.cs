@@ -37,6 +37,10 @@ internal static partial class Program
                 Check(PlotService.Panels(split).SequenceEqual([1, 2]) && first.Axes.Title.Label.Text == "Position" && second.Axes.Title.Label.Text == "Commands"
                     && !string.IsNullOrEmpty(first.Axes.Bottom.Label.Text) && first.Axes.Bottom.Label.Text == second.Axes.Bottom.Label.Text && image.PixelHeight == split.Options.ExportHeight,
                     "Panels: one graph title over the column, every panel with its own name and time axis");
+                split.Data.Signals[0].AlsoInPanels = [2];
+                using var shared = new ScottPlot.Plot(); PlotService.Configure(shared, split, 2);
+                Check(shared.GetPlottables<ScottPlot.Plottables.Scatter>().Any(s => s.LegendText.StartsWith("S0")) && PlotService.Panels(split).SequenceEqual([1, 2]),
+                    "A signal ticked in two panels is drawn in both");
             }
             string fixture = Path.Combine(output, "semicolon.csv");
             File.WriteAllText(fixture, "Siemens trace\nSample;X(ms);\"Signal; A\";B\n0;1000,1;1,5;true\n1;1250,1;;false\n2;1500,1;3,5;true\n3;1500,1;9;false\n4;2250,1;4,5;false\nbad;time;row\n");

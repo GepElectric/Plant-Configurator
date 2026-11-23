@@ -22,7 +22,7 @@ public partial class MainWindow
         var layout = new DockPanel { Margin = new Thickness(16) };
         var hint = new TextBlock
         {
-            Text = "Svaki panel je zaseban graf ispod prethodnog, sa svojom vremenskom osi; zoom i pomak vremena vrijede za sve panele. Isto vrijedi za izvoz slike i Word izvještaj.",
+            Text = "Svaki panel je zaseban graf ispod prethodnog, sa svojom vremenskom osi i legendom; zoom, pomak vremena i kursori vrijede za sve panele. Kvačica označava panel u kojem je signal vidljiv (može i u više njih; bez kvačice signal je skriven). Isto vrijedi za izvoz slike i Word izvještaj.",
             TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = new Thickness(0, 0, 0, 10)
         };
         DockPanel.SetDock(hint, Dock.Top); layout.Children.Add(hint);
@@ -47,9 +47,14 @@ public partial class MainWindow
         var grid = new DataGrid { ItemsSource = rows, AutoGenerateColumns = false, CanUserAddRows = false, CanUserDeleteRows = false, HeadersVisibility = DataGridHeadersVisibility.Column };
         grid.Columns.Add(new DataGridTextColumn { Header = "Signal", Binding = new Binding(nameof(PanelRow.Name)), IsReadOnly = true, Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
         grid.Columns.Add(new DataGridTextColumn { Header = "Jedinica", Binding = new Binding(nameof(PanelRow.Unit)), IsReadOnly = true, Width = 90 });
-        grid.Columns.Add(new DataGridComboBoxColumn { Header = "Panel", ItemsSource = new[] { 1, 2, 3, 4 }, SelectedItemBinding = new Binding(nameof(PanelRow.Panel)) { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged }, Width = 80 });
+        // A tick for every panel the signal is shown in (several ticks: the same curve in several graphs; none: hidden).
+        for (int p = 1; p <= 4; p++)
+        {
+            var column = new DataGridCheckBoxColumn { Header = $"Panel {p}", Binding = new Binding($"In{p}") { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged }, Width = 70 };
+            grid.Columns.Add(column);
+        }
 
-        void Set(Func<PanelRow, int> panel) { foreach (var row in rows) row.Panel = Math.Clamp(panel(row), 1, 4); grid.Items.Refresh(); }
+        void Set(Func<PanelRow, int> panel) { foreach (var row in rows) row.Only(Math.Clamp(panel(row), 1, 4)); grid.Items.Refresh(); }
         Action(quick, "Sve u jedan graf", (_, _) => Set(_ => 1));
         Action(quick, "Digitalni (0/1) u zaseban panel", (_, _) => Set(row => row.IsDigital ? 2 : 1));
         Action(quick, "Svaka jedinica svoj panel", (_, _) =>
@@ -72,7 +77,7 @@ public partial class MainWindow
         Action(buttons, "Primijeni", (_, _) => Guard(() =>
         {
             grid.CommitEdit(DataGridEditingUnit.Cell, true); grid.CommitEdit(DataGridEditingUnit.Row, true);
-            foreach (var row in rows) row.Signal.Panel = row.Panel;
+            foreach (var row in rows) row.Apply();
             project.Options.Title = titleBox.Text.Trim();
             project.Options.PanelNames = Enumerable.Range(1, 4).Where(p => panelBoxes[p - 1].Text.Trim().Length > 0).ToDictionary(p => p, p => panelBoxes[p - 1].Text.Trim());
             dialog.Close();
@@ -89,7 +94,21 @@ public partial class MainWindow
         public Signal Signal { get; } = signal;
         public string Name { get; } = name;
         public string Unit { get; } = signal.Unit.Trim();
-        public int Panel { get; set; } = Math.Clamp(signal.Panel, 1, 4);
+        readonly bool[] panels = Enumerable.Range(1, 4).Select(p => signal.Visible && signal.InPanel(p)).ToArray();
+        public bool In1 { get => panels[0]; set => panels[0] = value; }
+        public bool In2 { get => panels[1]; set => panels[1] = value; }
+        public bool In3 { get => panels[2]; set => panels[2] = value; }
+        public bool In4 { get => panels[3]; set => panels[3] = value; }
+        public void Only(int panel) { for (int i = 0; i < 4; i++) panels[i] = i + 1 == panel; }
+        /// <summary>Ticked panels: the first is the signal's panel, the others show it as well; no tick hides the signal.</summary>
+        public void Apply()
+        {
+            var ticked = Enumerable.Range(1, 4).Where(p => panels[p - 1]).ToList();
+            Signal.Visible = ticked.Count > 0;
+            if (ticked.Count == 0) return;
+            Signal.Panel = ticked[0];
+            Signal.AlsoInPanels = ticked.Skip(1).ToList();
+        }
         /// <summary>A binary signal: unit 0/1 or only 0 and 1 in the recording.</summary>
         public bool IsDigital => Unit == "0/1" || (Signal.Values.Length > 0 && Signal.Values.All(v => double.IsNaN(v) || v == 0 || v == 1));
     }

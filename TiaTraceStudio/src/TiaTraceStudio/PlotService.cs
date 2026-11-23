@@ -11,7 +11,7 @@ public static class PlotService
 {
     /// <summary>Texts drawn on the graph in English (Word report).</summary>
     public static bool English { get; set; }
-    public static int[] Panels(StudioProject project) => project.Data.Signals.Where(s => s.Visible).Select(s => s.Panel).Distinct().Order().ToArray();
+    public static int[] Panels(StudioProject project) => project.Data.Signals.Where(s => s.Visible).SelectMany(s => s.AllPanels).Distinct().Order().ToArray();
     public static void Configure(Plot plot, StudioProject project, int panel)
     {
         plot.Clear();
@@ -19,7 +19,7 @@ public static class PlotService
         var o = project.Options;
         bool percent = o.DisplayMode == ChartOptions.PercentMode;
         var x = project.Data.Time.Select(o.ToAxisTime).ToArray();
-        var visible = project.Data.Signals.Select((s, i) => (Signal: s, Index: i)).Where(s => s.Signal.Visible && s.Signal.Panel == panel).ToArray();
+        var visible = project.Data.Signals.Select((s, i) => (Signal: s, Index: i)).Where(s => s.Signal.Visible && s.Signal.InPanel(panel)).ToArray();
         var axes = new Dictionary<string, IYAxis>();
         var extrema = new List<ExtremaSeries>();
         var named = new List<ScottPlot.Plottables.Scatter>();
@@ -61,7 +61,7 @@ public static class PlotService
         plot.Axes.Title.Label.FontSize = split ? o.FontSize + 1 : o.FontSize + 3;
         plot.Axes.Title.Label.ForeColor = ScottPlot.Colors.Black;
         // Shared margins keep panel time axes aligned; allocate space for every unit axis.
-        int maxAxes = Panels(project).Select(p => project.Data.Signals.Select((s, i) => (s, i)).Where(a => a.s.Visible && a.s.Panel == p).Select(a => SignalDisplay.AxisKey(a.s, a.i)).Distinct().Count()).DefaultIfEmpty(1).Max();
+        int maxAxes = Panels(project).Select(p => project.Data.Signals.Select((s, i) => (s, i)).Where(a => a.s.Visible && a.s.InPanel(p)).Select(a => SignalDisplay.AxisKey(a.s, a.i)).Distinct().Count()).DefaultIfEmpty(1).Max();
         if (percent) maxAxes = 1;
         float margin = Math.Max(70, o.FontSize * 5.5f);
         var plotPadding = new PixelPadding(margin * ((maxAxes + 1) / 2), maxAxes > 1 ? margin * (maxAxes / 2) : 20, 45 + o.FontSize * 1.2f, 55);
@@ -192,7 +192,7 @@ public static class PlotService
             foreach (var label in new[] { s.MinimumLabel, s.MaximumLabel, s.ConstantLabel })
                 if (label == null || label.X.HasValue != label.Y.HasValue || label.X.HasValue && (!double.IsFinite(label.X.Value) || !double.IsFinite(label.Y!.Value) || label.X < 0 || label.X > 1 || label.Y < 0 || label.Y > 1))
                     throw new InvalidDataException("Neispravna spremljena pozicija min/max oblačića.");
-            if (s.Panel < 1 || s.Panel > 4 || !double.IsFinite(s.Width) || s.Width < 0.5 || s.Width > 10 || !double.IsFinite(s.Factor) || !double.IsFinite(s.Offset)) throw new InvalidDataException($"Neispravne postavke signala {s.Name}. Panel: 1–4, debljina: 0,5–10.");
+            if (s.AllPanels.Any(p => p < 1 || p > 4) || !double.IsFinite(s.Width) || s.Width < 0.5 || s.Width > 10 || !double.IsFinite(s.Factor) || !double.IsFinite(s.Offset)) throw new InvalidDataException($"Neispravne postavke signala {s.Name}. Panel: 1–4, debljina: 0,5–10.");
             if (!System.Text.RegularExpressions.Regex.IsMatch(s.Color, "^#[0-9a-fA-F]{6}$")) throw new InvalidDataException($"Boja signala {s.Name} mora biti #RRGGBB.");
             if (s.Values.Any(double.IsInfinity) || s.Scaled().Any(double.IsInfinity)) throw new InvalidDataException($"Prevelike vrijednosti signala {s.Name}.");
         }

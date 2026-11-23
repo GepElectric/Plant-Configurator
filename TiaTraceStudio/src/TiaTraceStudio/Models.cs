@@ -37,6 +37,10 @@ public class Signal : Observable
     public double Offset { get => offset; set => Set(ref offset, value); }
     public double Width { get => width; set => Set(ref width, value); }
     public int Panel { get => panel; set => Set(ref panel, value); }
+    /// <summary>Further panels the signal is drawn in besides <see cref="Panel"/> (the same curve in several graphs of the column).</summary>
+    public List<int> AlsoInPanels { get; set; } = [];
+    public bool InPanel(int number) => Panel == number || (AlsoInPanels?.Contains(number) ?? false);
+    [JsonIgnore] public IEnumerable<int> AllPanels => new[] { Panel }.Concat(AlsoInPanels ?? []).Distinct();
     public string Axis { get => axis; set => Set(ref axis, value); }
     public string Style { get => style; set => Set(ref style, value); }
     [JsonIgnore] public string Label => string.IsNullOrWhiteSpace(Unit) ? DisplayName : $"{DisplayName} [{Unit}]";
